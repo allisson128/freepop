@@ -1,5 +1,5 @@
 /*
-  prince.c -- FreePoP main module;
+  level-random.h -- level Random module;
 
   Copyright (C) 2015, 2016 Bruno Félix Rezende Ribeiro <oitofelix@gnu.org>
 
@@ -17,35 +17,10 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "prince.h"
 
-#include "kernel/video.h"
-#include "kernel/audio.h"
-#include "kernel/keyboard.h"
-#include "levels/title.h"
-#include "levels/level-random.h"
+#ifndef FREEPOP_LEVEL_RANDOM_H
+#define FREEPOP_LEVEL_RANDOM_H
 
-/* current video mode */
-enum video_mode video_mode = VGA;
+void play_level_random (void);
 
-int
-main (int argc, char **argv)
-{
-  al_init ();
-  init_video ();
-  init_audio ();
-  init_keyboard ();
-
-  draw_text (screen, "Loading....", ORIGINAL_WIDTH / 2.0, ORIGINAL_HEIGHT / 2.0,
-             ALLEGRO_ALIGN_CENTRE);
-  show ();
-  clear_bitmap (screen, BLACK);
-
-  /* play_title (); */
-  play_level_random ();
-
-  finalize_video ();
-  finalize_audio ();
-  finalize_keyboard ();
-  return 0;
-}
+#endif	/* FREEPOP_LEVEL_RANOM_H */
