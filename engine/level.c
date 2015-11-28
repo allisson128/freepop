@@ -35,6 +35,7 @@
 #include "closer-floor.h"
 #include "spikes-floor.h"
 #include "door.h"
+#include "consistency.h"
 #include "level.h"
 
 /* functions */
@@ -55,6 +56,7 @@ play_level (struct level *_level)
   cutscene = false;
 
   level = _level;
+  fix_level ();
   load_level ();
 
   register_cons ();
@@ -70,7 +72,7 @@ register_cons (void)
   for (p.room = 0; p.room < ROOMS; p.room++)
     for (p.floor = 0; p.floor < FLOORS; p.floor++)
       for (p.place = 0; p.place < PLACES; p.place++)
-        switch (con (p).fg) {
+        switch (con (p)->fg) {
         case LOOSE_FLOOR: register_loose_floor (p); break;
         case OPENER_FLOOR: register_opener_floor (p); break;
         case CLOSER_FLOOR: register_closer_floor (p); break;
@@ -144,12 +146,13 @@ level_anim (void)
   p.room = room_view;
 
   clear_bitmap (screen, BLACK);
-  if (! no_room_drawing) draw_room (room_view);
 
   for (p.floor = FLOORS; p.floor >= -1; p.floor--)
     for (p.place = -1; p.place < PLACES; p.place++) {
       draw_fire (screen, p, i);
     }
+
+  if (! no_room_drawing) draw_room (room_view);
 
   if (! no_room_drawing)
     for (p.floor = FLOORS; p.floor >= -1; p.floor--)
@@ -163,9 +166,8 @@ level_anim (void)
 
   draw_anim (screen, kid);
   draw_xanim (screen, kid);
-  kid.xframe = NULL;
-
   draw_room_anim_fg (kid);
+  kid.xframe = NULL;
 
   for (p.floor = FLOORS; p.floor >= -1; p.floor--)
     for (p.place = -1; p.place < PLACES; p.place++) {
