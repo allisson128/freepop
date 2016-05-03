@@ -1,0 +1,4767 @@
+\input texinfo  @c -*-texinfo-*-
+@c
+@c mininim.texi -- The MININIM Manual
+@c
+@c Copyright (C) 2016 Bruno Félix Rezende Ribeiro <oitofelix@gnu.org>
+@c
+@c Permission is granted to copy, distribute and/or modify this
+@c document under the terms of the GNU Free Documentation License,
+@c Version 1.3 or any later version published by the Free Software
+@c Foundation; with no Invariant Sections.
+@c
+@c You should have received a copy of the GNU Free Documentation
+@c License along with this program.  If not, see
+@c <http://www.gnu.org/licenses/>.
+@c
+
+@c %**start of header
+@setfilename mininim.info
+@documentencoding UTF-8
+@c @documentlanguage en_US
+@firstparagraphindent insert
+@footnotestyle end
+@include release.texi
+@settitle MININIM
+@set manual
+@set GNUphiThird
+@defcodeindex fg
+@defcodeindex bg
+@defcodeindex ext
+@defcodeindex opt
+@defcodeindex mc
+@syncodeindex fg cp
+@syncodeindex bg cp
+@syncodeindex ext cp
+@syncodeindex ky cp
+@syncodeindex opt cp
+@syncodeindex mc cp
+@c %**end of header
+
+
+
+
+
+@include copying.texi
+
+
+
+
+
+@c --- Info directory entry;
+@dircategory Games
+@direntry
+* MININIM: (mininim).   The Advanced Prince of Persia Engine.
+@end direntry
+
+
+
+
+
+@c --- Info Top Node;
+@ifnottex
+@node Top
+@top MININIM: The Advanced Prince of Persia Engine
+@insertcopying
+@end ifnottex
+
+
+
+
+
+@c --- Title page;
+@finalout
+@titlepage
+@title @value{package} @value{version}
+@subtitle The Advanced Prince of Persia Engine (a childhood dream)
+@sp 6
+@center @image{mininim-figures/mininim,2in}
+@author Bruno Félix Rezende Ribeiro <@email{oitofelix@@gnu.org}>
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+
+
+
+
+@c --- Table of contents;
+@contents
+
+
+
+
+
+@c --- Preface;
+@node Preface
+@unnumbered Preface
+@cindex preface
+@cindex manifesto, MININIM
+@cindex motivation, MININIM
+@cindex origin, MININIM
+@cindex name, MININIM
+@cindex Jordan Mechner
+@cindex Mechner, Jordan
+@cindex childhood dream
+@cindex dream childhood
+@cindex Bruno Félix Rezende Ribeiro
+@cindex oitofelix
+
+@include description.texi
+
+
+
+
+
+
+@c --- Constructions;
+@node Constructions
+@chapter Constructions
+@cindex constructions
+
+@cindex position
+@cindex room
+@cindex floor
+@cindex place
+@cindex con
+@cindex screen
+@cindex tile
+Each @dfn{level} is comprised of @dfn{rooms}@footnote{The terminology
+used for @dfn{rooms} in the original game is @dfn{screens}.}.  Each room
+is comprised of three @dfn{floors}.  Each floor is comprised of 10
+@dfn{places}.  Each place holds a @dfn{construction} (or @dfn{con} for
+short).@footnote{The terminology used for @dfn{constructions} in the
+original game is @dfn{tiles}.}  The following figure illustrates this
+arrangement.
+
+@center @image{mininim-figures/level-layout}
+
+@cindex coordinates, level
+@cindex level coordinates
+Therefore, any given construction is uniquely identified within a level
+by the coordinates of its place@footnote{The term @emph{place} is used
+throughout the text to describe both the last coordinate of the triplet
+and the world space the triplet refers to.  Also, often the term
+@emph{place} is omitted and the text refers just to the construction
+itself, implying a reference to its place, as in ``the left
+construction'', meaning ``the construction one place to the left''.
+Hopefully, these shouldn't be a source of ambiguity.}, which are defined
+as the triplet @emph{room}, @emph{floor} and @emph{place}:
+@math{(r,f,p)}.
+
+@cindex construction foreground
+@cindex foreground, construction
+@cindex construction background
+@cindex background, construction
+@cindex construction extension
+@cindex extension, construction
+Constructions are comprised of three elements: @emph{foreground},
+@emph{background} and @emph{extension}.  A @dfn{construction foreground}
+is the physical part the kid interacts with.  Physical properties
+determined by it are collision, hang and fall conditions, to name a few.
+On the other hand, a @dfn{construction background} is the part that yet
+visible, doesn't affect the kid in any way --- its sole purpose is
+ornamental; torches and windows are examples of this.  A
+@dfn{construction extension} is a modifier which tells how the con looks
+or behaves.  For example, items and door opening states are both
+expressed by them.  Any given construction can have only one extension.
+The valid extensions are:
+
+@table @dfn
+@cindex con ext item
+@cindex item, con ext
+@item Item
+This is a code indicating which item should be put on the construction.
+Used by @code{FLOOR}.
+@cindex con ext can't fall
+@cindex can't fall, con ext
+@item Can't fall
+This is a boolean indicating whether the construction should ignore
+fall conditions.  Used by @code{LOOSE_FLOOR}.
+@cindex con ext event
+@cindex event, con ext
+@item Event
+This is an integer indicating which door event the construction
+triggers.  Used by @code{OPENER_FLOOR} and @code{CLOSER_FLOOR}.
+@cindex con ext step
+@cindex step, con ext
+@item Step
+This is an integer indicating in which state, of a progressive set of
+configurations, a construction is in.  Used by @code{SPIKES_FLOOR},
+@code{DOOR}, @code{LEVEL_DOOR} and @code{CHOPPER}.
+@cindex con ext design
+@cindex design, con ext
+@item Design
+This is a code indicating which alternative graphical design should be
+used to render the construction.  Used by @code{CARPET} and
+@code{TCARPET}.
+@end table
+
+Integer extensions (@emph{event} and @emph{step}) may be negative
+indicating that their respective constructions are broken.  Except for
+this, the negative integer extension @var{i} is equivalent to the
+non-negative @math{-i - 1} one.  While the @emph{event} extension may be
+negative for any construction that uses it (@code{OPENER_FLOOR} and
+@code{CLOSER_FLOOR}), the @emph{step} extension may only be so for
+@code{LEVEL_DOOR}.
+
+@node Non-directed relative positioning
+@section Non-directed relative positioning
+@cindex non-directed relative positioning
+@cindex relative positioning, non-directed
+@cindex positioning, non-directed relative
+
+In order to easily talk about the relations between constructions it's
+necessary to define the @dfn{non-directed relative positioning} of a
+given place to its adjacent ones.  Consider the place @emph{C}, which
+has the coordinates @math{(r,f,p)}, and its 8 adjacent places, as shown
+in the following figure.
+
+@center @image{mininim-figures/relative-coordinates-non-directed}
+
+@smallindentedblock
+@center @abbr{@strong{TL}, top left} @abbr{@strong{T}, top} @abbr{@strong{TR}, top right} @abbr{@strong{L}, left} @abbr{@strong{C}, center}
+@center @abbr{@strong{R}, right} @abbr{@strong{BL}, bottom left}, @abbr{@strong{B}, bottom} @abbr{@strong{BR}, bottom right}
+@end smallindentedblock
+
+Then we define the following mapping between names and coordinates:
+
+@multitable @columnfractions .50 .50
+@headitem Name @tab Coordinates
+@item TL @tab @math{(r,f - 1,p - 1)}
+@item T  @tab @math{(r,f - 1,p)}
+@item TR @tab @math{(r,f - 1,p + 1)}
+@item L @tab @math{(r,f,p - 1)}
+@item C @tab @math{(r,f,p)}
+@item R @tab @math{(r,f,p + 1)}
+@item BL @tab @math{(r,f + 1,p - 1)}
+@item B @tab @math{(r,f + 1,p)}
+@item BR @tab @math{(r,f + 1,p + 1)}
+@end multitable
+
+
+@node Foregrounds
+@section Foregrounds
+@cindex construction foreground
+@cindex foreground, construction
+
+Construction foregrounds have physical properties that determine how
+they behave in certain events and also how the kid is affected by the
+interaction with them.
+
+@table @dfn
+
+@cindex strictly traversable
+@cindex traversable, strictly
+@item Strictly traversable
+This property means that the construction can't support the kid
+vertically at its bottom, thus he falls immediately when trying to rest
+on it.  Notice that cons having this property can't be @emph{hangable}.
+
+@cindex traversable
+@item Traversable
+This property means that the construction can't @emph{indefinitely}
+support the kid vertically at its bottom, thus he @emph{eventually}
+falls when trying to rest on it.  Notice that @emph{strictly
+traversable} is a particular case of this.
+
+@cindex collidable
+@item Collidable
+This property means that the construction prevents the kid from passing
+through it horizontally, thus he collides (often recoiling from the
+impact) when trying to do so.
+
+@cindex semi-collidable
+@item Semi-collidable
+This property means that the construction is @emph{collidable} only
+under certain circumstances.
+
+@cindex hangable
+@item Hangable
+This property means that the kid can hang on the construction's bottom,
+in case there is an @emph{strictly traversable} one at its side.
+
+@cindex depressible
+@item Depressible
+This property means that the construction is sensible to pressure at its
+top, thus some reaction is triggered when the kid exerts such pressure.
+
+@cindex trap
+@item Trap
+This property means that the construction might harm the kid.
+
+@cindex rigid
+@item Rigid
+This property means that the construction can't be smashed by a falling
+@code{LOOSE_FLOOR}, thus it stops at the con's top.
+
+@cindex breakable
+@item Breakable
+This property means that the construction itself is broken by a falling
+@code{LOOSE_FLOOR}, instead of being replaced by @code{BROKEN_FLOOR}.
+Notice that all breakable cons are non-rigid and support a negative
+integer extension.
+
+@cindex dynamic
+@item Dynamic
+This property means that the construction has a set of distinct states
+in which it can be in.  Such states matter for how the construction
+looks and behaves.
+@end table
+
+It's possible that some of these properties may apply only under certain
+conditions of the construction and/or the kid.
+
+@iftex
+@page
+@end iftex
+
+@node Floors
+@subsection Floors
+@cindex floors
+
+@dfn{Floors} make the ground above constructions the kid stands on.  All
+of them are @emph{hangable}, except for @code{NO_FLOOR}.
+
+@multitable @columnfractions .19 .15 .15 .51
+  @headitem Code @tab Dungeon @tab Palace @tab Notes
+
+  @fgindex NO_FLOOR
+  @item @code{NO_FLOOR}@footnote{The @dfn{no floor} con is called
+  @dfn{empty} in the original game.}
+  @tab
+  @tab
+  @tab This is an empty space.  This is @emph{strictly traversable} and
+  uses no extension.
+
+  @fgindex FLOOR
+  @item @code{FLOOR}
+  @tab @center @image{mininim-figures/d-floor}
+  @tab @center @image{mininim-figures/p-floor}
+  @tab This is a normal floor. This uses the @emph{item} extension.
+
+  @fgindex BROKEN_FLOOR
+  @item @code{BROKEN_FLOOR}@footnote{The @dfn{broken floor} is called
+  @emph{debris} in the original game.}
+  @tab @center @image{mininim-figures/d-broken-floor}
+  @tab @center @image{mininim-figures/p-broken-floor}
+  @tab As soon as a falling @code{LOOSE_FLOOR} encounters a @emph{rigid}
+  construction, it disappears replacing the rigid con's top by a
+  @code{BROKEN_FLOOR}.  In contrast, if it encounters a @emph{non-rigid}
+  and @emph{non-traversable} construction, it disappears breaking that
+  very con in case that's @emph{breakable} or otherwise replacing that
+  by a @code{BROKEN_FLOOR}.  Finally, if it encounters a
+  @emph{non-rigid} but @emph{traversable} construction, it pass through,
+  breaking over the con in case that is not @emph{strictly traversable}.
+  This uses no extension.
+
+  @fgindex SKELETON_FLOOR
+  @item @code{SKELETON_FLOOR}
+  @tab @center @image{mininim-figures/d-skeleton-floor}
+  @tab @center @image{mininim-figures/p-skeleton-floor}
+  @footnote{The original game has no palace version of the skeleton floor.}
+  @tab This behaves like @code{FLOOR} but uses no extension.
+
+  @fgindex LOOSE_FLOOR
+  @item @code{LOOSE_FLOOR}@footnote{The @dfn{loose floor} is called
+  @emph{loose board} in the original game.}
+  @tab @center @image{mininim-figures/d-loose-floor}
+  @tab @center @image{mininim-figures/p-loose-floor}
+  @tab This is rendered as @code{FLOOR}, but shakes as the kid hits the
+  ground, by falling (from above), or vertically jumping (from below).
+  If the kid hits near enough it's released and falls.  It might harm
+  the kid when falling over him.  This is @emph{traversable},
+  @emph{depressible}, a @emph{trap}, @emph{dynamic} and uses the
+  @emph{can't fall} extension.
+
+  @fgindex SPIKES_FLOOR
+  @item @code{SPIKES_FLOOR}
+  @tab @center @image{mininim-figures/d-spikes-floor}
+  @tab @center @image{mininim-figures/p-spikes-floor}
+  @tab Spikes come out of it, killing the kid if he falls or steps too
+  fast over it.  This is a @emph{trap}, @emph{dynamic} and uses the
+  @emph{step} extension (ranging from 0 to 9).  This gets activated as
+  soon as the kid is in the same room and place column, and in the same
+  or higher floor without a wall in between.  Guards can activate this
+  as well.
+
+  @fgindex OPENER_FLOOR
+  @item @code{OPENER_FLOOR}@footnote{The @dfn{opener floor} is called
+  @emph{raise button} in the original game.}
+  @tab @center @image{mininim-figures/d-opener-floor}
+  @tab @center @image{mininim-figures/p-opener-floor}
+  @tab This may open one or more doors.  This is @emph{depressible},
+  @emph{dynamic}, @emph{breakable} and uses the @emph{event} extension.
+
+  @fgindex CLOSER_FLOOR
+  @item @code{CLOSER_FLOOR}@footnote{The @dfn{closer floor} is called
+  @emph{drop button} in the original game.}
+  @tab @center @image{mininim-figures/d-closer-floor}
+  @tab @center @image{mininim-figures/p-closer-floor}
+  @tab This may close one or more doors. This is @emph{depressible},
+  @emph{dynamic}, @emph{breakable} and uses the @emph{event} extension.
+
+  @fgindex STUCK_FLOOR
+  @item @code{STUCK_FLOOR}@footnote{The @dfn{stuck floor} is called
+  @emph {stuck button} in the original game.}
+  @tab @center @image{mininim-figures/d-stuck-floor}
+  @tab @center @image{mininim-figures/p-stuck-floor}
+  @tab This is rendered like a pressed @code{CLOSER_FLOOR}, but it can't
+  be unpressed.  This uses no extension.
+
+  @fgindex HIDDEN_FLOOR
+  @item @code{HIDDEN_FLOOR}@footnote{The original game doesn't have a
+  @code{HIDDEN_FLOOR} construction by itself.}
+  @tab
+  @tab
+  @tab This is rendered as @code{NO_FLOOR}, but as soon as the kid
+  presses it, it's replaced by @code{FLOOR}.  This is
+  @emph{depressible} and uses no extension.
+@end multitable
+
+@node Pillars
+@subsection Pillars
+@cindex pillars
+
+@dfn{Pillars} are aesthetic supports for the constructions on the floor
+above them.  All of them are @emph{hangable}, except for
+@code{BIG_PILLAR_TOP}, and @emph{rigid}.  Pillars use no extension.
+
+@multitable @columnfractions .25 .15 .15 .45
+  @headitem Code @tab Dungeon @tab Palace @tab Notes
+
+  @fgindex PILLAR
+  @item @code{PILLAR}
+  @tab @center @image{mininim-figures/d-pillar}
+  @tab @center @image{mininim-figures/p-pillar}
+  @tab
+
+  @fgindex BIG_PILLAR_TOP
+  @item @code{BIG_PILLAR_TOP}
+  @tab @center @image{mininim-figures/d-big-pillar-top}
+  @tab @center @image{mininim-figures/p-big-pillar-top}
+  @tab This should be placed above a @code{BIG_PILLAR_BOTTOM}.  This is
+  @emph{strictly traversable}.
+
+  @fgindex BIG_PILLAR_BOTTOM
+  @item @code{BIG_PILLAR_BOTTOM}
+  @tab @center @image{mininim-figures/d-big-pillar-bottom}
+  @tab @center @image{mininim-figures/p-big-pillar-bottom}
+  @tab This should be placed below a @code{BIG_PILLAR_TOP}.
+
+  @fgindex ARCH_BOTTOM
+  @item @code{ARCH_BOTTOM}
+  @tab @center @image{mininim-figures/d-arch-bottom}
+  @tab @center @image{mininim-figures/p-arch-bottom}
+  @tab This should be placed below an @code{ARCH_TOP_MID}.
+@end multitable
+
+@node Wall
+@subsection Wall
+@cindex wall
+
+The @dfn{wall} is a solid construct that separates sections of the
+level.  It's @emph{collidable}, @emph{rigid} and uses no extension.
+
+@multitable @columnfractions .20 .40 .40
+  @headitem Code @tab Dungeon @tab Palace
+
+  @fgindex WALL
+  @item @code{WALL}
+  @tab @center @image{mininim-figures/d-wall}
+  @tab @center @image{mininim-figures/p-wall}
+@end multitable
+
+@node Doors
+@subsection Doors
+@cindex doors
+
+@dfn{Doors} are constructions that conditionally separate levels and
+in-level sections.  Both door types are @emph{hangable}, @emph{dynamic}
+and use the @emph{step} extension.  The extension determines the door
+opening level, ranging from fully open (0) to fully closed.
+
+@multitable @columnfractions .16 .20 .20 .44
+  @headitem Code @tab Dungeon @tab Palace @tab Notes
+
+  @fgindex DOOR
+  @item @code{DOOR}@footnote{The @dfn{door} is called @emph{gate} in the
+  original game.}
+  @tab @center @image{mininim-figures/d-door}
+  @tab @center @image{mininim-figures/p-door}
+  @tab This is @emph{semi-collidable} at right, as the kid might pass or
+  not through it depending on the difference of the grid tip height and
+  kid's movement height.  This is @emph{rigid} and its @emph{step}
+  extension range from 0 to 47.
+
+  @fgindex LEVEL_DOOR
+  @item @code{LEVEL_DOOR}@footnote{The @dfn{level door} is called simply
+  @emph{exit} in the original game.  There it's divided into two
+  constructions: @emph{exit left} and @emph{exit right}.}
+  @tab @center @image{mininim-figures/d-level-door}
+  @tab @center @image{mininim-figures/p-level-door}
+  @tab Often the kid progress through levels entering these.  This can
+  only be entered when fully open.  This is @emph{breakable} and its
+  @emph{step} extension range from -44 to 43.
+@end multitable
+
+@node Chopper
+@subsection Chopper
+@cindex chopper
+
+The @dfn{chopper}@footnote{The @dfn{chopper} is called @dfn{chomper} in
+the original game.} can leave the kid in half.  It's a @emph{trap},
+@emph{hangable at right}, @emph{rigid} and @emph{dynamic}.  It uses the
+@emph{step} extension which range from 0 to 5 and 128 to 133 (bloody
+counterpart).  With a @emph{step} of 0 or 128, it gets activated as soon
+as the kid is in the same room and floor and there is no wall in
+between.  It doesn't get activated by guards, but can kill them as well.
+Other @emph{steps} make it permanently inactive.  The chopper nullifies
+the @emph{hangable at left} property of its top construction.
+
+@multitable @columnfractions .20 .40 .40
+  @headitem Code @tab Dungeon @tab Palace
+
+  @fgindex CHOPPER
+  @item @code{CHOPPER}
+  @tab @center @image{mininim-figures/d-chopper}
+  @tab @center @image{mininim-figures/p-chopper}
+@end multitable
+
+@node Mirror
+@subsection Mirror
+@cindex mirror
+
+The @dfn{mirror} reflects the kid's image and prevents him from passing
+trough, except if he is able to perform a running jump, whatever the
+side.  It's @emph{semi-collidable} at left, @emph{hangable at right},
+@emph{rigid} and uses no extension.  The mirror nullifies the
+@emph{hangable at left} property of its top construction.
+
+@multitable @columnfractions .20 .40 .40
+  @headitem Code @tab Dungeon @tab Palace
+
+  @fgindex MIRROR
+  @item @code{MIRROR}
+  @tab @center @image{mininim-figures/d-mirror}
+  @tab @center @image{mininim-figures/p-mirror}
+@end multitable
+
+@node Carpets
+@subsection Carpets
+@cindex carpets
+
+@dfn{Carpets}@footnote{@dfn{Carpets} are called @emph{tapestry} in the
+original game.} are ornamental constructions often placed over
+@code{DOOR} cons.  They come in two flavors: @code{CARPET} and
+@code{TCARPET}; the watershed difference being the @emph{traversable}
+property, which the latter has but the former lacks.  Both are
+@emph{collidable} at right, @emph{rigid} and make use of the
+@emph{design} extension.  The @code{CARPET} construction is also
+@emph{hangable at left}.  Also, carpets nullify the @emph{hangable at
+left} property of their @emph{right} and @emph{top right} constructions.
+
+@multitable @columnfractions .15 .2 .2 .45
+  @headitem Code @tab Dungeon @tab Palace @tab Notes
+
+  @fgindex TCARPET, CARPET_00
+  @item @code{TCARPET}
+  @tab @center @image{mininim-figures/d-tcarpet-00}
+  @tab @center @image{mininim-figures/p-tcarpet-00}
+  @tab These graphics are drawn for the @emph{design} @code{CARPET_00}.
+
+  @fgindex TCARPET, CARPET_01
+  @item @code{TCARPET}
+  @tab @center @image{mininim-figures/d-tcarpet-01}
+  @tab @center @image{mininim-figures/p-tcarpet-01}
+  @tab These graphics are drawn for the @emph{design} @code{CARPET_01}.
+
+  @fgindex TCARPET, ARCH_CARPET_RIGHT_00
+  @item @code{TCARPET}
+  @tab @center @image{mininim-figures/d-arch-tcarpet-right-00}
+  @tab @center @image{mininim-figures/p-arch-tcarpet-right-00}
+  @tab These graphics are drawn for the design
+  @code{ARCH_CARPET_RIGHT_00}.  This is intended to end an arch.  This
+  should be placed at right of an @code{ARCH_TOP_MID}.
+
+  @fgindex TCARPET, ARCH_CARPET_RIGHT_01
+  @item @code{TCARPET}
+  @tab @center @image{mininim-figures/d-arch-tcarpet-right-01}
+  @tab @center @image{mininim-figures/p-arch-tcarpet-right-01}
+  @tab These graphics are drawn for the design
+  @code{ARCH_CARPET_RIGHT_01}.  This is intended to end an arch.  This
+  should be placed at right of an @code{ARCH_TOP_MID}.
+
+  @fgindex TCARPET, ARCH_CARPET_LEFT
+  @item @code{TCARPET}
+  @tab @center @image{mininim-figures/d-arch-tcarpet-left}
+  @tab @center @image{mininim-figures/p-arch-tcarpet-left}
+  @tab These graphics are drawn for the design @code{ARCH_CARPET_LEFT}.
+  This is intended to end an arch.  This should be placed two places to
+  the left of an @code{ARCH_TOP_MID}.
+
+  @fgindex CARPET, CARPET_00
+  @item @code{CARPET}
+  @tab @center @image{mininim-figures/d-carpet-00}
+  @tab @center @image{mininim-figures/p-carpet-00}
+  @tab These graphics are drawn for the @emph{design} @code{CARPET_00}.
+
+  @fgindex CARPET, CARPET_01
+  @item @code{CARPET}
+  @tab @center @image{mininim-figures/d-carpet-01}
+  @tab @center @image{mininim-figures/p-carpet-01}
+  @tab These graphics are drawn for the @emph{design} @code{CARPET_01}.
+
+  @fgindex CARPET, ARCH_CARPET_LEFT
+  @item @code{CARPET}
+  @tab @center @image{mininim-figures/d-arch-carpet-left}
+  @tab @center @image{mininim-figures/p-arch-carpet-left}
+  @tab These graphics are drawn for the design @code{ARCH_CARPET_LEFT}.
+  This is intended to end an arch.  This should be placed two places to
+  the left of an @code{ARCH_TOP_MID}.
+@end multitable
+
+@node Arches
+@subsection Arches
+@cindex arches
+
+@dfn{Arches}@footnote{@dfn{Arches} are called @dfn{lattices} in the
+original game.} are ornamental constructions that can be indefinitely
+chained together to make a structure that spans several rooms across.
+They are @emph{strictly traversable}, @emph{rigid} and use no extension.
+
+@multitable @columnfractions .2 .15 .15 .5
+  @headitem Code @tab Dungeon
+  @footnote{In the original game there is no dungeon version of arches.}
+ @tab Palace @tab Notes
+
+  @fgindex ARCH_TOP_MID
+  @item @code{ARCH_TOP_MID}
+  @tab @center @image{mininim-figures/d-arch-top-mid}
+  @tab @center @image{mininim-figures/p-arch-top-mid}
+  @tab This should be placed above an @code{ARCH_BOTTOM} and at left of an
+  @code{ARCH_TOP_LEFT}, at right of an @code{ARCH_TOP_RIGHT}, or next to
+  an @code{ARCH_TOP_SMALL}.
+
+  @fgindex ARCH_TOP_SMALL
+  @item @code{ARCH_TOP_SMALL}
+  @tab @center @image{mininim-figures/d-arch-top-small}
+  @tab @center @image{mininim-figures/p-arch-top-small}
+  @tab This should be placed in between two @code{ARCH_TOP_MID}.
+
+  @fgindex ARCH_TOP_LEFT
+  @item @code{ARCH_TOP_LEFT}
+  @tab @center @image{mininim-figures/d-arch-top-left}
+  @tab @center @image{mininim-figures/p-arch-top-left}
+  @tab This should be placed at left of an @code{ARCH_TOP_RIGHT}.
+
+  @fgindex ARCH_TOP_RIGHT
+  @item @code{ARCH_TOP_RIGHT}
+  @tab @center @image{mininim-figures/d-arch-top-right}
+  @tab @center @image{mininim-figures/p-arch-top-right}
+  @tab This should be placed at right of an @code{ARCH_TOP_LEFT}.
+@end multitable
+
+@node Backgrounds
+@section Backgrounds
+@cindex backgrounds
+
+Any combination of construction background and foreground is allowed,
+but be aware that some may simply not look right, or even not make a
+difference at all (like a torch behind a wall).
+
+@multitable @columnfractions .12 .2 .2 .48
+  @headitem Code @tab Dungeon @tab Palace @tab Notes
+
+  @bgindex NO_BRICKS
+  @item @code{NO_BRICKS}
+  @tab
+  @tab
+  @tab For the dungeon and palace this results in no graphics at all.
+
+  @bgindex NO_BG
+  @item @code{NO_BG}
+  @tab
+  @tab @center @image{mininim-figures/p-bricks-00}
+  @tab For the dungeon this results in no graphics.  For the palace this
+   results in the same graphics as @code{BRICKS_02}.
+
+  @bgindex BRICKS_00
+  @item @code{BRICKS_00}
+  @tab @center @image{mininim-figures/d-bricks-00}
+  @tab
+  @tab For the palace this results in no graphics.
+
+  @bgindex BRICKS_01
+  @item @code{BRICKS_01}
+  @tab @center @image{mininim-figures/d-bricks-01}
+  @tab @center @image{mininim-figures/p-bricks-01}
+  @tab For the palace this results in the same graphics as @code{BRICKS_03}
+
+  @bgindex BRICKS_02
+  @item @code{BRICKS_02}
+  @tab @center @image{mininim-figures/d-bricks-02}
+  @tab @center @image{mininim-figures/p-bricks-00}
+  @tab For the palace this results in the same graphics as @code{NO_BG}.
+
+  @bgindex BRICKS_03
+  @item @code{BRICKS_03}
+  @tab @center @image{mininim-figures/d-bricks-03}
+  @tab @center @image{mininim-figures/p-bricks-01}
+  @tab For the palace this results in the same graphics as @code{BRICKS_01}.
+
+  @bgindex TORCH
+  @item @code{TORCH}@footnote{The fire sprites are mirrored
+  horizontally depending on the level coordinates the torch has.
+  This is not so in the original game.}
+  @tab @center @image{mininim-figures/d-torch}
+  @tab @center @image{mininim-figures/p-torch}
+  @tab
+
+  @bgindex WINDOW
+  @item @code{WINDOW}
+  @tab @center @image{mininim-figures/d-window}
+  @tab @center @image{mininim-figures/p-window}
+  @tab
+
+  @bgindex BALCONY
+  @item @code{BALCONY}@footnote{The background stars are randomly
+  positioned and animated.  In the original game, all balconies have
+  non-animated white stars in fixed positions.}
+  @tab @center @image{mininim-figures/d-balcony}
+  @tab @center @image{mininim-figures/p-balcony}
+@end multitable
+
+
+@node Items
+@section Items
+@cindex items
+
+The item extension is used only by @code{FLOOR}.  Items are placed over
+the floor construction they belong to and animated.  They can be caught
+by the kid by pressing the shift key.
+
+@multitable @columnfractions .3 .15 .55
+  @headitem Code @tab Graphics @tab Notes
+
+  @extindex NO_ITEM
+  @item @code{NO_ITEM}
+  @tab
+  @tab This results in no graphics at all.
+
+  @extindex EMPTY_POTION
+  @item @code{EMPTY_POTION}
+  @tab @center @image{mininim-figures/empty-potion}
+  @tab This potion has no bubbles and no effect.
+
+  @extindex SMALL_LIFE_POTION
+  @item @code{SMALL_LIFE_POTION}
+  @tab @center @image{mininim-figures/small-life-potion}
+  @tab This potion has red bubbles and recovers one life point.
+
+  @extindex BIG_LIFE_POTION
+  @item @code{BIG_LIFE_POTION}
+  @tab @center @image{mininim-figures/big-life-potion}
+  @tab This potion has red bubbles, adds one life point container and
+  recover all life points.
+
+  @extindex SMALL_POISON_POTION
+  @item @code{SMALL_POISON_POTION}
+  @tab @center @image{mininim-figures/small-poison-potion}
+  @tab This potion has blue bubbles and takes one life point.  It has
+  the same graphics as @code{ACTIVATION_POTION}.
+
+  @extindex BIG_POISON_POTION
+  @item @code{BIG_POISON_POTION}@footnote{The big poison potion is not
+  available in the original game.}
+  @tab @center @image{mininim-figures/big-poison-potion}
+  @tab This potion has blue bubbles and takes all life point,
+  effectively killing the kid.
+
+  @extindex FLOAT_POTION
+  @item @code{FLOAT_POTION}
+  @tab @center @image{mininim-figures/float-potion}
+  @tab This potion has green bubbles and allows the kid to levitate,
+  effectively making long falls harmless.
+
+  @extindex FLIP_POTION
+  @item @code{FLIP_POTION}
+  @tab @center @image{mininim-figures/flip-potion}
+  @tab This potion has yellow bubbles and flips the screen horizontally,
+  vertically or both, depending on its level coordinates.@footnote{In
+  the original game, flip potions only invert the screen vertically and
+  are drawn as @code{FLOAT_POTION}, that is, with green bubbles.}
+  Drinking another one undo this effect.
+
+  @extindex ACTIVATION_POTION
+  @item @code{ACTIVATION_POTION}
+  @tab @center @image{mininim-figures/activation-potion}
+  @tab This potion has the same graphics as @code{SMALL_POISON_POTION}
+  and is used to activate a construction.@footnote{In the original game
+  the @emph{activation potion} is designed to be used in the potion
+  level, a copy protection mechanism employed to stop people from
+  sharing.  @strong{MININIM is free software}, and we repudiate this
+  kind of measure.  Thus here @emph{activation potions} may be used to
+  handicap the kid, but certainly won't be used to do so to you nor to
+  your friends.}
+
+  @extindex SWORD
+  @item @code{SWORD}@footnote{The sword graphics is mirrored
+  horizontally depending on its level coordinates.  This is not so in
+  the original game.}
+  @tab @center @image{mininim-figures/sword}
+  @tab This allows the kid to enter fight mode.  The sword
+  blinks from time to time.
+@end multitable
+
+
+
+@c --- Movements;
+@node Movements
+@chapter Movements
+@cindex movements
+
+In his journey to save the princess, the kid has to endure several
+levels full of challenging traps and skilled opponents.  Run, walk,
+turn, crouch, jump, hang, climb, take the sword, attack and defend are
+some of the kid's movements at the user's disposal to make his way to
+the princess tower.  Although, this is a relatively large set of
+movements, basically all these are accomplished by some combination of
+the directional and shift keys, often conditioned to the current kid's
+state.  This chapter explains in detail all possible movements of the
+kid.
+
+@cindex movement mode
+@cindex mode, movement
+There are six modes of movement: @dfn{normal}, @dfn{crouch}, @dfn{run},
+@dfn{hang}, @dfn{fall} and @dfn{fight}.  The mode the kid is in is the
+foremost element determining how the input is translated into kid's
+movements.
+
+Notice that (whenever it makes sense) for any move, holding its
+triggering keys continues or repeats the movement.@footnote{That's not
+so for the original game, in which for many situations the user have to
+release and press the keys again to have the movement repeated.}  Often,
+when transitioning from a movement to another that share some keys, the
+user can keep the common keys pressed, as well as any other keys ignored
+by an intermediate movement, and the kid will just do the right thing.
+It's also worth nothing that the kid responds to the input in real time,
+that is, in the next animation cycle.@footnote{That's not so for the
+original game, in which the kid delays one cycle to respond.}
+
+@kindex LEFT
+@kindex RIGHT
+@kindex UP
+@kindex DOWN
+@kindex FRONT
+@kindex BACK
+@kbd{FRONT} and @kbd{BACK} are meta-keys used to refer to @kbd{LEFT} and
+@kbd{RIGHT} conditionally subject to kid's facing direction.  The
+@kbd{UP}, @kbd{DOWN}, @kbd{SHIFT} and @kbd{ENTER} keys are simply
+referred as such.  The following figure illustrates how these keys
+appear in a common keyboard.
+
+@center @image{mininim-figures/keyboard}
+
+@iftex
+@page
+@end iftex
+
+@node Alternative gamepads
+@section Alternative gamepads
+@cindex alternative gamepads
+@cindex gamepads, alternative
+
+@cindex numeric keypad
+@cindex keypad, numeric
+@cindex gamepad, numeric keypad
+The classic numeric keypad controls, described in the original game's
+manual, may be used.  Its mapping is shown in the following figure.
+
+@center @image{mininim-figures/keypad}
+
+@smallindentedblock
+@center @kbd{ENTER} (@kbd{ENTER}) @kbd{4} (@kbd{LEFT}) @kbd{8} (@kbd{UP}) @kbd{6} (@kbd{RIGHT}) @kbd{5}, @kbd{2} (@kbd{DOWN})
+@center @kbd{7} (@kbd{LEFT} + @kbd{UP}) @kbd{9} (@kbd{RIGHT} + @kbd{UP}) @kbd{1} (@kbd{LEFT} + @kbd{DOWN}) @kbd{3} (@kbd{RIGHT} + @kbd{DOWN})
+@end smallindentedblock
+
+
+@cindex joystick mapping
+@cindex mapping joystick
+@cindex gamepad, joystick
+The user can also use a joystick to control the kid.  After hot-plugging
+the joystick in, make sure the axes are centered and no button is
+pressed, then press @kbd{CTRL+J} to enable and auto-calibrate the
+joystick on-the-fly.  The figure below shows the default assumed
+joystick layout.  If for some reason the joystick doesn't work with this
+mapping or the user wants to modify the default mapping, use the
+@option{--joystick-axis} and @option{--joystick-button} options.  In
+case the joystick starts to behave oddly, press @kbd{CTRL+J} again to
+re-calibrate it.  If the kid continues to perform spurious movements,
+the options @option{--joystick-axis-threshold} and
+@option{--joystick-button-threshold} may help.  @xref{Gamepad options}.
+
+@center @image{mininim-figures/joystick}
+
+@smallindentedblock
+@center @strong{H-} (@kbd{LEFT}) @strong{H+} (@kbd{RIGHT}) @strong{V-} (@kbd{UP}) @strong{V+} (@kbd{DOWN})
+@center @strong{0} (@kbd{UP}) @strong{1} (@kbd{RIGHT}) @strong{2} (@kbd{DOWN}) @strong{3} (@kbd{LEFT}) @strong{4} (@kbd{ENTER}) @strong{5} (@kbd{SHIFT}) @strong{8} (@kbd{TIME}) @strong{9} (@kbd{PAUSE})
+@end smallindentedblock
+
+
+
+@iftex
+@page
+@end iftex
+
+@node Directed relative positioning
+@section Directed relative positioning
+@cindex directed relative positioning
+@cindex positioning, directed relative
+@cindex relative positioning, directed
+
+The concept of @emph{directed relative positioning}, necessary to easily
+describe the relations between constructions and the kid is analogous to
+the already defined concept of @emph{non-directed relative positioning},
+used to describe relations between constructions.  Consider the kid's
+place @emph{C}, which has the coordinates @math{(r,f,p)}, its 8 adjacent
+places and the direction the kid is facing, as shown in the following
+two figures.
+
+@center @image{mininim-figures/relative-coordinates-directed-left} @image{mininim-figures/relative-coordinates-directed-right}
+
+@smallindentedblock
+@center @abbr{@strong{TF}, top front} @abbr{@strong{T}, top} @abbr{@strong{TB}, top back} @abbr{@strong{F}, front} @abbr{@strong{C}, center}
+@center @abbr{@strong{BA}, back} @abbr{@strong{BF}, bottom front}, @abbr{@strong{B}, bottom} @abbr{@strong{BB}, bottom back}
+@end smallindentedblock
+
+Then we define the following mapping between names and coordinates:
+
+@multitable @columnfractions .33 .33 .33
+@headitem Left @tab Right @tab Coordinates
+@item TF @tab TB @tab @math{(r,f - 1,p - 1)}
+@item T  @tab T @tab @math{(r,f - 1,p)}
+@item TB @tab TF @tab @math{(r,f - 1,p + 1)}
+@item F @tab BA @tab @math{(r,f,p - 1)}
+@item C @tab C @tab @math{(r,f,p)}
+@item BA @tab F @tab @math{(r,f,p + 1)}
+@item BF @tab BB @tab @math{(r,f + 1,p - 1)}
+@item B @tab B @tab @math{(r,f + 1,p)}
+@item BB @tab BF @tab @math{(r,f + 1,p + 1)}
+@end multitable
+
+
+@node Hangable place
+@section Hangable place
+@cindex hangable place
+
+Quite a few movements might culminate in the kid hanging on a
+construction.  In order to describe the conditions in which that may
+happen, it's necessary to define the concept of @emph{hangable place}.
+
+@cartouche
+@noindent@strong{Hangable place:} we say the kid's place is
+@dfn{hangable}, if (and only if) its top construction is @emph{strictly
+traversable} and its top front one is @emph{hangable} in the opposite
+direction.
+@end cartouche
+
+
+@node Normal
+@section Normal
+@cindex normal movement mode
+@cindex mode, normal movement
+@cindex movement mode, normal
+
+The movement mode at the beginning of each level is @emph{normal}.
+While in it the kid is standing still.
+
+@center @image{mininim-figures/kid-normal-right}
+
+
+@subsection Turn
+@cindex turn movement
+@cindex movement, turn
+
+If the user presses @kbd{BACK}, the kid turns and then faces the
+opposite direction likewise.
+
+@center @image{mininim-figures/kid-normal-right} @arrow{} @image{mininim-figures/kid-turn} @arrow{} @image{mininim-figures/kid-normal-left}
+
+
+@subsection Vertical jump
+@cindex vertical jump movement
+@cindex movement, vertical jump
+@cindex jump movement, vertical
+
+Pressing @kbd{UP}, makes the kid perform a vertical jump.
+
+@center @image{mininim-figures/kid-normal-left} @arrow{} @image{mininim-figures/kid-vjump}
+
+In case his @emph{top construction} is @emph{strictly traversable} but
+he isn't in a @emph{hangable place}, he performs a long vertical jump
+and comes back to the @strong{exact} same position he was before the
+jump.@footnote{This is not so in the original game, where he moves a
+little bit forward at each vertical jump.}
+
+@center @image{mininim-figures/kid-vjump} @arrow{} @image{mininim-figures/kid-normal-left}
+
+In case his @emph{top construction} is not @emph{strictly traversable}
+and his @emph{back place} is not @emph{hangable}, he performs a short
+vertical jump and then comes back to the exact same position he was
+before the jump.
+
+@center @image{mininim-figures/kid-vjump-normal-floor-floor} @arrow{} @image{mininim-figures/kid-vjump-vjump-floor-floor} @arrow{} @image{mininim-figures/kid-vjump-normal-floor-floor}
+
+In case he's in a @emph{hangable place}, he performs a long vertical
+jump (after coming close enough to the edge if he isn't already) and
+hangs for a brief period of time.
+
+@center @image{mininim-figures/kid-vjump-floor-no-floor} @arrow{} @image{mininim-figures/kid-vjump-hang-left}
+
+In case his @emph{back place} is @emph{hangable} and @emph{non-strictly
+traversable}, he backs off so the situation fits the previous paragraph
+description.
+
+@center @image{mininim-figures/kid-vjump-floor} @arrow{} @image{mininim-figures/kid-vjump-floor-no-floor}
+
+In case his @emph{back place} is @emph{hangable} but @emph{strictly
+traversable}, he backs off just enough, without entering the
+@emph{strictly traversable} place, to perform a very vertical jump, and
+then hangs as described.
+
+@center @image{mininim-figures/kid-vjump-floor-traversable} @arrow{} @image{mininim-figures/kid-vjump-floor-no-floor-traversable} @arrow{} @image{mininim-figures/kid-vjump-hang-left-traversable}
+
+If holding @kbd{SHIFT}, the kid enters @emph{hang mode}, otherwise he
+just drops back to the ground.
+
+@center @image{mininim-figures/kid-vjump-hang-left} @arrow{} @image{mininim-figures/kid-vjump-floor-no-floor}
+
+@center @image{mininim-figures/kid-vjump-hang-left-traversable} @arrow{} @image{mininim-figures/kid-vjump-floor-no-floor-traversable}
+
+
+@subsection Normal jump
+@cindex normal jump movement
+@cindex movement, normal jump
+@cindex jump movement, normal
+
+Pressing @kbd{UP} and @kbd{FRONT} at once makes the kid jump forward.
+He can jump over (up to) two @emph{places} across without falling.
+
+@center @image{mininim-figures/kid-normal-left} @arrow{} @image{mininim-figures/kid-jump}
+
+@subsubsection Normal jump hang
+@cindex normal jump hang movement
+@cindex movement, normal jump hang
+@cindex hang movement, normal jump
+@cindex jump hang movement, normal
+
+In midair, if he's in a @emph{hangable place}, holding @kbd{SHIFT} and
+pressing @kbd{FRONT} makes him hang on the construction and enter
+@emph{hang mode}.@footnote{The original game has no such movement.}
+
+@center @image{mininim-figures/kid-jump-floor-no-floor} @arrow{} @image{mininim-figures/kid-hang-left}
+
+@subsubsection Normal jump turn
+@cindex normal jump turn movement
+@cindex movement, normal jump turn
+@cindex turn movement, normal jump
+@cindex jump turn movement, normal
+
+If he's in a @emph{hangable place} for the opposite direction, holding
+@kbd{SHIFT} and pressing @kbd{BACK} makes him turn in midair, hang on
+the construction and enter @emph{hang mode}.@footnote{The original game
+has no such movement.}
+
+@center @image{mininim-figures/kid-jump-no-floor-floor} @arrow{} @image{mininim-figures/kid-hang-right}
+
+
+@subsection Walk
+@cindex walk movement
+@cindex movement, walk
+
+Pressing @kbd{FRONT} while holding @kbd{SHIFT}, makes the kid walk
+carefully.
+
+@center @image{mininim-figures/kid-normal-left} @arrow{} @image{mininim-figures/kid-walk}
+
+He always safely stops before a collision, fall, loose floor, closer
+floor and chopper blade.
+
+@center @image{mininim-figures/kid-walk-wall} @arrow{} @image{mininim-figures/kid-normal-wall}
+
+@center @image{mininim-figures/kid-walk-no-floor} @arrow{} @image{mininim-figures/kid-normal-no-floor}
+
+@center @image{mininim-figures/kid-walk-loose-floor} @arrow{} @image{mininim-figures/kid-normal-loose-floor}
+
+@center @image{mininim-figures/kid-walk-closer-floor} @arrow{} @image{mininim-figures/kid-normal-closer-floor}
+
+@center @image{mininim-figures/kid-walk-chopper} @arrow{} @image{mininim-figures/kid-normal-chopper}
+
+If the kid is just before a @emph{traversable} construction or a closer
+floor@footnote{The kid doesn't misstep for a closer floor in the
+original game.}, he misstep and gets back to his original position, as a
+warning of the eminent danger.
+
+@center @image{mininim-figures/kid-misstep-no-floor} @arrow{} @image{mininim-figures/kid-normal-no-floor}
+
+@center @image{mininim-figures/kid-misstep-loose-floor} @arrow{} @image{mininim-figures/kid-normal-loose-floor}
+
+@center @image{mininim-figures/kid-misstep-closer-floor} @arrow{} @image{mininim-figures/kid-normal-closer-floor}
+
+If the user insists, the kid will obey and suffer the consequences!
+
+
+@subsection Descend
+@cindex descend movement
+@cindex movement, descend
+
+If the user presses @kbd{DOWN} and the kid's @emph{bottom back place} is
+@emph{hangable} and he's near enough to it, he descends, then hangs
+briefly --- entering @emph{hang mode} if @kbd{SHIFT} is kept pressed, or
+dropping off otherwise.
+
+@center @image{mininim-figures/kid-hang-climb-01} @arrow{} @image{mininim-figures/kid-hang-climb-00}
+
+
+@node Crouch
+@section Crouch
+@cindex crouch movement mode
+@cindex mode, crouch movement
+@cindex movement mode, crouch
+
+If the user presses @kbd{DOWN} and the kid's @emph{bottom back place} is
+@emph{non-hangable}, or the kid is not near enough to it, he crouches.
+
+@center @image{mininim-figures/kid-normal-left} @arrow{} @image{mininim-figures/kid-couch}
+
+The kid stays crouched as long as the user keeps @kbd{DOWN} pressed.
+Releasing it makes him stand up again.
+
+@center @image{mininim-figures/kid-uncouch} @arrow{} @image{mininim-figures/kid-normal-left}
+
+@subsection Crouching jump
+@cindex crouching jump movement
+@cindex movement, crouching jump
+@cindex jump movement, crouching
+
+If the user presses @kbd{FRONT} without releasing @kbd{DOWN}, the kid
+performs little crouching jumps forward.
+
+@center @image{mininim-figures/kid-couch} @arrow{} @image{mininim-figures/kid-couch-forward} @arrow{} @image{mininim-figures/kid-couch}
+
+
+@node Run
+@section Run
+@cindex run movement mode
+@cindex mode, run movement
+@cindex movement mode, run
+
+Pressing @kbd{FRONT}, makes the kid start to run.@footnote{Unless he is
+facing a @emph{collidable} construction with at most one place of
+distance, in which case he performs a @emph{walk}.  Notice that in the
+original game the threshold is lower.}
+
+@center @image{mininim-figures/kid-normal-left} @arrow{} @image{mininim-figures/kid-start-run}
+
+He runs as long as the user keeps @kbd{FRONT} pressed.
+
+@center @image{mininim-figures/kid-start-run} @arrow{} @image{mininim-figures/kid-run}
+
+Releasing it makes him stop, and go back to the normal stage.
+
+@center @image{mininim-figures/kid-stop-run} @arrow{} @image{mininim-figures/kid-normal-left}
+
+@subsection Running jump
+@cindex running jump movement
+@cindex movement, running jump
+@cindex jump movement, running
+
+In case the user presses @kbd{UP} while running, the kid performs a
+running jump.  The running jump has a reach greater than the
+@emph{normal jump}.  The kid can jump over (up to) three @emph{places}
+across without falling.
+
+@center @image{mininim-figures/kid-run} @arrow{} @image{mininim-figures/kid-run-jump}
+
+When the kid lands on ground, he continues to run if the user keeps
+@kbd{FRONT} pressed.
+
+@center @image{mininim-figures/kid-run-jump} @arrow{} @image{mininim-figures/kid-run}
+
+This implies that, if the user keeps both keys pressed the movement
+repeats indefinitely.
+
+@center @image{mininim-figures/kid-run} @arrow{} @image{mininim-figures/kid-run-jump} @arrow{} @image{mininim-figures/kid-run} @arrow{} @image{mininim-figures/kid-run-jump}
+
+@subsubsection Running jump hang
+@cindex running jump hang movement
+@cindex movement, running jump hang
+@cindex hang movement, running jump
+@cindex jump hang movement, running
+
+In midair, if he's in a @emph{hangable place}, holding @kbd{SHIFT} and
+pressing @kbd{FRONT} makes him hang on the construction and enter
+@emph{hang mode}.@footnote{The original game has no such movement.}
+
+@center @image{mininim-figures/kid-run-jump-floor-no-floor} @arrow{} @image{mininim-figures/kid-hang-left}
+
+@subsubsection Running jump turn
+@cindex running jump turn movement
+@cindex movement, running jump turn
+@cindex turn movement, running jump
+@cindex jump turn movement, running
+
+If he's in a @emph{hangable place} for the opposite direction, holding
+@kbd{SHIFT} and pressing @kbd{BACK} makes him turn in midair, hang on
+the construction and enter @emph{hang mode}.@footnote{The original game
+has no such movement.}
+
+@center @image{mininim-figures/kid-run-jump-no-floor-floor} @arrow{} @image{mininim-figures/kid-hang-right}
+
+@subsection Running crouch
+@cindex running crouch movement
+@cindex movement, running crouch
+@cindex couch movement, running
+
+If the user presses @kbd{DOWN} while running, he crouches, slipping with
+some momentum, and then he enters @emph{crouch mode}.
+
+@center @image{mininim-figures/kid-run} @arrow{} @image{mininim-figures/kid-couch}
+
+@subsection Running turn
+@cindex running turn movement
+@cindex movement, running turn
+@cindex turn movement, running
+
+If the user presses @kbd{BACK} while running, the kid turns without
+stopping and continues to run in the opposite direction if the user
+keeps it pressed.
+
+@center @image{mininim-figures/kid-run} @arrow{} @image{mininim-figures/kid-turn-run} @arrow{} @image{mininim-figures/kid-run-right}
+
+@node Hang
+@section Hang
+@cindex hang movement mode
+@cindex mode, hang movement
+@cindex movement mode, hang
+
+@cindex hang free
+@cindex hang non-free
+There are two modes of hanging: @emph{free} and @emph{non-free}.  The
+kid @dfn{hangs free} when his @emph{front construction} is not
+collidable in the direction of hanging.  Otherwise he @dfn{hangs
+non-free}.
+
+@cindex hang free
+While @emph{hanging free} the kid swings back and forth like a pendulum.
+
+@center @image{mininim-figures/kid-hang-left} @arrow{} @image{mininim-figures/kid-hang-left-forth} @arrow{} @image{mininim-figures/kid-hang-left} @arrow{} @image{mininim-figures/kid-hang-left-back}
+
+@cindex hang non-free
+By contrast, when @emph{hanging non-free} the kid keeps himself static.
+
+@center @image{mininim-figures/kid-hang-left-non-free}
+
+@subsection Hanging fall
+@cindex hanging fall movement
+@cindex movement, hanging fall
+@cindex fall movement, hanging
+
+When @emph{hanging free}, there is a limit for how much time the kid can
+support his own weight, after which he drops from the construction.
+Releasing @kbd{SHIFT} in the meantime has the same effect.  The kid will
+fall either aligned with the @emph{hangable place's column} or with the
+@emph{hangable place's front column}, depending upon which his feet are
+in when he leaves the hanged construction.@footnote{It's not possible to
+perform such movements in the original game, because there the kid
+always falls over a @emph{non-strictly traversable} construction, in
+case there is one.}
+
+@center @image{mininim-figures/kid-hang-free-fall}
+
+The kid can sustain himself indefinitely when @emph{hanging non-free},
+thus the only way to make him drop is by releasing @kbd{SHIFT}.  As one
+would expect, the kid always falls aligned to the @emph{hangable place's
+column}.
+
+@center @image{mininim-figures/kid-hang-left-non-free-floor-00} @arrow{} @image{mininim-figures/kid-hang-left-non-free-floor-01}
+
+@subsection Hanging turn
+@cindex hanging turn movement
+@cindex movement, hanging turn
+@cindex turn movement, hanging
+
+When the kid is @emph{hanging free} in a place that is @emph{hangable}
+in both directions and his feet are in the @emph{hangable place},
+pressing @kbd{BACK} while holding @kbd{SHIFT}, makes him turn in midair
+and hang on the con at his back.@footnote{This movement is not present
+in the original game.}
+
+@center @image{mininim-figures/kid-hang-left-back-floor-no-floor-floor} @arrow{} @image{mininim-figures/kid-hang-right-floor-no-floor-floor}
+
+Naturally, if @emph{hanging non-free} in a place that is @emph{hangable}
+in both directions, there is no need to observe the kid's body
+inclination, just pressing @kbd{BACK}, will do the job (granted
+@kbd{SHIFT} is kept pressed).@footnote{This movement is not present in
+the original game.}
+
+@center @image{mininim-figures/kid-hang-left-back-floor-no-floor-floor-non-free} @arrow{} @image{mininim-figures/kid-hang-right-floor-no-floor-floor-non-free}
+
+@subsection Climb
+@cindex climb movement
+@cindex movement, climb
+
+Pressing @kbd{UP} while hanging makes the kid climb the construction for
+both modes.
+
+@center @image{mininim-figures/kid-hang-climb-00} @arrow{} @image{mininim-figures/kid-hang-climb-01} @image{mininim-figures/kid-hang-climb-non-free-00} @arrow{} @image{mininim-figures/kid-hang-climb-non-free-01}
+
+
+@node Fall
+@section Fall
+@cindex fall movement mode
+@cindex mode, fall movement
+@cindex movement mode, fall
+
+This mode is not really related to a key combination, but instead to a
+circumstance: the kid trying to support his own weight on an
+@emph{strictly traversable} construction.  When this happens he
+accelerates downwards (eventually reaching terminal velocity), until he
+encounters a @emph{non-strictly traversable} construction or hangs at a
+@emph{hangable place} which might appear in his way down.
+
+If the kid hits a @emph{non-traversable} construction with sufficient
+speed, he is harmed or can even die.  Falling from a height of one floor
+inflicts no damage on him.  Two floors takes one life point.  Three or
+more kills him instantly.
+
+@subsection Falling hang
+@cindex falling hang movement
+@cindex movement, falling hang
+@cindex hang movement, falling
+
+When falling if the kid is passing through a @emph{hangable place} and
+his vertical velocity is low enough, and he's near enough to the
+@emph{hangable construction}, he is able to hang there and enter
+@emph{hang mode} if the user holds @kbd{SHIFT} down.
+
+@center @image{mininim-figures/kid-fall-floor-front} @arrow{} @image{mininim-figures/kid-hang-left}
+
+@subsection Falling turn
+@cindex falling turn movement
+@cindex movement, falling turn
+@cindex turn movement, falling
+
+If instead the place is @emph{hangable} at the opposite direction,
+holding @kbd{SHIFT} and pressing @kbd{BACK} makes the kid turn in mid
+air, hang there and enter @emph{hang mode}.@footnote{This movement is
+not available in the original game.}
+
+@center @image{mininim-figures/kid-fall-floor-back} @arrow{} @image{mininim-figures/kid-hang-right}
+
+
+@node Fight
+@section Fight
+@cindex fight movement mode
+@cindex mode, fight movement
+@cindex movement mode, fight
+
+If the kid has got the sword, @kbd{RETURN} takes the sword and puts him
+in @emph{fight mode}.@footnote{In the original game, the kid enters
+fight mode automatically in the eminence of an enemy threat.}
+
+@center @image{mininim-figures/kid-normal-left} @arrow{} @image{mininim-figures/kid-take-sword} @arrow{} @image{mininim-figures/kid-sword-normal}
+
+@subsection Fight walk forward
+@cindex fight walk forward movement
+@cindex movement, fight walk forward
+
+Pressing @kbd{FRONT}, makes the kid walk forward.
+
+@center @image{mininim-figures/kid-sword-normal} @arrow{} @image{mininim-figures/kid-sword-walkf}
+
+@subsection Fight walk backward
+@cindex fight walk backward movement
+@cindex movement, fight walk backward
+
+If the user presses @kbd{BACK}, the kid goes backward.
+
+@center @image{mininim-figures/kid-sword-normal} @arrow{} @image{mininim-figures/kid-sword-walkb}
+
+@subsection Defense
+@cindex defense movement
+@cindex movement, defense
+
+If the user presses @kbd{UP}, the kid makes the defense movement.
+
+@center @image{mininim-figures/kid-sword-normal} @arrow{} @image{mininim-figures/kid-sword-defense}
+
+@subsection Attack
+@cindex attack movement
+@cindex movement, attack
+
+Pressing @kbd{SHIFT} makes the kid attack.
+
+@center @image{mininim-figures/kid-sword-normal} @arrow{} @image{mininim-figures/kid-sword-attack}
+
+@node Counter attack and counter defense
+@subsection Counter attack and counter defense
+@cindex counter attack
+@cindex counter defense
+@cindex mode, counter attack
+@cindex mode, counter defense
+@cindex kca
+@cindex kcd
+
+Holding @kbd{SHIFT} and @kbd{UP} puts the kid in counter attack and
+counter defense mode.  At first, there is no immediate noticeable
+difference from standing still in fight mode, but as an enemy
+attacks@footnote{In the original game the terminology for ``attack'' is
+``striking'', for ``counter attack'' is ``re-striking after block'', for
+``defense'' is ``blocking strike'' and for ``counter defense'' is
+``improper blocking''.}, the kid defends for certain. Then, depending
+upon probability whose likelihood is given by the @acronym{KCA, Kid's
+Counter Attack skill}, he may counter attack.
+
+If he does, depending on the enemy's skills, they may counter defend and
+then counter attack.  In that case, depending upon probability whose
+likelihood is given by the @acronym{KCD, Kid's Counter Defense skill},
+the kid may counter defend and the process restarts at the kid's counter
+attack stage, making for a chain of counter attacks and counter defenses
+whose length is determined only by the fighters' skills (and a little
+bit of luck).  Every counter attack that is not responded with a counter
+defense by the opponent, makes him lose a life point.
+
+When standing still in this mode, releasing @kbd{UP} initiates an attack
+(but at the same time makes the kid briefly vulnerable to the enemy's
+attacks).  In this case the same counter attack and counter defense
+chain logic described above is symmetrically applied.
+
+Pressing @kbd{FRONT} and @kbd{BACK} (while holding @kbd{SHIFT} and
+@kbd{UP}) makes the kid walk forward and backward, respectively, without
+leaving this mode.  However, although walking backward doesn't make him
+lower his guard, walking forward makes him vulnerable until he puts
+himself on guard again.
+
+The kid's skills are built up by defeating enemies.@footnote{In the
+original game there is no such skills scheme.  There, if the user
+doesn't get tired of pressing @kbd{SHIFT} and @kbd{UP}, the kid's
+counter attack and counter defense are infallible.}  The more advanced
+the defeated enemy's skills, the more the kid's skills improve.  Both
+skills ---KCA and KCD--- are given by a number between 0 and 100,
+interpreted as percentages, indicating the likelihood of counter
+attacking and counter defending, respectively.
+
+@subsection Keep sword
+@cindex keep sword movement
+@cindex movement, keep sword
+
+Finally the user can make the kid keep his sword and return to
+@emph{normal mode} by pressing @kbd{DOWN}.
+
+@center @image{mininim-figures/kid-sword-normal} @arrow{} @image{mininim-figures/kid-keep-sword} @arrow{} @image{mininim-figures/kid-normal-left}
+
+
+
+
+
+@c --- Key bindings;
+@node Key bindings
+@chapter Key bindings
+@cindex key bindings
+
+@cindex megahit
+@cindex improved
+The engine has several key bindings that control an wide range of
+settings and perform useful functions.  Many key bindings work anytime,
+in the title screen, cut scenes and levels, while others work only in
+the latter.  The key bindings are designed to mimic those of the
+original game when started with the option @option{megahit}
+(@option{improved} in latter revisions), however they can implement a
+super-set of the functions available there and MININIM implements quite
+a few more.  Also, many key bindings have a configuration option
+counterpart.  @xref{Configuration}.
+
+@node Game flow
+@section Game flow
+@cindex game flow key bindings
+@cindex key bindings, game flow
+
+@table @kbd
+@kindex SHIFT+L
+@cindex @code{--start-level}, related key binding
+@item SHIFT+L
+Warp to next level.  Related to option @option{--start-level}.
+
+@kindex SHIFT+M
+@cindex @code{--start-level}, related key binding
+@item SHIFT+M
+Warp to previous level.  Related to option @option{--start-level}.
+
+@kindex CTRL+A
+@item CTRL+A
+Restart level.
+
+@kindex CTRL+R
+@item CTRL+R
+Restart the game.
+
+@kindex CTRL+Q
+@item CTRL+Q
+Quit the game.
+@end table
+
+@node Graphical rendering
+@section Graphical rendering
+@cindex graphical rendering key bindings
+@cindex key bindings, graphical rendering
+
+These key bindings modify how the engine graphically renders the game
+world objects.
+
+@table @kbd
+@kindex F9
+@cindex @code{--hue-mode}, related key binding
+@item F9
+Select hue mode.  This circulates around the modes: ``ORIGINAL'',
+``NONE'', ``GREEN'', ``GRAY'', ``YELLOW'' and ``BLUE''.  The
+``ORIGINAL'' value gives level modules autonomy in this choice for each
+particular level.  This is the default.  For the classic behavior of the
+first version of the original game select ``NONE''.  Related to option
+@option{--hue-mode}.
+
+@kindex F10
+@cindex @code{--guard-mode}, related key binding
+@item F10
+Select guard mode. This circulates around the modes: ``ORIGINAL'',
+``GUARD'', ``FAT GUARD'', ``VIZIER'', ``SKELETON'' and ``SHADOW''.  The
+``ORIGINAL'' mode gives level modules autonomy in this choice for each
+particular guard.  This is the default.  Related to option
+@option{--guard-mode}.
+
+@kindex F11
+@cindex @code{--environment-mode}, related key binding
+@item F11
+Select environment mode.  This circulates around the modes:
+``ORIGINAL'', ``DUNGEON'' and ``PALACE''.  The ``ORIGINAL'' value gives
+level modules autonomy in this choice for each particular level.  This
+is the default.  Related to option @option{--environment-mode}.
+
+@kindex F12
+@cindex @code{--video-mode}, related key binding
+@item F12
+Select video mode.  This circulates around the modes: ``VGA'', ``EGA'',
+``CGA'' and ``HGC''. The default is VGA.  Related to option
+@option{--video-mode}.
+
+@kindex SHIFT+B
+@cindex @code{--blind-mode}, related key binding
+@item SHIFT+B
+Toggle blind mode.  In blind mode background and non-animated sprites
+are not drawn.  The default is to draw everything.  Related to option
+@option{--blind-mode}.
+@end table
+
+@node Life and death
+@section Life and death
+@cindex life and death key bindings
+@cindex key bindings, life and death
+
+@table @kbd
+@kindex K
+@item K
+Kill enemy.@footnote{This only works for the enemy currently associated
+with the kid.  In the original game this works for the enemy in the room
+at view, as it can only handle one guard per room.  There is no such
+limit in MININIM.}
+
+@kindex R
+@item R
+Resurrect kid.
+
+@kindex I
+@cindex @code{--immortal-mode}, related key binding
+@item I
+Toggle immortal mode.  In immortal mode the kid can't be harmed.  The
+default mode is mortal.  Related to option @option{--immortal-mode}.
+
+@kindex SHIFT+S
+@item SHIFT+S
+Increment kid's current life points.
+
+@kindex SHIFT+T
+@cindex @code{--total-lives}, related key binding
+@item SHIFT+T
+Increment kid's total life points.  Related to option
+@option{--total-lives}.
+@end table
+
+@node Kid special
+@section Kid special
+@cindex kid special key bindings
+@cindex key bindings, kid special
+
+These key bindings give or trigger special kid's abilities.
+
+@table @kbd
+@kindex A
+@item A
+Alternate between kid and its shadows.  This is intended for level
+modules that make use of such feature.  That's not the legacy module
+case.
+
+@kindex SHIFT+W
+@item SHIFT+W
+Float kid.  This is equivalent to drinking a float potion.
+@end table
+
+@node Time
+@section Time
+@cindex time key bindings
+@cindex key bindings, time
+@cindex @code{--time-limit}, related key binding
+@cindex @code{--start-time}, related key binding
+
+These key bindings allow the user to control the remaining time
+available to end the game.  They are related to options
+@option{--time-limit} and @option{--start-time}.
+
+@table @kbd
+@kindex SPACE
+@item SPACE
+Display remaining time.  Notice that the remaining time is displayed
+automatically when it reaches multiples of 5 minutes, and it's
+constantly shown when remains less than a minute to its end.
+
+@kindex +
+@item +
+Increment and display remaining time.  If the remaining time is greater
+than 1 minute, increment remaining time by 1 minute, otherwise by 1
+second.
+
+@kindex -
+@item -
+Decrement and display remaining time.  If the remaining time is greater
+than 1 minute, decrement remaining time by 1 minute, otherwise by 1
+second.
+@end table
+
+@node Skills
+@section Skills
+@cindex skills key bindings
+@cindex key bindings, skills
+@cindex @code{--kca}, related key binding
+@cindex @code{--kcd}, related key binding
+
+These key bindings allow the user to set the kid skills.  They are
+related to options @option{--kca} and @option{--kcd}.
+
+@table @kbd
+@kindex TAB
+@item TAB
+Display skills.  If the kid is associated with an enemy, it shows both
+fighters' skills, otherwise it only shows the kid's.
+
+@kindex CTRL+=
+@item CTRL+=
+Increment KCA skill.
+
+@kindex CTRL+-
+@item CTRL+-
+Decrement KCA skill.
+
+@kindex ALT+=
+@item ALT+=
+Increment KCD skill.
+
+@kindex ALT+-
+@item ALT+-
+Decrement KCD skill.
+@end table
+
+@node Level navigation
+@section Level navigation
+@cindex level navigation key bindings
+@cindex key bindings, level navigation
+@cindex camera moving
+@cindex moving camera
+@cindex room coordinates
+@cindex coordinates, room
+
+These key bindings allow the user to move the camera around the level,
+making it possible to view any room linked to the current one without
+having to move the kid there.  Notice that if the kid enters the room
+the camera is on, it starts following him again.  There is also a couple
+of key bindings intended to show room coordinates, which is useful when
+building levels.
+
+@table @kbd
+@kindex H
+@item H
+Move the camera to the room at left (right if the screen is flipped
+horizontally).
+
+@kindex J
+@item J
+Move the camera to the room at right (left if the screen is flipped
+horizontally).
+
+@kindex U
+@item U
+Move the camera to the room above (below if the screen is flipped
+vertically).
+
+@kindex N
+@item N
+Move the camera to the room below (above if the screen is flipped
+vertically).
+
+@kindex HOME
+@item HOME
+Move the camera back to the kid's room.
+
+@kindex C
+@item C
+Show direct coordinates.
+
+@kindex SHIFT+C
+@item SHIFT+C
+Show indirect coordinates.
+@end table
+
+@node Level editing key bindings
+@section Level editing
+@cindex level editing key bindings
+@cindex key bindings, level editing
+
+These key bindings are somehow related to level editing.  See @ref{Level
+editor} for in-depth coverage of level editing features.
+
+@table @kbd
+@kindex F8
+@item F8
+Enable/disable level editor.  This can also be accomplished by clicking
+with the first mouse button while the mouse cursor is within the game
+screen boundaries (even if it's not visible).
+
+@kindex CTRL+Z
+@item CTRL+Z
+@cindex undo level modification
+Undo the previous level modification done.  A description of the undone
+modification is displayed on the message line.  If there is no level
+modification to be undone @samp{NO FURTHER UNDO} is displayed on the
+message line.  This key binding can be used regardless of whether the
+level editor is enabled or disabled.
+
+@kindex CTRL+Y
+@item CTRL+Y
+@cindex redo level modification
+Redo the next level modification undone.  A description of the redone
+modification is displayed on the message line.  If there is no level
+modification to be redone @samp{NO FURTHER REDO} is displayed on the
+message line.  This key binding can be used regardless of whether the
+level editor is enabled or disabled.
+@end table
+
+
+@node Files
+@section Files
+@cindex files key bindings
+@cindex key bindings, files
+
+These key bindings are used to save and load configuration files.  They
+open a platform-dependent file choosing dialog.  Notice that save files
+are a particular case of configuration files and should be loaded the
+same way.  When loaded in-game, configuration files take effect
+immediately, however some effects only become visible under certain
+conditions.  For instance save files show their effect only on game
+(re)start.
+
+@table @kbd
+@kindex CTRL+L
+@cindex @code{--load-config}, related key binding
+@item CTRL+L
+Load configuration.  Related to option @option{--load-config}.
+
+@kindex CTRL+G
+@item CTRL+G
+Save game.
+@end table
+
+@node Peripherals
+@section Peripherals
+@cindex peripherals key bindings
+@cindex key bindings, peripherals
+
+These key bindings allow the user to tune hardware peripherals that work
+with the game.
+
+@table @kbd
+@kindex F
+@cindex @code{--fullscreen}, related key binding
+@item F
+Toggle fullscreen mode.  In fullscreen mode the window spans the entire
+screen.  The default is to have a window of 640x400 resolution.  Related
+to option @option{--fullscreen}.
+
+@kindex SHIFT+I
+@cindex @code{--display-flip-mode}, related key binding
+@item SHIFT+I
+Select display flip mode.  This circulates around the modes: ``NONE'',
+``VERTICAL'', ``HORIZONTAL'' and ``VERTICAL + HORIZONTAL''.  The default
+is ``NONE''.  Related to option @option{--display-flip-mode}.
+
+@kindex SHIFT+K
+@cindex @code{--gamepad-flip-mode}, related key binding
+@item SHIFT+K
+Select gamepad flip mode.  This circulates around the modes: ``NONE'',
+``VERTICAL'', ``HORIZONTAL'' and ``VERTICAL + HORIZONTAL''.  The default
+is ``NONE''.  Related to option @option{--gamepad-flip-mode}.
+
+@kindex CTRL+J
+@item CTRL+J
+@cindex joystick calibration
+@cindex calibration, joystick
+@cindex @code{--joystick-axis-threshold}, related key binding
+@cindex @code{--joystick-button-threshold}, related key binding
+Activate and auto-calibrate joystick.  Use this when hot-plugging a
+joystick or in case the joystick starts to behave oddly.  @xref{Gamepad
+options}.
+
+@kindex CTRL+S
+@cindex @code{--sound}, related key binding
+@item CTRL+S
+Toggle sound.  The default is to have sound enabled.  Related to option
+@option{--sound}.
+@end table
+
+@node Miscellaneous
+@section Miscellaneous
+@cindex miscellaneous key bindings
+@cindex key bindings, miscellaneous
+
+These are key bindings that don't fit in any other category.
+
+@table @kbd
+@kindex CTRL+V
+@cindex @code{--version}, related key binding
+@item CTRL+V
+Show engine name and version.  Related to option @option{--version}.
+@end table
+
+
+
+
+@c --- Configuration;
+@node Configuration
+@chapter Configuration
+@cindex configuration
+
+@cindex command line options
+@cindex environment variables
+@cindex configuration files
+MININIM can be easily setup to match user's preferences regarding the
+way the game looks and behaves.  It features an integrated configuration
+system which offers three distinct interfaces: @emph{command line
+options}, @emph{environment variables} and @emph{configuration files}.
+
+The configuration system uses the command line options parser as the
+central interpreter for the configuration process.  Providing a single
+options parsing routine allows for easy maintenance, equivalence between
+methods and a canonical interface for integrating future methods.  For
+this end, each configuration option backend implements a translator
+between its specifics of option representation and access, to a normal
+command line array.  Then the resulting options are roughly processed as
+if they were given at the engine invocation command line.
+
+As the options are the same for all three current methods of
+configuration, and all of them are in essence processed as command line
+options, it's unnecessary to describe all options for each separately.
+Therefore, we provide a simple systematic rule for converting between
+method option names and their command line equivalents, and then
+describe only the latter.
+
+@cindex option name conversion
+@cindex conversion, option name
+The rule for option naming conversion is very simple: for every command
+line option of the form @option{x-y} there is an equivalent environment
+variable option @env{MININIM_X_Y} and an equivalent configuration file
+option @samp{x y}.
+
+The multiple methods of configuration are cumulative but command line
+options override any other, while environment variables override the
+main configuration file.  In any method applicable later options
+override earlier ones.  The option @option{--print-paths} shows, among
+other things, the expected file name of the main configuration file.
+Configuration files have INI format without any sections, like this:
+
+@example
+option 0 = value 0
+...
+option n = value n
+@end example
+
+Notice that many options can be changed on the fly by key binding
+counterparts. @xref{Key bindings}.
+
+The following remarks apply to the options list in this chapter:
+
+@itemize
+@item Long option names are case sensitive.
+
+@item Option values are case insensitive.
+
+@item Both can be partially specified as long as they are kept
+unambiguous.
+
+@item @var{boolean} is an integer equating to @samp{0}, or any sub-string
+(including the null string) of @samp{FALSE}, @samp{OFF} or @samp{NO} to
+disable the respective feature, and any other value (even no string at
+all) to enable it.
+
+@item For any non-specified option the documented default
+applies.
+
+@item Integers can be specified in any of the formats defined by the
+C language.
+
+@item Key bindings references are based on the default mapping.
+@end itemize
+
+@cindex legacy command line arguments
+@cindex arguments, legacy command line
+@cindex command line arguments, legacy
+@cindex legacy options
+@cindex options, legacy
+The legacy command line interface present in versions 1.0, 1.3 and 1.4
+of the original game is supported for the sake of compatibility with
+software that use it.  Legacy level and video non-option arguments are
+honored, while all others are currently ignored silently.  The legacy
+arguments can't be used by other configuration method besides the
+command line.  The legacy command line arguments are:
+
+@itemize
+@optindex megahit
+@optindex improved
+@item @strong{Cheat:} @option{megahit}, @option{improved};
+@optindex adlib
+@optindex compuadd
+@optindex covox
+@optindex digi
+@optindex disney
+@optindex gblast
+@optindex ibmg
+@optindex midi
+@optindex mvpas
+@optindex sblast
+@optindex stdsnd
+@optindex tandy
+@item @strong{Audio:} @option{adlib}, @option{compuadd}, @option{covox},
+@option{digi}, @option{disney}, @option{gblast}, @option{ibmg},
+@option{midi}, @option{mvpas}, @option{sblast}, @option{stdsnd},
+@option{tandy};
+@optindex cga
+@optindex draw
+@optindex ega
+@optindex herc
+@optindex hga
+@optindex mcga
+@optindex tga
+@optindex vga
+@item @strong{Video:} @option{cga}, @option{draw}, @option{ega},
+@option{herc}, @option{hga}, @option{mcga}, @option{tga}, @option{vga};
+@optindex bypass
+@optindex pack
+@optindex unpack
+@optindex demo
+@optindex j
+@item @strong{Memory:} @option{bypass}, @option{pack}, @option{unpack},
+@option{demo}, @option{j};
+@end itemize
+
+These are case insensitive.  Additionally specifying a standalone
+integer @var{i} is equivalent to passing the option
+@option{--start-level=i}.  Unlike the original game, there is no
+dependence between any two arguments (like start level and cheat
+arguments).
+
+
+@node Configuration options
+@section Configuration options
+@cindex configuration options
+@cindex options, configuration
+
+@table @option
+@optindex --ignore-environment
+@item --ignore-environment
+Ignore environment variables.  The default is to parse them after the
+main configuration file.
+
+@optindex --ignore-main-config
+@item --ignore-main-config
+Ignore main configuration file.  The default is to parse it at the very
+beginning of each run.
+
+@optindex --load-config
+@cindex @kbd{CTRL+L}, related option
+@item --load-config=FILE
+Load configuration file @var{file}.  The options set in @var{file} have
+the same precedence as the equivalent command line options given at its
+place of occurrence.  This can be done in-game by the @kbd{CTRL+L} key
+binding.
+@end table
+
+
+@node Level options
+@section Level options
+@cindex level options
+@cindex options, level
+
+@table @option
+@optindex --convert-levels
+@cindex @kbd{E>LV}, related option
+@item --convert-levels
+Batch convert levels 1 to 14 accessible by the current level module to
+the native format and exit.  The levels are saved in the user data
+directory, where they take precedence over levels in every other
+location.  When using this option there is no point in using any other
+options besides @option{--level-module} that must occur before this to
+take effect.  The user can accomplish a similar result in-game on a per
+level basis by using the @kbd{E>LS} command.  Notice that in this case
+any changes made to the level by special events (or otherwise) before
+the user triggers the save command will be retained.
+
+@optindex --level-module
+@cindex @samp{NATIVE} level module
+@cindex level module, @samp{NATIVE}
+@cindex @samp{LEGACY} level module
+@cindex level module, @samp{LEGACY}
+@cindex @samp{PLV} level module
+@cindex level module, @samp{PLV}
+@cindex @samp{DAT} level module
+@cindex level module, @samp{DAT}
+@cindex @samp{CONSISTENCY} level module
+@cindex level module, @samp{CONSISTENCY}
+@item --level-module=LEVEL-MODULE
+Select level module.  A level module determines a way to generate
+consecutive levels for use by the engine.  Valid values for
+@var{level-module} are: @samp{NATIVE}, @samp{LEGACY}, @samp{PLV},
+@samp{DAT} and @samp{CONSISTENCY}.  @samp{NATIVE} is the module designed
+to read the native format that supports all features.  @samp{LEGACY} is
+the module designed to read the original @acronym{PoP, Prince of Persia}
+1 raw level files.  @samp{PLV} is the module designed to read the
+original PoP 1 @code{PLV} extended level files.  @samp{DAT} is the
+module designed to read the original PoP 1 @file{LEVELS.DAT} file.
+@samp{CONSISTENCY} is the module designed to generate random-corrected
+levels for accessing the engine robustness.  The default is
+@samp{NATIVE}.
+
+@optindex --start-level
+@cindex @kbd{SHIFT+L}, related option
+@cindex @kbd{SHIFT+M}, related option
+@item --start-level=N
+Make the kid start at level @var{n}.  The default is @samp{1}.  Valid
+integers range from @samp{1} to @code{INT_MAX}.  This can be changed
+in-game by the @kbd{SHIFT+L} and @kbd{SHIFT+M} key binding.
+
+@optindex --start-pos
+@cindex position, option
+@cindex option position
+@item --start-pos=R,F,P
+Make the kid start at room @var{r}, floor @var{f} and place @var{p}.
+The default is to let this decision to the level module.  @var{r} is an
+integer ranging from 1 to @code{INT_MAX}, @var{f} is an integer ranging
+from 0 to 2 and @var{p} is an integer ranging from 0 to 9.
+@xref{Constructions}.
+@end table
+
+@cindex @file{LEVELS.DAT}
+If the option @option{--level-module} is not given and there is a
+@file{LEVELS.DAT} file in the working directory, the DAT level module is
+automatically used to load that file.  This is a compatibility measure
+for applications which depend upon this legacy behavior.
+
+
+@node Time options
+@section Time options
+@cindex time options
+@cindex options, time
+
+@table @option
+@optindex --start-time
+@item --start-time=N
+Set the play time counter to @var{n} seconds.  The default is @samp{0}.  Valid
+integers range from @samp{0} to @code{INT_MAX}.
+
+@optindex --time-limit
+@cindex @kbd{+}, related option
+@cindex @kbd{-}, related option
+@item --time-limit=N
+Set the time limit to complete the game to @var{n} seconds.  The default
+is @samp{3600} (1 hour).  Valid integers range from @samp{1} to
+@code{INT_MAX}.  This can be changed in-game by the @kbd{+} and @kbd{-}
+key bindings.
+@end table
+
+
+@node Skills options
+@section Skills options
+@cindex skills options
+@cindex options, skills
+
+@table @option
+@optindex --immortal-mode
+@cindex @kbd{I}, related option
+@item --immortal-mode[=BOOLEAN]
+Enable/disable immortal mode.  In immortal mode the kid can't be harmed.
+The default is @samp{FALSE}.  This can be changed in-game by the @kbd{I}
+key binding.
+
+@optindex --kca
+@cindex @kbd{CTRL+=}, related option
+@cindex @kbd{CTRL+-}, related option
+@item --kca=N
+Set kid's counter attack skill to @var{n}.  The default is @samp{0}.
+Valid integers range from @samp{0} to @samp{100}.  This can be changed
+in-game by the @kbd{CTRL+=} and @kbd{CTRL+-} key bindings.
+
+@optindex --kcd
+@cindex @kbd{ALT+=}, related option
+@cindex @kbd{ALT+-}, related option
+@item --kcd=N
+Set kid's counter defense skill to @var{n}.  The default is @samp{0}.
+Valid integers range from @samp{0} to @samp{100}.  This can be changed
+in-game by the @kbd{ALT+=} and @kbd{ALT+-} key bindings.
+
+@optindex --total-lives
+@cindex @kbd{SHIFT+T}, related option
+@item --total-lives=N
+Make the kid start with @var{n} total lives.  The default is @samp{3}.
+Valid integers range from @samp{1} to @samp{10}.  This can be changed
+in-game by the @kbd{SHIFT+T} key binding.
+@end table
+
+
+@node Rendering options
+@section Rendering options
+@cindex rendering options
+@cindex options, rendering
+
+@table @option
+@optindex --blind-mode
+@cindex @kbd{SHIFT+B}, related option
+@item --blind-mode[=BOOLEAN]
+Enable/disable blind mode.  In blind mode background and non-animated
+sprites are not drawn.  The default is @samp{FALSE}.  This can be
+changed in-game by the @kbd{SHIFT+B} key binding.
+
+@optindex --display-flip-mode
+@cindex @kbd{SHIFT+I}, related option
+@item --display-flip-mode=DISPLAY-FLIP-MODE
+Select display flip mode.  Valid values for @var{display-flip-mode} are:
+@samp{NONE}, @samp{VERTICAL}, @samp{HORIZONTAL} and
+@samp{VERTICAL-HORIZONTAL}.  The default is @samp{NONE}.  This can be
+changed in-game by the @kbd{SHIFT+I} key binding.
+
+@optindex --environment-mode
+@cindex @kbd{F11}, related option
+@item --environment-mode=ENVIRONMENT-MODE
+Select environment mode.  Valid values for @var{environment-mode} are:
+@samp{ORIGINAL}, @samp{DUNGEON} and @samp{PALACE}.  The @samp{ORIGINAL}
+value gives level modules autonomy in this choice for each particular
+level.  This is the default.  This can be changed in-game by the
+@kbd{F11} key binding.
+
+@optindex --guard-mode
+@cindex @kbd{F10}, related option
+@item --guard-mode=GUARD-MODE
+Select guard mode.  Valid values for @var{guard-mode} are:
+@samp{ORIGINAL}, @samp{GUARD}, @samp{FAT-GUARD}, @samp{VIZIER},
+@samp{SKELETON} and @samp{SHADOW}.  The @samp{ORIGINAL} value gives
+level modules autonomy in this choice for each particular guard.  This
+is the default.  This can be changed in-game by the @kbd{F10} key
+binding.
+
+@optindex --hue-mode
+@cindex @kbd{F9}, related option
+@item --hue-mode=HUE-MODE
+Select hue mode.  Valid values for @var{hue-mode} are: @samp{ORIGINAL},
+@samp{NONE}, @samp{GREEN}, @samp{GRAY}, @samp{YELLOW} and @samp{BLUE}.
+The @samp{ORIGINAL} value gives level modules autonomy in this choice
+for each particular level.  This is the default.  For the classic
+behavior of the first version of the original game use @samp{NONE}.
+This can be changed in-game by the @kbd{F9} key binding.
+
+@optindex --mirror-mode
+@cindex @kbd{SHIFT+I}, related option (mirror mode)
+@cindex @kbd{SHIFT+K}, related option (mirror mode)
+@item --mirror-mode[=BOOLEAN]
+Enable/disable mirror mode.  In mirror mode the screen and the keyboard
+are flipped horizontally.  This is equivalent of specifying both the
+options @option{--display-flip-mode=HORIZONTAL} and
+@option{--gamepad-flip-mode=HORIZONTAL}.  The default is @samp{FALSE}.
+This can be changed in-game by the @kbd{SHIFT+I} and @kbd{SHIFT+K} key
+bindings for the display and gamepad, respectively.
+
+@optindex --video-mode
+@cindex @kbd{F12}, related option
+@item --video-mode=VIDEO-MODE
+Select video mode.  Valid values for @var{video-mode} are: @samp{VGA},
+@samp{EGA}, @samp{CGA} and @samp{HGC}.  The default is @samp{VGA}.  This
+can be changed in-game by the @kbd{F12} key binding.
+@end table
+
+@node Gamepad options
+@section Gamepad options
+@cindex gamepad options
+@cindex options, gamepad
+@cindex joystick options
+@cindex options, joystick
+@cindex keyboard options
+@cindex options, keyboard
+
+Gamepad is an umbrella term used in MININIM to describe any hardware
+device that enables the user to control the kid's movements.  Currently,
+there is support for two classes of gamepads: @emph{keyboard} and
+@emph{joystick}.
+
+The primary joystick's axis and button numbers are listed by the option
+@option{--joystick-info}.  The user can find out the number of a
+particular axis or button by pressing it before invoking MININIM with
+that option.  If a stick, axis or button given to an option doesn't
+exist in the primary joystick, it's silently ignored.  The joystick can
+be activated and auto-calibrated in-game by the @kbd{CTRL+J} key
+binding.  @xref{Peripherals}.  If the joystick is peculiar enough,
+proving the auto-calibration mechanism insufficient, the
+@option{--joystick-axis-threshold} and
+@option{--joystick-button-threshold} options may help.
+
+@table @option
+@optindex --gamepad-flip-mode
+@cindex @kbd{SHIFT+K}, related option
+@item --gamepad-flip-mode=GAMEPAD-FLIP-MODE
+Select gamepad flip mode.  Valid values for @var{gamepad-flip-mode}
+are: @samp{NONE}, @samp{VERTICAL}, @samp{HORIZONTAL} and
+@samp{VERTICAL-HORIZONTAL}.  The default is @samp{NONE}.  This can be
+changed in-game by the @kbd{SHIFT+K} key binding.
+
+@optindex --joystick-axis
+@item --joystick-axis=FUNC,STICK,AXIS
+Map function @var{func} to joystick axis @var{stick,axis}.  Valid values
+for @var{func} are: @samp{H} and @samp{V}.  @var{stick,axis} is a valid
+stick and axis pair.  The default @var{stick,axis} for @samp{H} is
+@samp{0,0} and for @samp{V} is @samp{0,1}.
+
+@optindex --joystick-axis-threshold
+@cindex @kbd{CTRL+J}, related option
+@item --joystick-axis-threshold=FUNC,VALUE
+Set joystick threshold to @var{value} for the axis mapped to @var{func}.
+Valid values for @var{func} are @samp{H} and @samp{V}.  @var{value} is a
+floating point ranging from @math{0.0} to @math{1.0}.  The default
+@var{value} for @samp{H} is @math{0.1} and for @samp{Y} is @math{0.8}.
+
+@optindex --joystick-button
+@item --joystick-button=FUNC,BUTTON
+Map function @var{func} to joystick button @var{button}.  Valid values
+for @var{func} are: @samp{UP}, @samp{RIGHT}, @samp{DOWN}, @samp{LEFT},
+@samp{ENTER}, @samp{SHIFT}, @samp{TIME}, @samp{PAUSE}.  @var{button} is
+a valid joystick button number.  The default @var{button} values are 0,
+1, 2, 3, 4, 5, 8 and 9, respectively.
+
+@optindex --joystick-button-threshold
+@cindex @kbd{CTRL+J}, related option
+@item --joystick-button-threshold=FUNC,VALUE
+Set joystick threshold to @var{value} for the button mapped to
+@var{func}.  Valid values for @var{func} are: @samp{UP}, @samp{RIGHT},
+@samp{DOWN}, @samp{LEFT}, @samp{ENTER}, @samp{SHIFT}.  @var{value} is an
+integer ranging from 0 to 32767.  The default @var{value} for any
+function is 100.
+
+@optindex --joystick-info
+@item --joystick-info
+Print information about the primary joystick and exit.
+@end table
+
+
+@node Window options
+@section Window options
+@cindex window options
+@cindex options, window
+
+@table @option
+@optindex --fullscreen
+@cindex @kbd{F}, related option
+@item --fullscreen[=BOOLEAN]
+Enable/disable fullscreen mode.  In fullscreen mode the window spans the
+entire screen.  The default is @samp{FALSE}.  This can be changed
+in-game by the @kbd{F} key binding.
+
+@optindex --window-dimensions
+@item --window-dimensions=WxH
+Set window width and height to @var{w} and @var{h}, respectively.  The
+default is @samp{640x400}.  The values @var{w} and @var{h} are strictly
+positive integers and must be separated by an @samp{x}.
+
+@optindex --window-position
+@item --window-position=X,Y
+Place the window at screen coordinates @var{x,y}.  The default is to let
+this choice to the window manager.  The values @var{x} and @var{y} are
+integers and must be separated by a comma.
+@end table
+
+
+@node Path options
+@section Path options
+@cindex path options
+@cindex options, path
+
+@table @option
+@optindex --data-path
+@item --data-path=PATH
+Set data path to @var{path}.  Normally, the data files are looked for in
+the user data directory, then in the current working directory, then in
+the resources directory, and finally in the system data directory.  If
+this option is given, after looking in the user data directory the data
+files are looked for in @var{path}.
+
+@optindex --print-paths
+@item --print-paths
+Print paths and exit.
+@end table
+
+
+@node Other options
+@section Other options
+@cindex other options
+@cindex options, other
+
+@table @option
+@optindex --inhibit-screensaver
+@item --inhibit-screensaver[=BOOLEAN]
+Prevent the system screensaver from starting up.  The default is
+@samp{TRUE}.
+
+@optindex --skip-title
+@item --skip-title[=BOOLEAN]
+Skip title screen.  The default is @samp{FALSE}.
+
+@optindex --sound
+@cindex @kbd{CTRL+S}, related option
+@item --sound[=BOOLEAN]
+Enable/disable sound.  The default is @samp{TRUE}.  This can be changed
+in-game by the @kbd{CTRL+S} key binding.
+@end table
+
+
+@node Help options
+@section Help options
+@cindex help options
+@cindex options, help
+
+@table @option
+@optindex -?
+@optindex --help
+@item -?
+@itemx --help
+Print options list and exit
+
+@optindex --usage
+@item --usage
+Print a short usage message and exit
+
+@optindex -V
+@optindex --version
+@item -V
+@itemx --version
+Print program name and version and exit
+@end table
+
+
+
+
+
+@c --- Menu system;
+@node Menu system
+@chapter Menu system
+@cindex menu system
+
+MININIM features an uniform@footnote{As the menu system is uniform we
+describe its general behavior and expected interface of interaction in
+this chapter and let the chapters intended to describe major features
+which make use of it, to focus on the specifics details of their subject
+matter.} and non-intrusive bottom-line menu interface intended as a way
+to provide quick and convenient access to engine features that would be
+utterly complex or unfeasible to provide as simple key bindings, and
+couldn't be offered by the configuration system because of their dynamic
+on-the-fly characteristics.
+
+When active the menu system makes use of the bottom line that is
+traditionally used for transitory messages.  It looks like this:
+
+@center @kbd{ABCDEF?}
+
+Each capital letter indicates which key triggers the related @dfn{menu
+command} (case insensitive).  Each menu command may be terminal or
+non-terminal.  @dfn{Terminal menu commands} execute an action right away
+when the user presses its correspondent key, while @dfn{non-terminal
+menu commands} open a sub-menu with further menu commands to choose
+from.  In principle, non-terminal menu commands may nest to arbitrary
+depth.  A terminal menu command may be either an @dfn{input command} or
+a @dfn{non-input command}.  The former puts the bottom line in input
+mode, so the user can enter a value expected by the command, while the
+latter needs no further information to perform its action.  There are a
+few specialized input modes that are described in the following
+sections.  Although capital letters usually represent the initials of
+the related command, they have no universal or intrinsic meaning, and
+are freely reused within sub-menus and may have been chosen arbitrarily
+in case they were ambiguous.
+
+The @kbd{?} key is present in every menu because it's special: it's used
+to query the exact command performed by a given key.  When pressed the
+bottom line says: @samp{PRESS KEY FOR HELP}.  Then, if any key expected
+by the current menu is pressed, the description of the command performed
+by it is given.  In case it's a non-terminal command, the description
+ends with the @samp{>} character.  Otherwise, if it's an input command,
+the description ends with the @samp{<} character.  Some commands may be
+terminal or non-terminal, input or non-input, depending upon some
+context like the mouse selection.  These have their descriptions ended
+by the @samp{*} character.  The current menu comes back into view, in
+case the user presses any key invalid for it.
+
+Usually every menu command has a path prefix, indicating where in the
+menu hierarchy it's located.  Consider the following menu system bottom
+line:
+
+@center @kbd{HYT>KJQTW?}
+
+The @samp{HYT} string before the @samp{>} character is the @dfn{menu
+path}.  It says the current menu is three levels deep, and its direct
+parent is @samp{T}, whose parent in turn is @samp{Y}, whose parent in
+turn is @samp{H}, which is located in the topmost menu.  By looking at
+the menu path the user can figure out if he is actually where he's
+supposed to, and how to quickly get there again from the topmost menu.
+Sometimes a path prefix may contain digits indicating the index of the
+object to which the menu commands apply, usually having a command to
+change the selected index.  This is a provision to facilitate the
+manipulation of a multitude of objects whose mechanism of selection
+doesn't give ubiquitous visual feedback.
+
+A similar notation is used for unequivocal and brief menu command
+references in documentation.  Each top level menu is associated with a
+capital letter --- the level editor menu is associated with @samp{E},
+for instance.  If we want to describe the command to change the
+foreground construction to @code{BIG_PILLAR_TOP}, for example, we take
+its path prefix, @samp{CFPT} and prefix it with the top level menu
+letter @samp{E}, like this: @samp{E>CFPT}.
+
+There are two universal keys (called @dfn{menu return keys}) that allow
+the user to go up into the menu hierarchy, from any type of command:
+@kbd{BACKSPACE} and @kbd{/}.  The difference between both is that the
+former ``confirms'' before returning, while the latter doesn't.  What
+``to confirm'' means is dependent on the specific context and input mode
+of the command at hand, but the general principle is that ``to confirm''
+implies in a change of state.  In cases where no change of state is
+involved, like a common non-terminal (sub-menu) command, both keys can
+be used interchangeably.  Holding down any menu return key for a second
+or so, gets the user back to the topmost menu.
+
+While the menu system is active any key bindings that doesn't conflict
+with its input methods continue to work as usual.  However, the menu
+system takes precedence over the others, like the ones consisting of
+alpha-numeric keys or any other keys with a special meaning, like
+@kbd{?}, @kbd{BACKSPACE} and @kbd{/}.  In order for well established,
+but conflicting key bindings to be easily accessed when working with the
+menu system, the menu persistence comes in hand.  The menu system always
+remembers the last command invoked, so the menu is restored to the same
+state it was before being deactivated.  This allows for a fast
+alternation between menu-based and key binding-based commands in tasks
+that require both, like navigating through and editing a level.
+
+The menu system never takes over the kid control keys, so the game can
+be played while it's active.  On the other hand, it completely takes
+over the transitory message bottom line, so even though a certain key
+binding may take effect, any message that it usually shows on the bottom
+line is suppressed.
+
+@iftex
+@page
+@end iftex
+
+@node Mouse selection
+@section Mouse selection
+@cindex mouse selection
+@cindex selection, mouse
+
+Often menu commands apply to a particular place within a level.  The
+provided mechanism to select such a place is called @dfn{mouse
+selection}.  While it's enabled the mouse cursor can be used to select a
+particular place by simply pointing at the construction held by it.  The
+selected place's construction will be shown in a brighter or darker
+color than its surroundings (depending upon the video and environment
+modes) like in the picture below.
+
+@center @image{mininim-figures/mouse-selection}
+
+As the user moves the cursor across the screen, the limits of each
+selected place is determined by which construction it holds, roughly
+considering the depth of the region the cursor points to.
+
+It's easy to apply a place-targeting command to a whole contiguous
+region of the current room by simply holding down the command key while
+moving the mouse cursor through each one of its places.  For example, a
+common application of this is to quickly populate a room with walls and
+normal floors before changing smaller details when editing a level.
+
+Mouse selection is also used by menu commands to give visual feedback on
+the placement of a particular object within the game world.  Some
+commands move the mouse selection arbitrarily and lock it on a
+particular object, so the user doesn't interfere with their
+selection-based report mechanism until them return.  In case these
+commands need to report a nonexistent or invalid place (or object) they
+lock the mouse cursor on the screen's very top left, meaning that the
+mouse selection is pointing nowhere.  The mouse selection stores all
+coordinates of a place within a level, meaning that commands may change
+the currently displayed room as well, when moving or restoring the mouse
+selection.
+
+The mouse selection can't be used to select constructions of the rooms
+above and below while at the current room, because the topmost pixels
+are reserved to selection pointing nowhere and the bottom region to the
+message line and menu system.
+
+The mouse cursor changes to indicate conditions related to the the mouse
+selection and the menu system.  Four different cursors are used for this
+purpose, that (unless otherwise noted) have the following meanings:
+
+@table @code
+@item DEFAULT
+no other situation applies
+@item LINK
+the current menu command expects or sets a valid mouse selection
+@item QUESTION
+the current menu command expects input
+@item UNAVAILABLE
+the mouse selection or some object selected using the menu system is
+somehow invalid
+@end table
+
+While the mouse selection is enabled the horizontal and vertical mouse
+wheels may be used to navigate through linked rooms.  Rolling the
+horizontal wheel changes the currently displayed room to the room at
+left or right, depending upon direction.  The vertical wheel works in a
+similar fashion for the rooms above and below.  Holding @kbd{CTRL} while
+rolling either of the wheels invert their meaning, that is, the
+horizontal wheel becomes vertical and vice-versa.  This way, if the
+user's mouse has only one wheel, he can simulate the missing one by
+holding @kbd{CTRL}.  While the mouse selection is enabled, the third
+mouse button (usually the one activated by pressing the vertical wheel)
+sets the currently selected room to the one the kid is in.  It's also
+possible to navigate through linked rooms by using key bindings.
+@xref{Level navigation}.  However, this requires the menu system to be
+disabled first.
+
+The mouse selection honors the display flip mode and the mouse wheels
+honor the gamepad flip mode.  @xref{Peripherals}.
+
+@node Input modes
+@section Input modes
+@cindex input modes
+@cindex modes, input
+
+All input terminal commands use one of the input modes described in this
+section in a way or another.  The input mode defines the type of
+parameter expected by the command and the input interface for setting
+it.  User input is processed in real time and the commands give visual
+feedback usually in the form of changes in mouse selection and message
+line status.  In this chapter the input modes are briefly described in
+the next sections following the layout:
+
+@enumerate
+@item General output look of the particular input mode in the message
+line.
+@item Definition table that explains the meaning of each output field.
+@item Input table that lists the valid keys and their effect on the
+input mode.
+@item Brief description and remarks about the input mode.
+@end enumerate
+
+
+@node Integer input
+@subsection Integer input
+@cindex integer input
+@cindex input, integer
+
+@cartouche
+@center @kbd{pref>par min-max:i b}
+@end cartouche
+
+@table @var
+@item pref
+command prefix
+@item par
+name of the parameter
+@item min
+minimum acceptable value
+@item max
+maximum acceptable value.  @samp{>} for @code{INT_MAX} (largest
+representable integer);
+@item i
+current value.  Its always kept between @var{min} and @var{max}
+inclusive.
+@item b
+auxiliary boolean parameter.  Its meaning is command dependent.
+@samp{-} means disabled and any other capital letter (which often
+suggests the meaning) is enabled.  It may not be used in which case
+nothing is shown in this field.
+@end table
+
+@cartouche
+@center @noindent @strong{KEYS}
+@end cartouche
+
+@table @kbd
+@item -
+@itemx _
+decrement @var{i}
+@item +
+@itemx =
+increment @var{i}
+@item 0..9
+enter decimal value directly
+@item \
+delete least significant decimal digit
+@item N
+negates @var{i}
+@item SPACE
+toggle auxiliary boolean parameter.  Only effective if the auxiliary
+boolean parameter is used and is not read-only.
+@item BACKSPACE
+confirm and return
+@item /
+return
+@end table
+
+This is the canonical input mode for setting integer parameters.  It
+processes user input in such a way that it's impossible to enter an
+integer outside the expected range.  The integer may be inputted
+directly, useful in cases the user want to input a value significantly
+far from the current one and doesn't care about any visual feedback for
+values in between, or may otherwise be incremented or decremented one by
+one.
+
+If present, an auxiliary boolean parameter somehow associated with the
+integer parameter may be set as well.  In some cases toggling it,
+effectively changes the acceptable range for the integer parameter.
+
+@node Boolean input
+@subsection Boolean input
+@cindex boolean input
+@cindex input, boolean
+
+@cartouche
+@center @kbd{pref>a-b*c-...?}
+@end cartouche
+
+@table @var
+@item pref
+command prefix
+@item a
+@itemx b
+@itemx c
+@itemx ...
+arbitrary number of parameters
+@item @kbd{-}
+respective parameter is disabled
+@item @kbd{*}
+respective parameter is enabled
+@item @kbd{?}
+description of parameters
+@end table
+
+@cartouche
+@center @noindent @strong{KEYS}
+@end cartouche
+
+@table @kbd
+@item a
+@itemx b
+@itemx c
+@itemx ...
+toggle the respective parameter
+@item ?
+help on a particular parameter.  Press this followed by the respective
+parameter key.
+@item BACKSPACE
+confirm and return
+@item /
+return
+@end table
+
+This input mode works similarly to a common non-terminal command, that
+is, a sub-menu.  The difference is that what would otherwise be commands
+are actually parameters which are toggled when the respective keys are
+pressed.  Boolean inputs have two forms: @dfn{exclusive} and
+@dfn{non-exclusive}.  In the former only one parameter may be enabled at
+a time, so enabling a parameter automatically disables all others
+(a.k.a. @dfn{radio buttons}).  The latter has no such restriction
+(a.k.a. @dfn{checklist}).
+
+@node List input
+@subsection List input
+@cindex list input
+@cindex input, list
+
+@cartouche
+@center @kbd{pref>par i +-<>}
+@end cartouche
+
+@table @var
+@item pref
+command prefix
+@item par
+name of the parameter
+@item i
+parameter index
+@item @kbd{-+}
+indicates that the keys @kbd{-} and @kbd{+} can be used to
+decrement/increment the first index
+@item @kbd{<>}
+indicates that the keys @kbd{<} and @kbd{>} can be used to
+decrement/increment the second index
+@end table
+
+@cartouche
+@center @noindent @strong{KEYS}
+@end cartouche
+
+@table @kbd
+@item -
+@itemx _
+decrement the first index. If already at the minimum index nothing
+happens.
+@item +
+@itemx =
+increment the first index.  If already at the maximum index nothing
+happens.
+@item ,
+@itemx <
+decrement the second index. If already at the minimum index nothing
+happens.
+@item .
+@itemx >
+increment the second index.  If already at the maximum index nothing
+happens.
+@item BACKSPACE
+confirm and return
+@item /
+return
+@end table
+
+This input mode is used to allow the user to walk through
+uni-dimensional and bi-dimensional lists of elements while receiving
+visual feedback, usually in the form of mouse selection and/or the
+parameter index.  When handling bi-dimensional lists, for each element
+in the first index there is possibly a list of elements in the second
+index.  For uni-dimensional lists, either index may be used.
+
+
+
+
+
+@c --- Level editor;
+@node Level editor
+@chapter Level editor
+@cindex level editor
+
+MININIM has a complete built-in level editor that enables the user to
+easily construct and modify levels on-the-fly, using the menu system
+interface (see @ref{Menu system}).  It gives the user quick and
+convenient access to the full potential of the engine and its native
+level format without quitting the playing mode, so the user can
+simultaneously build and test the levels.  MININIM also features
+unlimited undo/redo capability for modifications made to a level by
+playing or editing.  @xref{Level editing key bindings}.
+
+The level editor is enabled/disabled by clicking with the first mouse
+button while the mouse cursor is within the game screen (be it visible
+or not).  Alternatively, the user can use the @kbd{F8} key binding.  For
+a more convenient play-editing experience, the last menu state is always
+restored when enabling the level editor.  When enabled the mouse
+selection is always active (see @ref{Mouse selection}), the kid can be
+normally controlled and the game can be paused and unpaused freely.  The
+topmost level editor menu looks like this:
+
+@center @kbd{CERKGL}
+
+Each one of these menu commands and their sub-commands (recursively),
+are defined and explored in the following sections.
+
+
+@node Construction E>C
+@section Construction: E>C
+@cindex level editor, construction
+@cindex construction, level editor
+@mcindex E>C
+
+This non-terminal command has sub-commands for setting and querying the
+three intrinsic construction components: @emph{foreground},
+@emph{background} and @emph{extension}.  @xref{Constructions}.  All
+commands in this hierarchy applies to the selected construction.  If the
+mouse selection is pointing to nowhere when any command of this
+hierarchy is invoked, it displays @samp{SELECT CONSTRUCTION} on the
+message line and sets the mouse cursor to @code{UNAVAILABLE}.
+Otherwise, the mouse cursor is set to @code{LINK}, unless an input
+command is applicable, in which case it's set to @code{QUESTION}.
+
+@center @kbd{C>FBEIARHCP}
+
+@node Foreground E>CF
+@subsection Foreground: E>CF
+@cindex level editor, construction foreground
+@cindex construction foreground, level editor
+@mcindex E>CF
+
+This non-terminal command has sub-commands for all possible construction
+foregrounds.  Each immediate sub-command represents a construction
+foreground class as described in @ref{Foregrounds}.
+
+@center @kbd{CF>FPWDCMRA}
+
+The only terminal sub-commands are @kbd{W} (Wall), @kbd{C} (Chopper) and
+@kbd{M} (Mirror), because they represent classes with just one member.
+The remaining non-terminal commands are comprised solely of non-input
+commands, one for each member of the respective class.  Every non-input
+command in this hierarchy works in the same way: they immediately change
+the foreground of the selected construction.  The user may keep the
+respective command key pressed while moving the mouse selection around
+to easily apply a particular foreground to an wider region, as described
+in @ref{Mouse selection}.  This command hierarchy is structured as
+follows:
+
+@itemize
+@mcindex E>CFF
+@item @kbd{F} (Floor): @kbd{CFF>NFBSLPOCTH}.  @xref{Floors}.
+@table @kbd
+@mcindex E>CFFN
+@item N
+@code{NO_FLOOR}
+@mcindex E>CFFF
+@item F
+@code{FLOOR}
+@mcindex E>CFFB
+@item B
+@code{BROKEN_FLOOR}
+@mcindex E>CFFS
+@item S
+@code{SKELETON_FLOOR}
+@mcindex E>CFFL
+@item L
+@code{LOOSE_FLOOR}
+@mcindex E>CFFP
+@item P
+@code{SPIKES_FLOOR}
+@mcindex E>CFFO
+@item O
+@code{OPENER_FLOOR}
+@mcindex E>CFFC
+@item C
+@code{CLOSER_FLOOR}
+@mcindex E>CFFT
+@item T
+@code{STUCK_FLOOR}
+@mcindex E>CFFH
+@item H
+@code{HIDDEN_FLOOR}
+@end table
+
+@mcindex E>CFP
+@item @kbd{P} (Pillar): @kbd{CFP>PTBA}.  @xref{Pillars}.
+@table @kbd
+@mcindex E>CFPP
+@item P
+@code{PILLAR}
+@mcindex E>CFPT
+@item T
+@code{BIG_PILLAR_TOP}
+@mcindex E>CFPB
+@item B
+@code{BIG_PILLAR_BOTTOM}
+@mcindex E>CFPA
+@item A
+@code{ARCH_BOTTOM}
+@end table
+
+@mcindex E>CFW
+@item @kbd{W} @code{WALL}.  @xref{Wall}.
+
+@mcindex E>CFD
+@item @kbd{D} (Door): @kbd{CFD>DL}.  @xref{Doors}.
+@table @kbd
+@mcindex E>CFDD
+@item D
+@code{DOOR}
+@mcindex E>CFDL
+@item L
+@code{LEVEL_DOOR}
+@end table
+
+@mcindex E>CFC
+@item @kbd{C} @code{CHOPPER}.  @xref{Chopper}.
+
+@mcindex E>CFM
+@item @kbd{M} @code{MIRROR}.  @xref{Mirror}.
+
+@mcindex E>CFR
+@item @kbd{R} (Carpet): @kbd{CFR>CT}.  @xref{Carpets}.
+@table @kbd
+@mcindex E>CFRC
+@item C
+@code{CARPET}
+@mcindex E>CFRT
+@item T
+@code{TCARPET}
+@end table
+
+@mcindex E>CFA
+@item @kbd{A} (Arch): @kbd{CFA>MSLR}.  @xref{Arches}.
+@table @kbd
+@mcindex E>CFAM
+@item M
+@code{ARCH_TOP_MID}
+@mcindex E>CFAS
+@item S
+@code{ARCH_TOP_SMALL}
+@mcindex E>CFAL
+@item L
+@code{ARCH_TOP_LEFT}
+@mcindex E>CFAR
+@item R
+@code{ARCH_TOP_RIGHT}
+@end table
+@end itemize
+
+
+@node Background E>CB
+@subsection Background: E>CB
+@cindex level editor, construction background
+@cindex construction background, level editor
+@mcindex E>CB
+
+This non-terminal command has sub-commands for all possible construction
+backgrounds.  Each sub-command is non-input and represents a
+construction background as described in @ref{Backgrounds}.
+
+@center @kbd{CB>NG0123TWB}
+
+Every sub-command works in the same way: they immediately change the
+background of the selected construction.  The user may keep the
+respective command key pressed while moving the mouse selection around
+to easily apply a particular background to an wider region, as described
+in @ref{Mouse selection}.  These sub-commands have the following
+meanings:
+
+@table @kbd
+@mcindex E>CBN
+@item N
+@code{NO_BRICKS}
+@mcindex E>CBG
+@item G
+@code{NO_BG}
+@mcindex E>CB0
+@item 0
+@code{BRICKS_00}
+@mcindex E>CB1
+@item 1
+@code{BRICKS_01}
+@mcindex E>CB2
+@item 2
+@code{BRICKS_02}
+@mcindex E>CB3
+@item 3
+@code{BRICKS_03}
+@mcindex E>CBT
+@item T
+@code{TORCH}
+@mcindex E>CBW
+@item W
+@code{WINDOW}
+@mcindex E>CBB
+@item B
+@code{BALCONY}
+@end table
+
+@node Extension E>CE
+@subsection Extension: E>CE
+@cindex level editor, construction extension
+@cindex construction extension, level editor
+@mcindex E>CE
+
+As described in @ref{Constructions}, any given construction foreground
+may or may not use one among a handful of extensions.  Which
+construction use which extension (if any) and what it means is described
+throughout @ref{Foregrounds}.  On that ground, the behavior of this
+command depends upon the selected construction's foreground.  If the
+selected con doesn't use any extension @samp{NO@tie{}EXTENSION} is
+displayed on the message line and the mouse cursor is set to
+@code{UNAVAILABLE}.
+
+@node Item extension E>CE
+@subsubsection Item
+@cindex level editor, construction item extension
+@cindex construction item extension, level editor
+
+If the selected con uses the @emph{item extension} (@code{FLOOR}), this
+command is non-terminal:
+
+@center @kbd{CE>NESBPOFLAW}
+
+Each one of its sub-commands is non-input and corresponds to one of the
+items listed in @ref{Items}.  All of them work in the same way: they
+immediately change the extension of the selected construction.  They
+have the following meanings:
+
+@table @kbd
+@mcindex E>CEN
+@item N
+@code{NO_ITEM}
+@mcindex E>CEE
+@item E
+@code{EMPTY_POTION}
+@mcindex E>CES
+@item S
+@code{SMALL_LIFE_POTION}
+@mcindex E>CEB
+@item B
+@code{BIG_LIFE_POTION}
+@mcindex E>CEP
+@item P
+@code{SMALL_POISON_POTION}
+@mcindex E>CEO
+@item O
+@code{BIG_POISON_POTION}
+@mcindex E>CEF
+@item F
+@code{FLOAT_POTION}
+@mcindex E>CEL
+@item L
+@code{FLIP_POTION}
+@mcindex E>CEA
+@item A
+@code{ACTIVATION_POTION}
+@mcindex E>CEW
+@item W
+@code{SWORD}
+@end table
+
+@node Can't fall extension E>CE
+@subsubsection Can't fall
+@cindex level editor, construction can't fall extension
+@cindex construction can't fall extension, level editor
+
+If the selected con uses the @emph{can't fall extension}
+(@code{LOOSE_FLOOR}), this command is a boolean input (see @ref{Boolean
+input}) where @var{c} is the @emph{can't fall extension} boolean value:
+
+@center @kbd{CE>Cc?}
+
+Pressing @kbd{C} immediately toggles the @emph{can't fall extension} of
+the selected construction.
+
+@node Event extension E>CE
+@subsubsection Event
+@cindex level editor, construction event extension
+@cindex construction event extension, level editor
+
+If the selected con uses the @emph{event extension} (@code{OPENER_FLOOR}
+and @code{CLOSER_FLOOR}), this command is an integer input (see
+@ref{Integer input}):
+
+@center @kbd{CE>EVENT 0-255:i}
+
+Where @var{i} is the event currently triggered by the selected
+construction.  Changes in @var{I} takes effect immediately.
+
+@node Step extension E>CE
+@subsubsection Step
+@cindex level editor, construction step extension
+@cindex construction step extension, level editor
+
+If the selected con uses the @emph{step extension} (@code{SPIKES_FLOOR},
+@code{DOOR}, @code{LEVEL_DOOR} and @code{CHOPPER}), this command is an
+integer input (see @ref{Integer input}):
+
+@center @kbd{CE>STEP 0-max:i}
+
+Where @var{max} is the maximum acceptable step and @var{i} is the
+current step value of the selected construction.  Changes in @var{i}
+takes effect immediately, and the selected dynamic construction gives
+instant visual feedback.
+
+@node Design extension E>CE
+@subsubsection Design
+@cindex level editor, construction design extension
+@cindex construction design extension, level editor
+
+If the selected con uses the @emph{design extension} (@code{CARPET} and
+@code{TCARPET}), this command is non-terminal:
+
+@center @kbd{CE>01A} (@code{CARPET})
+@center @kbd{CE>01ABC} (@code{TCARPET})
+
+Each one of its sub-commands is non-input and corresponds to one of the
+carpet designs listed in @ref{Carpets}.  All of them work in the same
+way: they immediately change the extension of the selected construction.
+They have the following meanings:
+
+@table @kbd
+@mcindex E>CE0
+@item 0
+@code{CARPET_00}
+@mcindex E>CE1
+@item 1
+@code{CARPET_01}
+@mcindex E>CEA
+@item A
+@code{ARCH_CARPET_LEFT}
+@mcindex E>CEB
+@item B
+@code{ARCH_CARPET_RIGHT_00}
+@mcindex E>CEC
+@item C
+@code{ARCH_CARPET_RIGHT_01}
+@end table
+
+@node Info E>CI
+@subsection Info: E>CI
+@cindex level editor, construction info
+@cindex construction info, level editor
+@mcindex E>CI
+
+This non-input command prints on the message line the three components
+of the selected construction in the following format:
+
+@center @samp{FG/BG/EXT}
+
+Where @var{FG}, @var{BG} and @var{EXT} are the string representation of
+the selected con's foreground, background and extension, respectively.
+
+@node Clear E>CA
+@subsection Clear: E>CA
+@cindex level editor, clear construction
+@cindex construction clear, level editor
+@cindex clear construction, level editor
+@mcindex E>CA
+
+This non-input command immediately sets the selected construction to
+@code{NO_FLOOR/NO_BG}, making the place empty.  The user may keep the
+respective command key pressed while moving the mouse selection around
+to easily empty an wider region, as described in @ref{Mouse selection}.
+To clear the constructions of an entire room at once see @ref{Clear
+E>RA}.
+
+@node Random E>CR
+@subsection Random: E>CR
+@cindex level editor, random construction
+@cindex construction random, level editor
+@cindex random construction, level editor
+@mcindex E>CR
+
+This non-input command immediately sets the selected construction
+randomly to any possible combination of foreground and background.  The
+user may keep the respective command key pressed while moving the mouse
+selection around to easily randomize an wider region, as described in
+@ref{Mouse selection}.  To randomize the constructions of an entire room
+at once see @ref{Random E>RR}.
+
+@node Exchange cons E>CH
+@subsection Exchange cons: E>CH
+@cindex level editor, construction exchange
+@cindex construction exchange, level editor
+@mcindex E>CH
+
+This non-terminal command has sub-commands for exchanging two
+construction (swapping places) in their entirety: foreground, background
+and extension.  If any of the following positions are referencing either
+of the exchanging places, they are updated to point to the exchanged
+places.
+
+@itemize
+@item event position
+@item guard starting position
+@item kid starting position
+@item character instance position
+@end itemize
+
+Each sub-command is non-input and represents a particular place mapping.
+
+@center @kbd{CH>HVR}
+
+Every sub-command works in the same way: they immediately exchange the
+selected construction with the one given by its particular mapping.
+These sub-commands have the following meanings:
+
+@table @kbd
+@mcindex E>CHH
+@item H
+horizontal reflection.  Inverts the start facing direction of guards and
+the kid, and current facing direction of character instances as well.
+@mcindex E>CHV
+@item V
+vertical reflection
+@mcindex E>CHR
+@item R
+random place within the currently selected room
+@end table
+
+To apply the exchange to constructions of an entire room see
+@ref{Exchange cons E>RH}.
+
+@node Copy E>CC
+@subsection Copy: E>CC
+@cindex level editor, construction copy
+@cindex copy construction, level editor
+@cindex construction copy, level editor
+@mcindex E>CC
+
+This is a non-input command intended to copy the selected construction
+in its entirety (foreground, background and extension) to a temporary
+memory area so it can later be retrieved and pasted elsewhere (see
+@ref{Paste E>CP}).  After invoked it briefly displays on the message
+line @samp{COPIED} to indicate that the selected con has been
+successfully stored.  Notice that only one construction can be held at a
+time, so further invocations replace previously stored cons.  The
+construction originally held in the temporary area---before the first
+successful invocation of this command---is @code{NO_FLOOR/NO_BG}.  To
+copy the constructions of an entire room see @ref{Copy E>RC}.
+
+@node Paste E>CP
+@subsection Paste: E>CP
+@cindex level editor, construction paste
+@cindex paste construction, level editor
+@cindex construction paste, level editor
+@cindex E>CP
+
+This is a non-input command intended to paste a previously copied
+construction over the selected one (see @ref{Copy E>CC}).  After invoked
+it immediately replaces the selected construction.  The user may keep
+the respective command key pressed while moving the mouse selection
+around to easily paste the same con onto an wider region, as described
+in @ref{Mouse selection}.  To paste the constructions of an entire room
+see @ref{Paste E>RP}.
+
+@node Event E>E
+@section Event: E>E
+@cindex level editor, event
+@cindex event, level editor
+
+Consider the figure below where @var{F} denotes an opener or closer
+floor, @var{E} denotes an event and @var{D} denotes a door or level
+door.
+
+@center @image{mininim-figures/events}
+
+Each opener and closer floor is actively associated with one (and only
+one) event (by its extension) and each event is associated with one (and
+only one) door or level door.  In the other way around, each door may be
+passively associated with multiple events, and each event with multiple
+floors.
+
+When the kid presses an opener floor (closer floor resp.), the event
+associated with it by its @emph{event extension} is triggered, then the
+door associated with that event is opened (closed resp.), and the next
+event may or may not be triggered depending upon the @emph{next} field
+status of the triggered event.
+
+This non-terminal command has terminal sub-commands for setting events
+and navigating through the floor-event-door tree.
+
+@center @kbd{E>DFRS}
+
+The @dfn{selected event} is the event targeted by the sub-command
+actions.  At return (for all sub-commands) @kbd{BACKSPACE} updates the
+selected event, while @kbd{/} maintains its previous value.
+
+@node Event@arrow{}Door E>ED
+@subsection Event@arrow{}Door: E>ED
+@cindex level editor, event@arrow{}door
+@cindex event@arrow{}door, level editor
+@mcindex E>ED
+
+This command is used to find out which door is associated with a given
+event.  It's an integer input whose parameter @var{i} is an event
+number, and the auxiliary boolean @var{n} represents the @emph{next}
+field status of the respective event (read-only).  @xref{Integer input}.
+
+@center @kbd{ED>EVENT 0-255:i n}
+
+It gives instant visual feedback locking the mouse selection on the door
+associated with the selected event.  If the selected event isn't
+associated with any door, the mouse selection points nowhere.
+@kbd{BACKSPACE} keeps the mouse selection where it is, while @kbd{/}
+restores it to the state it had before this command invocation.
+
+@node Event@arrow{}Floor E>EF
+@subsection Event@arrow{}Floor: E>EF
+@cindex level editor, event@arrow{}floor
+@cindex event@arrow{}floor, level editor
+@mcindex E>EF
+
+This command is used to find out which floors are associated with a
+given event.  It's a list input whose parameter @var{i} and first index
+are the selected event number, and the second index run through the
+associated floors.  @xref{List input}.
+
+@center @kbd{EF>EVENT i -+<>}
+
+It gives instant visual feedback locking the mouse selection on the
+floors associated with the selected event.  If the selected event isn't
+associated with any floors, the mouse selection points nowhere.
+@kbd{BACKSPACE} keeps the mouse selection where it is, while @kbd{/}
+restores it to the state it had before this command invocation.
+
+@node Door@arrow{}Event E>ER
+@subsection Door@arrow{}Event: E>ER
+@cindex level editor, door@arrow{}event
+@cindex door@arrow{}event, level editor
+@mcindex E>ER
+
+This command is used to find out which events are associated with the
+selected door.  If the mouse selection is not over a door it displays
+@samp{SELECT DOOR} on the message line and sets the mouse cursor to
+@code{UNAVAILABLE}.  As soon as a door is selected this command turns
+into a list input whose parameter @var{i} and second index run through
+the associated events (the first index is disabled).  @xref{List input}.
+
+@center @kbd{ER>EVENT i <>}
+
+It displays the associated events on the message line as the user
+increments/decrements the second index.  If the selected door isn't
+associated with any events, @var{I} is replaced by the string
+@samp{NONE}.
+
+@node Set event E>ES
+@subsection Set event: E>ES
+@cindex level editor, set event
+@cindex set event, level editor
+@mcindex E>ES
+
+This command is used to associate an event to a selected door.  If the
+mouse selection is not over a door it displays @samp{SELECT DOOR} on the
+message line and sets the mouse cursor to @code{UNAVAILABLE}.  As soon
+as a door is selected this command turns into an integer input whose
+parameter @var{i} is an event number, and the auxiliary boolean @var{n}
+represents the @emph{next} field status of the respective event.
+@xref{Integer input}.
+
+@center @kbd{ES>EVENT 0-255:i n}
+
+This command doesn't take effect immediately, so the user can freely
+select a door and an event to associate with.  @kbd{BACKSPACE} confirms
+the association and returns, while @kbd{/} returns straight away.
+
+@node Room E>R
+@section Room: E>R
+@cindex level editor, room
+@cindex room, level editor
+
+The layout of rooms disposition and adjacency in a level is given by
+@dfn{room linking}.  For any given room there are four directions of
+linking: @emph{left}, @emph{right}, @emph{above} and @emph{below}.
+
+@cartouche
+@noindent@strong{Room linking:} room A is @dfn{linked} to room B from
+direction D, if (and only if) exiting room A from direction D enters
+room B from the opposite direction.
+@end cartouche
+
+Notice that the only constraint put on links is that they must be well
+defined, that is to say that every link points to one (and only one)
+existing room.  Such wide definition allows for a number of
+counter-intuitive room linking arrangements.  Some noteworthy examples
+are:
+
+@itemize
+@item A room that links to iself.
+@item A room that links to other room from more than one direction.
+@item Two distinct rooms that link to the same room from the same
+direction.
+@item A room that links to another room from a certain direction, but is
+not linked back from that room from the opposite direction.
+@item An isolated room that can't be reached from other rooms.
+@end itemize
+
+MININIM officially supports all these room linking arrangement features
+in the sense of providing robust physics and rendering behavior in such
+circumstances.@footnote{The original game levels don't use such features
+which are indiscriminately referred to as @dfn{broken links}.  Although
+many custom legacy levels make use of them, it's safe to say that they
+are not completely supported by the original engine, as some
+arrangements like a room linked to itself from below could crash the
+game.}  In a sense this is an intrinsic property of the engine, since by
+convention room 0, which is usually linked to itself in all direction
+and filled with walls, is used to delimit rooms that would otherwise
+link recursively to other rooms @emph{ad infinitum} in order to
+replicate the common euclidean room linking layout.@footnote{In the
+original game there is no actual room 0, so links pointing to it were in
+fact pointing to nowhere.  MININIM has an actual room 0, because of the
+requirement of all links being defined.  That room is usually built in
+such a way that linking to it has virtually the same effect of linking
+to nowhere in the original game.  However that's not a strict
+requirement, and room 0 can be treated as a common room by native
+levels.}
+
+In order to cope with some of the aforementioned link irregularities a
+few linking policies may be enforced.  Keep in mind that they are not
+applied when linking to room 0.
+
+@cartouche
+@noindent@strong{Reciprocal link:} a link from room A to room B from
+direction D is @dfn{reciprocal}, if (and only if) there is a link from
+room B to room A from the opposite direction.
+@end cartouche
+
+@cartouche
+@noindent@strong{Locally unique link:} a link from room A to room B from
+direction D is @dfn{locally unique}, if (and only if) there is no other
+link from room A to room B from a different direction.
+@end cartouche
+
+@cartouche
+@noindent@strong{Globally unique link:} a link from room A to room B
+from direction D is @dfn{globally unique}, if (and only if) there is no
+other room linking to room B from the same direction.
+@end cartouche
+
+This non-terminal command has sub-commands for handling room linking,
+room constructions as a whole and navigating through rooms.
+
+@center @kbd{R>JLSXARDHCP}
+
+Room 0 links are never modified implicitly (not even by linking
+policies), and can only be changed by explicitly using the room linking
+command (see @ref{Room linking E>RL}).
+
+There are complementary commands that can be used to navigate through
+rooms by linkage and query the linking of the current room and its
+surroundings.  @xref{Level navigation}.  As they are available as direct
+alphabetic key bindings, the user should disable the level editor
+temporarily before being able to invoke them.  That shouldn't be a
+problem, though, as the menu system persistence allows for fast
+alternation between these modes.  Alternatively, the user can navigate
+through linked rooms while the mouse selection is active by using the
+mouse wheels.  @xref{Mouse selection}.
+
+@node Jump to room E>RJ
+@subsection Jump to room: E>RJ
+@cindex level editor, jump to room
+@cindex jump to room, level editor
+@mcindex E>RJ
+
+This command instantly puts the mouse selection within the chosen room.
+This is useful for reaching isolated rooms and room 0, that can't be
+reached by linkage navigation.  It's an integer input whose parameter
+@var{i} is a room number.  @xref{Integer input}.
+
+@center @kbd{RJ>ROOM 0-24:i}
+
+It gives instant visual feedback by changing the currently displayed
+room to the chosen one.  @kbd{BACKSPACE} keeps the currently displayed
+room, while @kbd{/} restores to the room displayed before this command
+invocation.
+
+@node Room linking E>RL
+@subsection Room linking: E>RL
+@cindex level editor, construction room linking
+@cindex construction room linking, level editor
+@mcindex E>RL
+
+This non-terminal command has input sub-commands for all linking
+directions.
+
+@center @kbd{RL>LRAB}
+
+Every sub-command works in the same way: they change the current's room
+link from the respective direction.  They have the following meanings:
+
+@table @kbd
+@mcindex E>RLL
+@item L
+left
+@mcindex E>RLR
+@item R
+right
+@mcindex E>RLA
+@item A
+above
+@mcindex E>RLB
+@item B
+below
+@end table
+
+Each sub-command is an integer input whose parameter @var{i} is a room
+number and @var{d} is the respective direction.  @xref{Integer input}.
+
+@center @kbd{RLd>ROOM 0-24:i}
+
+It gives instant visual feedback by changing the currently displayed
+room to the chosen one.  @kbd{BACKSPACE} confirms the new linking to the
+currently displayed room from direction @var{d}, while @kbd{/} maintains
+the current link.  After return the mouse selection is restored.
+
+The linkage is subject to the linking policies currently in effect.
+@xref{Linking settings E>RS}.
+
+@node Linking settings E>RS
+@subsection Linking settings: E>RS
+@cindex level editor, linking settings
+@cindex linking settings, level editor
+@mcindex E>RS
+
+This command is used to configure the current linking policies.  These
+policies are used by room linking (see @ref{Room linking E>RL}) to
+assist the user in circumventing some link irregularities (see @ref{Room
+E>R}).  It's a boolean input (see @ref{Boolean input}), whose parameters
+have the following meaning:
+
+@table @kbd
+@item R
+reciprocal
+@item L
+locally unique
+@item G
+globally unique
+@end table
+
+The lower case letters represent the boolean value of their respective
+parameters.
+
+@center @kbd{RS>RrLlGc?}
+
+@kbd{BACKSPACE} confirms the new linking policy settings, while @kbd{/}
+maintains the current one.  When any of these parameters are turned on
+all links are made in way to ensure the compliance with the policy
+definition.
+
+@node Exchange room E>RX
+@subsection Exchange room: E>RX
+@cindex level editor, exchange room
+@cindex exchange room, level editor
+@mcindex E>RX
+
+This command exchange the links of the current room with those of the
+chosen one from all respective directions.  It effectively swaps the
+position of two rooms within a level.  Reciprocal links are swapped as
+well, while non-reciprocal ones are left alone.  It's an integer input
+whose parameter @var{i} is a room number.  @xref{Integer input}.
+
+@center @kbd{RX>ROOM 0-24:i}
+
+It gives instant visual feedback by changing the currently displayed
+room to the chosen one.  @kbd{BACKSPACE} confirms the exchange with the
+currently displayed room and keeps it on display, while @kbd{/} cancels
+the exchange and reverts back to the room displayed before this command
+invocation.
+
+@node Clear E>RA
+@subsection Clear: E>RA
+@cindex level editor, room clear
+@cindex clear room, level editor
+@cindex room clear, level editor
+@mcindex E>RA
+
+This non-input command immediately sets the constructions of the
+currently displayed room to @code{NO_FLOOR/NO_BG}, making the room
+empty.  Useful if the user wants to construct a room from scratch.  To
+clear just a strict sub-region of a room see @ref{Clear E>CA}.
+
+@node Random E>RR
+@subsection Random: E>RR
+@cindex level editor, room randomization
+@cindex randomization room, level editor
+@cindex room randomization, level editor
+@mcindex E>RR
+
+This non-input command immediately sets the constructions of the
+currently displayed room randomly to any possible combination of
+foreground and background.  Useful if the user doesn't have an initial
+idea for how the room should look like.  To randomize just a strict
+sub-region of a room see @ref{Random E>CR}.
+
+@node Decoration E>RD
+@subsection Decoration: E>RD
+@cindex level editor, room decoration
+@cindex decoration room, level editor
+@cindex room decoration, level editor
+@mcindex E>RD
+
+This non-input command randomly redecorates the currently displayed
+room.  Constructions' foreground, background and extension may be
+changed as long as these changes are purely aesthetical.  Useful if the
+user doesn't have an strict idea for how the room decoration should look
+like.
+
+@node Exchange cons E>RH
+@subsection Exchange cons: E>RH
+@cindex level editor, room construction exchange
+@cindex room construction exchange, level editor
+@mcindex E>RH
+
+This non-terminal command has sub-commands for exchanging all room
+constructions (swapping places) in their entirety: foreground,
+background and extension.  If any of the following positions are
+referencing either of the exchanging places, they are updated to point
+to the exchanged places.
+
+@itemize
+@item event position
+@item guard starting position
+@item kid starting position
+@item character instance position
+@end itemize
+
+Each sub-command is non-input and represents a particular place mapping.
+
+@center @kbd{RH>HVR}
+
+Every sub-command works in the same way: they immediately exchange the
+constructions of the currently displayed room according to their
+particular mapping.  These sub-commands have the following meanings:
+
+@table @kbd
+@mcindex E>RHH
+@item H
+horizontal reflection.  Inverts the start facing direction of guards and
+the kid, and current facing direction of character instances as well.
+@mcindex E>RHV
+@item V
+vertical reflection
+@mcindex E>RHR
+@item R
+random place within the currently selected room
+@end table
+
+To apply the exchange to just a couple of constructions see
+@ref{Exchange cons E>CH}.
+
+@node Copy E>RC
+@subsection Copy: E>RC
+@cindex level editor, room copy
+@cindex copy room, level editor
+@cindex room copy, level editor
+@mcindex E>RC
+
+This is a non-input command intended to copy the constructions of the
+currently displayed room in their entirety (foreground, background and
+extension) to a temporary memory area so they can later be retrieved and
+pasted over another room (see @ref{Paste E>RP}).  After invoked it
+briefly displays on the message line @samp{COPIED} to indicate that the
+constructions of the current room have been successfully stored.  Notice
+that only one room may have its constructions held at a time, so further
+invocations replace previously stored cons.  The constructions
+originally held in the temporary area---before the first successful
+invocation of this command---are @code{NO_FLOOR/NO_BG}.  To copy just
+one construction see @ref{Copy E>CC}.
+
+@node Paste E>RP
+@subsection Paste: E>RP
+@cindex level editor, room paste
+@cindex paste room, level editor
+@cindex room paste, level editor
+@cindex E>RP
+
+This is a non-input command intended to paste the previously copied
+constructions of an entire room over the currently displayed one (see
+@ref{Copy E>RC}).  After invoked it immediately replaces the
+constructions of the current room.  To paste just one construction see
+@ref{Paste E>CP}.
+
+@node Kid E>K
+@section Kid: E>K
+@cindex level editor, kid
+@cindex kid, level editor
+
+Every level has three basic attributes concerning the kid: his starting
+position, facing direction and sword possession.  This non-terminal
+command has non-input sub-commands for setting these attributes as well
+as putting the kid in an arbitrary place on-the-fly.
+
+@center @kbd{K>PSJDW}
+
+While this command is active, a darker semi-transparent image of the kid
+is shown in his starting place, above all constructions and characters.
+A sword image with the same characteristics is shown near him, in case
+he starts with one.
+
+@node Place kid E>KP
+@subsection Place kid: E>KP
+@cindex level editor, place kid
+@cindex place kid, level editor
+@mcindex E>KP
+
+This non-input command instantly puts the kid in the selected
+construction's place.  This is useful for placing the kid in arbitrary
+positions throughout the level for testing.  The kid is placed at rest
+independently of the movement he is performing at the instant of
+invocation.  There is no restriction of placement, and he can be placed
+even inside walls.  If the mouse selection is pointing to nowhere when
+this command is invoked, it displays @samp{SELECT CONSTRUCTION} on the
+message line.
+
+@node Set start position E>KS
+@subsection Set start position: E>KS
+@cindex level editor, set start position
+@cindex set start position, level editor
+@mcindex E>KS
+
+This non-input command instantly sets kid's starting position to the
+selected construction's place.  It gives instant visual feedback.  There
+is no restriction of placement, and he can be placed even inside walls.
+If the mouse selection is pointing to nowhere when this command is
+invoked, it displays @samp{SELECT CONSTRUCTION} on the message line.
+
+@node Jump to start position E>KJ
+@subsection Jump to start position: E>KJ
+@cindex level editor, jump to start position
+@cindex jump to start position, level editor
+@mcindex E>KJ
+
+This non-input command instantly sets the mouse selection to the kid's
+starting position.  This is a handy way of finding it without having to
+look at each room.
+
+@node Toggle start direction E>KD
+@subsection Toggle start direction: E>KD
+@cindex level editor, toggle start direction
+@cindex toggle start direction, level editor
+@mcindex E>KD
+
+This non-input command instantly toggles kid's start facing direction.
+It gives instant visual feedback and only works if kid's starting
+position is located in the currently displayed room.  In negative case,
+@samp{NOT IN THIS ROOM} is displayed on the message line.
+
+@node Toggle has sword E>KW
+@subsection Toggle has sword: E>KW
+@cindex level editor, toggle has sword
+@cindex toggle has sword, level editor
+@mcindex E>KW
+
+This non-input command instantly toggles kid's starting sword
+possession.  It gives instant visual feedback and only works if his
+start position is located in the currently displayed room.  In negative
+case, @samp{NOT IN THIS ROOM} is displayed on the message line.
+
+@node Guard E>G
+@section Guard: E>G
+@cindex level editor, guard
+@cindex guard, level editor
+
+Enemies in the game are collectively referred to as ``guards''.  The
+couple attributes that set guards aesthetically apart from one another
+are: @dfn{type} and @dfn{style}.  The former is the most significant in
+the sense that it determines the actual graphical shape of the
+guard,@footnote{In the original game the guard type is not given per
+guard, but instead per level: 3@arrow{}@code{SKELETON},
+6@arrow{}@code{FAT_GUARD}, 12@arrow{}@code{SHADOW},
+13@arrow{}@code{VIZIER}, others@arrow@code{GUARD}.} while the latter
+determines only his coloring.  The five guard types are: @code{GUARD},
+@code{FAT_GUARD}, @code{VIZIER}, @code{SKELETON} and @code{SHADOW}.
+They have 8 different styles, given by integers ranging from 0 to
+7.@footnote{The original game has the same styles (from 1 to 7) for
+guards of type @code{GUARD}, but has a fixed style for all others.
+MININIM has equivalent styles in that range for every other guard type,
+and uses style 0 to give the original vizier style to guards of type
+@code{GUARD} and @code{FAT_GUARD}, while reserving it as the original
+style for all other guard types.} These are summarized in the table
+below.
+
+@multitable @columnfractions .05 .189 .189 .189 .189 .189
+  @headitem @ Style @tab @ @ @ @ GUARD @tab @ @ FAT_GUARD
+  @tab @ @ @ @ VIZIER @tab @ @ SKELETON
+  @tab @ @ @ SHADOW
+
+  @item @center 0
+  @tab @center @image{mininim-figures/guard-0}
+  @tab @center @image{mininim-figures/fat-guard-0}
+  @tab @center @image{mininim-figures/vizier-0}
+  @tab @center @image{mininim-figures/skeleton-0}
+  @tab @center @image{mininim-figures/shadow-0}
+
+  @item @center 1
+  @tab @center @image{mininim-figures/guard-1}
+  @tab @center @image{mininim-figures/fat-guard-1}
+  @tab @center @image{mininim-figures/vizier-1}
+  @tab @center @image{mininim-figures/skeleton-1}
+  @tab @center @image{mininim-figures/shadow-1}
+
+  @item @center 2
+  @tab @center @image{mininim-figures/guard-2}
+  @tab @center @image{mininim-figures/fat-guard-2}
+  @tab @center @image{mininim-figures/vizier-2}
+  @tab @center @image{mininim-figures/skeleton-2}
+  @tab @center @image{mininim-figures/shadow-2}
+
+  @item @center 3
+  @tab @center @image{mininim-figures/guard-3}
+  @tab @center @image{mininim-figures/fat-guard-3}
+  @tab @center @image{mininim-figures/vizier-3}
+  @tab @center @image{mininim-figures/skeleton-3}
+  @tab @center @image{mininim-figures/shadow-3}
+
+  @item @center 4
+  @tab @center @image{mininim-figures/guard-4}
+  @tab @center @image{mininim-figures/fat-guard-4}
+  @tab @center @image{mininim-figures/vizier-4}
+  @tab @center @image{mininim-figures/skeleton-4}
+  @tab @center @image{mininim-figures/shadow-4}
+
+  @item @center 5
+  @tab @center @image{mininim-figures/guard-5}
+  @tab @center @image{mininim-figures/fat-guard-5}
+  @tab @center @image{mininim-figures/vizier-5}
+  @tab @center @image{mininim-figures/skeleton-5}
+  @tab @center @image{mininim-figures/shadow-5}
+
+  @item @center 6
+  @tab @center @image{mininim-figures/guard-6}
+  @tab @center @image{mininim-figures/fat-guard-6}
+  @tab @center @image{mininim-figures/vizier-6}
+  @tab @center @image{mininim-figures/skeleton-6}
+  @tab @center @image{mininim-figures/shadow-6}
+
+  @item @center 7
+  @tab @center @image{mininim-figures/guard-7}
+  @tab @center @image{mininim-figures/fat-guard-7}
+  @tab @center @image{mininim-figures/vizier-7}
+  @tab @center @image{mininim-figures/skeleton-7}
+  @tab @center @image{mininim-figures/shadow-7}
+@end multitable
+
+Like the kid, each guard has a starting position and facing direction,
+but naturally, every guard starts with a sword in his possession.  Each
+guard also has an arbitrary number of total lives.@footnote{In the
+original game the number of total lives is fixed per level and can't be
+changed.}
+
+Each guard also has its own set of skills which influence how strong
+they are in battle.  There are six skills that are given as percentage
+(between 0% and 100%, inclusive) indicating the probability of the
+related action succeeding.@footnote{In the original game guard skills
+can't be fine-tuned individually, as the game uses a predefined set of
+12 possible skill configurations (ranging from 0 to 11).  @xref{Skill
+E>GK}.}  In the following descriptions, @dfn{fight range} is the safe
+distance from the kid guards strive to keep during battle: a step away
+from striking, but far enough for not being hit.  @dfn{Attack range} is
+the nearer distance guards have to be in order to make an effective
+strike.
+
+@table @dfn
+@item Attack
+Probability of the guard initiating an attack when in @emph{attack
+range}.  If the kid is not in fight mode the attack is immediate
+regardless of this.
+
+@item Counter attack
+Probability of the guard initiating a counter attack after a successful
+defense.
+
+@item Defense
+Probability of the guard defending an attack when in @emph{attack
+range}.
+
+@item Counter defense
+Probability of the guard defending a counter attack.
+
+@item Advance
+Probability of the guard going towards @emph{attack range} when in
+@emph{fight range}, if the kid is not attacking.  If the kid is not in
+fight mode the advance is immediate regardless of this.
+
+@item Return@footnote{This skill attribute is not available in the original game as guards there never back off by themselves.}
+Probability of the guard backing off to @emph{fight range} when in
+@emph{attack range}.
+@end table
+
+For how these skills are related to kid's in battle, see @ref{Counter
+attack and counter defense}.  For skills that are tested at each cycle
+(12th of a second) like @emph{attack}, @emph{advance} and @emph{return},
+1% means once every 8.33 seconds on average.  The user has to keep in
+mind that this drops quickly (8% means once every 1.04 seconds), thus
+care is needed or the guard might end up having very unnatural
+movements, like alternating too fast between advancing and returning.
+
+There are two more attributes that are categorized under guard skills,
+which are not interpreted as percentage.
+
+@table @dfn
+@item Refraction period
+How many cycles the guard is kept still after being hit, before being
+able to advance and attack.
+
+@item Extra lives
+How many lives to add to the common total lives.
+@end table
+
+This non-terminal command has sub-commands for setting all these
+characteristics.
+
+@center @kbd{Gj>GPSJDKLTY}
+
+All actions apply to the currently selected guard, whose index @var{j}
+is shown by all commands of this hierarchy.  Before being able to
+perform further actions upon a guard it has to be enabled.  This is done
+by selecting the guard's type.  @xref{Type E>GT}.  If the currently
+selected guard is disabled, the mouse cursor is set to
+@code{UNAVAILABLE} and attempts to execute any other command will fail
+showing @samp{DISABLED GUARD} on the message line.  While commands of
+this hierarchy are active, darker semi-transparent images of the guards
+are shown in their starting place, above all constructions and
+characters.
+
+@node Select guard E>GG
+@subsection Select guard: E>GG
+@cindex level editor, select guard
+@cindex select guard, level editor
+@mcindex E>GG
+
+This command is used to change the currently selected guard.  It's an
+integer input whose parameter @var{i} is the guard number.
+@xref{Integer input}.
+
+@center @kbd{GjG>GUARD 0-24:i}
+
+It gives instant visual feedback locking the mouse selection on the
+starting place of the chosen guard.  If the chosen guard is disabled,
+the mouse selection points nowhere.  @kbd{BACKSPACE} makes the chosen
+guard the currently selected one and keeps the mouse selection, while
+@kbd{/} keeps the currently selected guard and reverts the mouse
+selection to the state it had before this command invocation.
+
+@node Place guard E>GP
+@subsection Place guard: E>GP
+@cindex level editor, place guard
+@cindex place guard, level editor
+@mcindex E>GP
+
+This non-input command instantly puts the live instance of the currently
+selected guard in the selected construction's place.  This is useful for
+placing guards in arbitrary positions throughout the level for testing.
+The guard is placed at rest independently of the movement he is
+performing at the instant of invocation.  There is no restriction of
+placement, and guards can be placed even inside walls.  If the mouse
+selection is pointing to nowhere when this command is invoked, it
+displays @samp{SELECT CONSTRUCTION} on the message line.  If the
+currently selected guard has no correspondent live instance, it displays
+@samp{NO LIVE INSTANCE} on the message line.
+
+@node Set start position E>GS
+@subsection Set start position: E>GS
+@cindex level editor, guard start position
+@cindex guard start position, level editor
+@mcindex E>GS
+
+This non-input command instantly sets the starting position of the
+currently selected guard to the selected construction's place.  It gives
+instant visual feedback.  There is no restriction of placement, and the
+guard can be placed even inside walls.  If the mouse selection is
+pointing to nowhere when this command is invoked, it displays
+@samp{SELECT CONSTRUCTION} on the message line.
+
+@node Jump to start position E>GJ
+@subsection Jump to start position: E>GJ
+@cindex level editor, jump to start position
+@cindex jump to start position, level editor
+@mcindex E>GJ
+
+This non-input command instantly sets the mouse selection to the
+starting position of the currently select guard.  This is a handy way of
+finding him without having to re-select.  If the selected guard is
+disabled or has no starting position yet, the mouse selection points
+nowhere.
+
+@node Toggle start direction E>GD
+@subsection Toggle start direction: E>GD
+@cindex level editor, toggle start direction
+@cindex toggle start direction, level editor
+@mcindex E>GD
+
+This non-input command instantly toggles the facing direction of the
+currently selected guard.  It gives instant visual feedback and only
+works if the guard's starting position is located in the currently
+displayed room.  In negative case, @samp{NOT IN THIS ROOM} is displayed
+on the message line.
+
+@node Skill E>GK
+@subsection Skill: E>GK
+@cindex level editor, guard skill
+@cindex guard skill, level editor
+@mcindex E>GK
+
+This non-terminal command has integer input sub-commands for all guard
+skill attributes.
+
+@center @kbd{GjK>ABDEVRFXL}
+
+For all of them, @kbd{BACKSPACE} confirms the new skill setting, while
+@kbd{/} maintains the current one.  The first six commands correspond to
+the probability-based skills.
+
+@table @kbd
+@mcindex E>GKA
+@item A
+attack
+@mcindex E>GKB
+@item B
+counter attack
+@mcindex E>GKD
+@item D
+defense
+@mcindex E>GKE
+@item E
+counter defense
+@mcindex E>GKV
+@item V
+advance
+@mcindex E>GKR
+@item R
+return
+@end table
+
+Each one of these sub-commands is an integer input whose parameter
+@var{i} is a percentage indicating the likelihood of the related action
+@var{act} (relative to command @var{a}) succeeding.  @xref{Integer
+input}.
+
+@center @kbd{GjKa>act 0-100:i}
+
+The next couple commands correspond to the remaining skill attributes
+that are not probability-based.
+
+@table @kbd
+@mcindex E>GKF
+@item F
+Refraction period
+@mcindex E>GKX
+@item X
+Extra lives
+@end table
+
+Each one of these sub-commands is an integer input whose parameter
+@var{i} is the value of the related attribute @var{attr} (relative to
+command @var{a}).
+
+@center @kbd{GjKa>attr 0->:i}
+
+The last command @kbd{K} (@samp{LEGACY TEMPLATES}) allows the user to
+use a predefined skill template roughly equivalent to the ones available
+in the original game.  There are 12 skill sets (ranging from 0 to 11) to
+choose from.  These populate the values of each skill, which can be
+later fine-tuned using the aforementioned commands.  It's an integer
+input whose parameter @var{i} indicates the skill set of choice.  It
+always starts at 0.
+
+@center @kbd{GjKL>L.SKILL 0-11:i}
+
+@node Lives E>GL
+@subsection Lives: E>GL
+@cindex level editor, guard lives
+@cindex guard lives, level editor
+@mcindex E>GL
+
+This command is used to set the total lives of the currently selected
+guard.  It's an integer input whose parameter @var{i} represents the
+guard's amount of lives.  @xref{Integer input}.
+
+@center @kbd{GjL>LIVES 0->:i}
+
+@kbd{BACKSPACE} confirms the new total lives value, while @kbd{/}
+maintains the current one.  If set to 0, the guard dies alone when the
+level starts.
+
+@node Type E>GT
+@subsection Type: E>GT
+@cindex level editor, guard type
+@cindex guard type, level editor
+@mcindex E>GT
+
+This command is used to set the currently selected guard's type.  It's
+an exclusive boolean input (see @ref{Boolean input}), whose parameters
+have the following meaning:
+
+@table @kbd
+@item D
+disabled
+@item G
+@code{GUARD}
+@item F
+@code{FAT_GUARD}
+@item V
+@code{VIZIER}
+@item S
+@code{SKELETON}
+@item H
+@code{SHADOW}
+@end table
+
+The lower case letters represent the boolean value of their respective
+parameters.
+
+@center @kbd{GjT>DdGgFfVvSsHh?}
+
+It gives instant visual feedback, in case the starting place of the
+currently selected guard is in the currently displayed room.  If any
+parameter different from @kbd{D} is true, the guard is enabled.
+@kbd{BACKSPACE} confirms the new type, while @kbd{/} maintains the
+current one.
+
+@node Style E>GY
+@subsection Style: E>GY
+@cindex level editor, guard style
+@cindex guard style, level editor
+@mcindex E>GY
+
+This command is used to set the style of the currently selected guard.
+It's an integer input whose parameter @var{i} represents the style.
+@xref{Integer input}.
+
+@center @kbd{GjY>STYLE 0-7:i}
+
+It gives instant visual feedback, in case the starting place of the
+currently selected guard is in the currently displayed room.
+@kbd{BACKSPACE} confirms the new style, while @kbd{/} maintains the
+current one.
+
+
+@node Level E>L
+@section Level: E>L
+@cindex level editor, level
+@cindex level, level editor
+
+Each level has an actual number and a nominal number.  The actual number
+is the one used to name its file.  The @dfn{nominal number} is the one
+used for representative purposes like the @samp{LEVEL @var{n}} message
+shown at the beginning of each level.  It's useful when a set of actual
+levels should be considered as a single level in the broader sense.
+
+Options related to the level as whole, like environment and hue modes,
+or saving and loading levels are made available by this non-terminal
+command.
+
+@center @kbd{Lj>NEHSL}
+
+The current level is indicated by @var{j} in all prefixed commands of
+this hierarchy.
+
+@node Nominal number E>LN
+@subsection Nominal number: E>LN
+@cindex level editor, level nominal number
+@cindex level nominal number, level editor
+@mcindex E>LN
+
+This command is used to set the nominal number of the current level.
+It's an integer input whose parameter @var{i} represents the level
+nominal number.  @xref{Integer input}.
+
+@center @kbd{LjN>N.NUMBER 0->:i}
+
+@kbd{BACKSPACE} confirms the new nominal number, while @kbd{/} maintains
+the current one.
+
+@node Environment E>LE
+@subsection Environment: E>LE
+@cindex level editor, level environment
+@cindex level environment, level editor
+@mcindex E>LE
+
+This command is used to set the level environment.  It's an exclusive
+boolean input (see @ref{Boolean input}), whose parameters have the
+following meaning:
+
+@table @kbd
+@item D
+@code{DUNGEON}
+@item P
+@code{PALACE}
+@end table
+
+The lower case letters represent the boolean value of their respective
+parameters.
+
+@center @kbd{LjE>DdPp?}
+
+Notice that the level environment isn't necessarily the currently
+displayed one, because the user may have manually changed the latter
+using a configuration option (see @ref{Rendering options}) or a key
+binding (see @ref{Graphical rendering}).
+
+This command gives instant visual feedback by changing the currently
+displayed environment to the selected one.  @kbd{BACKSPACE} confirms the
+new level environment and maintains the currently displayed one, while
+@kbd{/} maintains the level current one and reverts to the previously
+displayed environment.
+
+@node Hue E>LH
+@subsection Hue: E>LH
+@cindex level editor, level hue
+@cindex level hue, level editor
+@mcindex E>LH
+
+This command is used to set the level hue.  It's an exclusive boolean
+input (see @ref{Boolean input}), whose parameters have the following
+meaning:
+
+@table @kbd
+@item N
+@code{NONE}
+@item G
+@code{GREEN}
+@item R
+@code{GRAY}
+@item Y
+@code{YELLOW}
+@item B
+@code{BLUE}
+@end table
+
+The lower case letters represent the boolean value of their respective
+parameters.
+
+@center @kbd{LjH>NnGgRrYyBb?}
+
+Notice that the level hue isn't necessarily the currently displayed one,
+because the user may have manually changed the latter using a
+configuration option (see @ref{Rendering options}) or a key binding (see
+@ref{Graphical rendering}).
+
+This command gives instant visual feedback by changing the currently
+displayed hue to the selected one.  @kbd{BACKSPACE} confirms the new
+level hue and maintains the currently displayed one, while @kbd{/}
+maintains the level current one and reverts to the previously displayed
+hue.
+
+@node Save E>LS
+@subsection Save: E>LS
+@cindex level editor, level save
+@cindex level save, level editor
+@mcindex E>LS
+
+This non-input command saves the current level using the native level
+format (see @ref{Native level format}) in the user data directory, where
+they take precedence over levels in every other location.  The option
+@option{--print-paths} show among other things where that directory is
+located in the file system.  @xref{Path options}.  If this command
+succeeds, the level cache is updated and @samp{LEVEL HAS BEEN SAVED} is
+displayed on the message line.  Otherwise @samp{LEVEL SAVE FAILED} is
+shown and an error message describing the problem is printed out to the
+console.  The saved level can be fully reloaded using the @kbd{CTRL+A}
+key binding (see @ref{Game flow}), or may have only its constructions
+reloaded---keeping every other element (like characters) in their curent
+state---using the reload command.  @xref{Reload E>LL}.
+
+@node Reload E>LL
+@subsection Reload: E>LL
+@cindex level editor, level reload
+@cindex level reload, level editor
+@mcindex E>LL
+
+This non-input command restores the current level's cached
+constructions, which represent the level state at the moment of the
+latest save operation.  This command is useful for undoing unintended
+changes to the cons of a level when editing or playing it.  This command
+always succeeds, showing @samp{LEVEL RELOADED} on the message line.
+
+
+
+
+@c --- Native level format;
+@node Native level format
+@chapter Native level format
+@cindex native level format
+@cindex format, native level
+@cindex level format, native
+
+The @dfn{native level format} is the level format designed for MININIM.
+In contrast, the level formats designed for the original game are known
+collectively as @dfn{legacy level formats}.  @xref{Level options}.
+Unlike these the native level format supports all features offered by
+the engine, including:
+
+@itemize
+@item Arbitrary combinations of construction foregrounds and
+ backgrounds.
+@item Arbitrary number of guards per room.
+@item Guard type selected per guard.
+@item Guard style applicable to all guard types.
+@item Total lives and skills @emph{fine-tuned} per guard.
+@item Usable room 0.
+@item Arbitrary room linking.
+@item Hue selected per level.
+@item Environment selected per level.
+@end itemize
+
+In this chapter the native level format is described in detail for
+reference sake.  Programmers developing tools for interoperability with
+MININIM may find this information useful.
+
+The native levels are plain text INI-like files with no sections.  They
+are named after their respective level numbers (padded with one zero in
+case it is less than 10) and have the @samp{mim} extension.  Level files
+generated by MININIM have the comment @samp{#MININIM LEVEL FILE} at the
+top of each level file (this is not a requirement for validity, though).
+After this, there is a long sequence of @code{@var{key}=@var{value}}
+pairs up to the end of the file.  Each pair have its own line.  Unless
+otherwise noted, @var{value} is a space separated sequence of integers
+in the C language syntax.  The expected keys are described in the
+sections below.
+
+@node Nominal number N
+@section Nominal number: N
+@cindex native level format, nominal number
+@cindex nominal number, native level format
+
+The level nominal number (see @ref{Nominal number E>LN}) is given by
+this key.
+
+@center @code{N=n}
+
+@table @var
+@item n
+nominal level number.  Non-negative integer.
+@end table
+
+
+@node Kid attributes P
+@section Kid attributes: P
+@cindex native level format, kid attributes
+@cindex kid attributes, native level format
+
+The kid attributes: start position (see @ref{Set start position E>KS}),
+facing direction (see @ref{Toggle start direction E>KD}) and sword
+possession (see @ref{Toggle has sword E>KW}) are given by this key.
+
+@center @code{P=r f p d s}
+
+@table @var
+@item r
+room.  Non-negative integer.
+@item f
+floor.  Integer between 0 and 2, inclusive.
+@item p
+place.  Integer between 0 and 9, inclusive.
+@item d
+direction.  0 is @code{LEFT}, 1 is @code{RIGHT}.
+@item s
+has sword.  0 is @code{FALSE}, any other integer is @code{TRUE}.
+@end table
+
+
+@node Level environment and hue S
+@section Level environment and hue: S
+@cindex native level format, level environment and hue
+@cindex level environment and hue, native level format
+
+Level environment (see @ref{Environment E>LE}) and hue (see @ref{Hue
+E>LH}) are given by this key.
+
+@center @code{S=e h}
+
+@itemize
+@item @var{e}: environment code.
+@table @code
+@item 0
+@code{DUNGEON}
+@item 1
+@code{PALACE}
+@end table
+
+@item @var{h}: hue code.
+@table @code
+@item 0
+@code{HUE_NONE}
+@item 1
+@code{HUE_GREEN}
+@item 2
+@code{HUE_GRAY}
+@item 3
+@code{HUE_YELLOW}
+@item 4
+@code{HUE_BLUE}
+@end table
+@end itemize
+
+
+@node Guard type and style GiT
+@section Guard type and style: GiT
+@cindex native level format, guard type and style
+@cindex guard type and style, native level format
+
+Guard type (see @ref{Type E>GT}) and style (see @ref{Style E>GY}) are
+given by this key.
+
+@center @code{GiT=t s}
+
+@itemize
+@item @var{i}: guard index.  Non-negative integer.
+
+@item @var{t}: type code.
+@table @code
+@item 0
+@code{NO_ANIM} (disabled)
+@item 2
+@code{SHADOW}
+@item 3
+@code{GUARD}
+@item 4
+@code{FAT_GUARD}
+@item 5
+@code{SKELETON}
+@item 6
+@code{VIZIER}
+@end table
+
+@item @var{s}: style code.  Integer between 0 and 7, inclusive.
+@end itemize
+
+
+@node Guard start position and direction GiP
+@section Guard start position and direction: GiP
+@cindex native level format, guard start position and direction
+@cindex guard start position and direction, native level format
+
+Guard start position (see @ref{Set start position E>GS}) and facing
+direction (see @ref{Toggle start direction E>GD}) are given by this key.
+
+@center @code{GiP=r f p d}
+
+@table @var
+@item i
+guard index.  Non-negative integer.
+@item r
+room.  Non-negative integer.
+@item f
+floor.  Integer between 0 and 2, inclusive.
+@item p
+place.  Integer between 0 and 9, inclusive.
+@item d
+direction.  0 is @code{LEFT}, 1 is @code{RIGHT}.
+@end table
+
+
+@node Guard skill and lives GiK
+@section Guard skill and lives: GiK
+@cindex native level format, guard skill and lives
+@cindex guard skill and lives, native level format
+
+Guard skill (see @ref{Skill E>GK}) and lives (see @ref{Lives E>GL}) are
+given by this key.  Each probability value is an integer between -1 (0%)
+and 99 (100%), inclusive.
+
+@center @code{GiK=a b d e a r f x l}
+
+@table @var
+@item i
+guard index.  Non-negative integer.
+@item a
+attack probability.
+@item a
+counter attack probability
+@item d
+defense probability.
+@item e
+counter defense probability.
+@item a
+advance probability.
+@item r
+return probability.
+@item f
+refraction period.  Non-negative integer.
+@item x
+extra lives.  Non-negative integer.
+@item l
+lives.  Non-negative integer.
+@end table
+
+
+@node Room linking Li
+@section Room linking: Li
+@cindex native level format, room linking
+@cindex room linking, native level format
+
+Room linking is given by this key.  All values are room numbers
+(non-negative integers).  @xref{Room E>R}.
+
+@center @code{Li=l r a b}
+
+@table @var
+@item i
+room.
+@item l
+room at left.
+@item r
+room at right.
+@item a
+room above.
+@item b
+room below.
+@end table
+
+
+@node Events Ei
+@section Events: Ei
+@cindex native level format, events
+@cindex events, native level format
+
+Events are given by this key. @xref{Event E>E}.
+
+@center @code{Ei=r f p n}
+
+@table @var
+@item i
+event number.  Non-negative integer.
+@item r
+room.  Non-negative integer.
+@item f
+floor.  Integer between 0 and 2, inclusive.
+@item p
+place.  Integer between 0 and 9, inclusive.
+@item n
+next flag.  0 is @code{FALSE}, any other integer is @code{TRUE}.
+@end table
+
+
+@node Constructions Cr f p
+@section Constructions: Cr f p
+@cindex native level format, constructions
+@cindex constructions, native level format
+
+Constructions are given by this key. @xref{Construction E>C}.
+
+@center @code{Cr f p=f b e}
+
+@itemize
+@item @var{r}: room.  Non-negative integer.
+@item @var{f}: floor.  Integer between 0 and 2, inclusive.
+@item @var{p}: place.  Integer between 0 and 9, inclusive.
+@item @var{f}: foreground.
+@table @code
+@item 0
+@code{NO_FLOOR}
+@item 1
+@code{FLOOR}
+@item 2
+@code{BROKEN_FLOOR}
+@item 3
+@code{SKELETON_FLOOR}
+@item 4
+@code{LOOSE_FLOOR}
+@item 5
+@code{SPIKES_FLOOR}
+@item 6
+@code{OPENER_FLOOR}
+@item 7
+@code{CLOSER_FLOOR}
+@item 8
+@code{STUCK_FLOOR}
+@item 9
+@code{HIDDEN_FLOOR}
+@item 10
+@code{PILLAR}
+@item 11
+@code{BIG_PILLAR_BOTTOM}
+@item 12
+@code{BIG_PILLAR_TOP}
+@item 13
+@code{WALL}
+@item 14
+@code{DOOR}
+@item 15
+@code{LEVEL_DOOR}
+@item 16
+@code{CHOPPER}
+@item 17
+@code{MIRROR}
+@item 18
+@code{CARPET}
+@item 19
+@code{TCARPET}
+@item 20
+@code{ARCH_BOTTOM}
+@item 21
+@code{ARCH_TOP_LEFT}
+@item 22
+@code{ARCH_TOP_RIGHT}
+@item 23
+@code{ARCH_TOP_MID}
+@item 24
+@code{ARCH_TOP_SMALL}
+@end table
+
+@item @var{b}: background.
+@table @code
+@item 0
+@code{NO_BG}
+@item 1
+@code{BRICKS_00}
+@item 2
+@code{BRICKS_01}
+@item 3
+@code{BRICKS_02}
+@item 4
+@code{BRICKS_03}
+@item 5
+@code{NO_BRICKS}
+@item 6
+@code{TORCH}
+@item 7
+@code{WINDOW}
+@item 8
+@code{BALCONY}
+@end table
+
+@item @var{e}: extension.
+@itemize
+@item item
+@table @code
+@item 0
+@code{NO_ITEM}
+@item 1
+@code{EMPTY_POTION}
+@item 2
+@code{SMALL_LIFE_POTION}
+@item 3
+@code{BIG_LIFE_POTION}
+@item 4
+@code{SMALL_POISON_POTION}
+@item 5
+@code{BIG_POISON_POTION}
+@item 6
+@code{FLOAT_POTION}
+@item 7
+@code{FLIP_POTION}
+@item 8
+@code{ACTIVATION_POTION}
+@item 9
+@code{SWORD}
+@end table
+
+@item design
+@table @code
+@item 0
+@code{CARPET_00}
+@item 1
+@code{CARPET_01}
+@item 2
+@code{ARCH_CARPET_LEFT}
+@item 3
+@code{ARCH_CARPET_RIGHT_00}
+@item 4
+@code{ARCH_CARPET_RIGHT_01}
+@end table
+
+@item event: Non-negative integer.
+
+@item step: Non-negative integer.
+
+@item can't fall: 0 is @code{FALSE}, any other integer is @code{TRUE}.
+
+@end itemize
+@end itemize
+
+
+
+@c --- Software package;
+@node Software package
+@chapter Software package
+@include README.texi
+
+
+
+
+@c 
+@c @c --- Release;
+@c @node Release
+@c @chapter Release
+
+@c In this chapter one can find information that are specific to the
+@c current release or subject to change between releases.  It presents the
+@c features this package acquired over time and what are our plans for it.
+@c Last but not least, people whose contribution for this package are
+@c noteworthy are acknowledged.
+
+
+
+
+@c --- Announcement;
+@node Announcement
+@appendix Announcement
+@include ANNOUNCEMENT.texi
+
+
+
+
+@c 
+@c @c --- News;
+@c @node News
+@c @section News
+@c @include NEWS.texi
+
+
+
+
+@c 
+@c @c --- To do;
+@c @node To do
+@c @section To do
+@c @include TODO.texi
+
+
+
+
+@c 
+@c @c --- Thanks;
+@c @node Thanks
+@c @section Thanks
+@c @include THANKS.texi
+
+
+
+
+
+@c --- Donors;
+@node Donors
+@appendix Donors
+@include DONORS.texi
+
+
+
+
+
+@c --- GNU Free Documentation License;
+@node GNU FDL
+@appendix GNU FDL
+@cindex license documentation
+@cindex copying manual
+
+@include gnu-free-documentation-license.texi
+
+
+
+
+
+@c --- Linux and the GNU system;
+@node Linux and the GNU system
+@appendix Linux and the GNU system
+@include linux-and-the-gnu-system.texi
+
+
+
+
+
+@c --- Index;
+@node Index
+@unnumbered Index
+
+@printindex cp
+
+@bye

@@ -1,0 +1,74 @@
+@c
+@c description.texi -- Description
+@c
+@c Copyright (C) 2016 Bruno Félix Rezende Ribeiro <oitofelix@gnu.org>
+@c
+@c Permission is granted to copy, distribute and/or modify this
+@c document under the terms of the GNU Free Documentation License,
+@c Version 1.3 or any later version published by the Free Software
+@c Foundation; with no Invariant Sections.
+@c
+@c You should have received a copy of the GNU Free Documentation
+@c License along with this program.  If not, see
+@c <http://www.gnu.org/licenses/>.
+@c
+
+@cartouche
+@emph{Menininho} is the Brazilian Portuguese word for @emph{male kid},
+and @emph{mininim} is how it's informally pronounced throughout the
+country.  @emph{Kid} is the term used by @emph{Jordan
+Mechner}@footnote{Jordan Mechner (born June 4, 1964) is an American
+video game designer, author, screenwriter, and filmmaker, best known for
+creating the Prince of Persia video game franchise and the 8-bit
+computer game Karateka.} when referring to the main character of his
+most famous game --- @strong{Prince of Persia} --- in its source code
+and documentation, because the character's movements were derived from
+rotoscoping footage of Mechner's little brother.  @strong{MININIM} is
+the @emph{Advanced Prince of Persia Engine}, written from scratch by
+computer programmer and free software activist @emph{Bruno Félix Rezende
+Ribeiro} (@code{oitofelix}).  Bruno had a childhood dream of deciphering
+the secrets of his favorite game that introduced him to computing --- a
+dream dreamt when he was just a kid, a dream realized now that he's
+still a @emph{mininim} deep in his heart.@footnote{Of course, none of
+this is reason enough to name a game engine ``MININIM'', if not by the
+fact that it's a really cool palindrome!}
+@end cartouche
+
+MININIM is the Advanced Prince of Persia Engine --- a childhood dream,
+the free software implementation of Jordan Mechner's masterpiece game,
+developed from scratch by Bruno Félix Rezende Ribeiro
+(@code{oitofelix}).  @emph{MININIM is free software}; you can
+redistribute it and/or modify it under the terms of the GNU
+@acronym{@url{@value{progLicenseURL}, GPL}, General Public Licence} as
+published by the @acronym{FSF, Free Software Foundation}; either version
+3, or (at your option) any later version.
+
+In addition to being already a complete replacement for the original
+game with several improvements, MININIM aims to have detailed
+documentation on all matters concerning the original Prince of Persia
+world, ranging from its design concepts to the engine's practical use
+and development.  @emph{MININIM documentation is free}; you can
+redistribute it and/or modify it under the terms of the GNU
+@acronym{@url{@value{docLicenseURL}, FDL}, Free Documentation Licence}
+as published by the FSF --- with no Invariant Sections; either version
+1.3, or (at your option) any later version.
+
+MININIM features various improvements over the original game, too many
+to make an exhaustive list here.  Some of its noteworthy advantages are:
+
+@itemize
+@item Portable to modern operating systems.
+@item Complete built-in level editor featuring an uniform and
+non-intrusive bottom-line menu interface and unlimited undo/redo for
+level modifications.
+@item Video, environment, hue and guard modes may be selected on-the-fly.
+@item Joystick mapping and threshold configuration.
+@item Improved battle system based on upgradable skills, arbitrary
+number of simultaneous fighters and smarter enemy AI.
+@item Real-time responsiveness, higher world interaction accuracy and
+more stable animations.
+@item New useful movements.
+@item Integrated configuration system using multiple back-ends.
+@item Capability of loading level files in multiple formats, including
+legacy and native level formats.
+@end itemize

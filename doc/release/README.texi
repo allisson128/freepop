@@ -1,0 +1,449 @@
+@c
+@c README.texi -- Description, distribution, obtaining, contact,
+@c                bug reports, contribution, donation and hacking;
+@c
+@c Copyright (C) 2016 Bruno Félix Rezende Ribeiro <oitofelix@gnu.org>
+@c
+@c Permission is granted to copy, distribute and/or modify this
+@c document under the terms of the GNU Free Documentation License,
+@c Version 1.3 or any later version published by the Free Software
+@c Foundation; with no Invariant Sections.
+@c
+@c You should have received a copy of the GNU Free Documentation
+@c License along with this program.  If not, see
+@c <http://www.gnu.org/licenses/>.
+@c
+
+@c %**start of header
+@ifclear manual
+@setfilename README
+@documentencoding UTF-8
+@c @documentlanguage en_US
+@firstparagraphindent insert
+@footnotestyle end
+@settitle README
+@end ifclear
+@include release.texi
+@c %**end of header
+
+
+
+
+
+@c --- Macros;
+
+@c --- --- metaSection
+@macro metaSection{name}
+@ifset file
+@node \name\
+@chapter \name\
+@end ifset
+@ifset manual
+@node \name\
+@section \name\
+@end ifset
+@ifset homepage
+@anchor{\name\}
+@majorheading \name\
+@end ifset
+@end macro
+
+
+
+
+
+@c --- homepage: Navigation bar;
+@ifset homepage
+@include navigation.texi
+
+@majorheading Main
+
+@multitable @columnfractions .1 .1 .1 .1 .1 .1
+@headitem @ref{Download}
+@tab @ref{Contact}
+@tab @ref{Bug reporting}
+@tab @ref{Contributing}
+@tab @ref{Donating}
+@tab @ref{Hacking}
+@end multitable
+@end ifset
+
+
+
+
+
+@c --- file: Copying notice;
+@ifset file
+@set FILE README
+@include copying.texi
+@insertcopying
+@end ifset
+
+
+
+
+
+@c --- file: Table of contents;
+@ifset file
+@sp 1
+@noindent
+--- Table of Contents ---
+@contents
+@sp 2
+@end ifset
+
+
+
+
+
+@c --- file/manual: Preface;
+@ifclear homepage
+@ifset file
+@unnumbered Preface
+@end ifset
+
+This @inlineifset{manual, chapter}@inlineifset{file, file} briefly
+discuss matters relevant to @value{package} while a software package:
+build, installation, distribution and contribution are some of the
+covered topics.  Bear in mind that instructions in this
+@inlineifset{manual, chapter}@inlineifset{file, file} are
+package-specific; for general and in-depth configuration, build and
+installation instructions refer to the @file{INSTALL} file present in
+the top-level directory of the source distribution.  If you have checked
+out the source tree from the VCS repository see @ref{Hacking}.
+
+@ifset file
+For other information about this package you can check the following
+files found in the top level directory of the distribution:
+
+@table @file
+@item NEWS
+User-visible changes since previous versions;
+@item TODO
+Features we want to see implemented someday;
+@item THANKS
+List of contributors;
+@c @item BUGS
+@c Bugs you must be aware of;
+@item DONORS
+People who supported the development by donations;
+@item INSTALL
+Generic build and installation instructions;
+@item ABOUT-NLS
+Internationalization and localization matters;
+@item COPYING
+The program license;
+@item GNU-FREE-DOCUMENTATION-LICENSE
+The documentation license;
+@item ChangeLog
+Detailed list of changes of the source code;
+@item LINUX-AND-THE-GNU-SYSTEM
+Article by Richard Stallman (RMS) talking about the relationship between
+the GNU operating system and the kernel Linux.
+@end table
+
+@end ifset
+
+@menu
+* Description::    What this package is all about;
+* Distribution::   The user's right to modify and redistribute;
+* Getting a copy:: FTP server and VCS;
+* Contact::        Forum and IRC;
+* Bug reporting::  Support and bug trackers;
+* Contributing::   Several ways to help the program's development;
+* Donating::       Supporting the author's work;
+* Hacking::        Get started with the VCS checkout;
+@end menu
+
+For more information about this program you can visit its home page at
+@url{@value{webUrl}}.  If you want to receive notifications about new
+releases of this program subscribe to the author's atom feed at
+@url{@value{atomUrl}}.
+
+@end ifclear
+
+
+
+
+
+@c --- Description;
+@ifclear manual
+@ifset file
+@chapter Description
+@end ifset
+
+@include description.texi
+
+@end ifclear
+
+
+
+@c --- file, manual: Distribution;
+@ifclear homepage
+@metaSection Distribution
+
+This program is @dfn{free software}; this means that everyone is free to
+use it and free to redistribute it under certain conditions.  This
+program is not in the public domain; it is copyrighted and there are
+restrictions on its distribution, but these restrictions are designed to
+permit everything that a good cooperating citizen would want to do.
+What is not allowed is to try to prevent others from further sharing any
+version of this program that they might get from you.  The precise
+conditions are found in the @inlineifset{file, GNU General Public
+License (@file{COPYING} file)}@inlineifset{manual, GNU
+@acronym{@url{@value{progLicenseURL}, GPL}, General Public Licence}}.
+The program manual is covered by the @inlineifset{file, GNU Free
+Documentation License (@file{GNU-FREE-DOCUMENTATION-LICENSE}
+file)}@inlineifset{manual, GNU Free Documentation License (@ref{GNU
+FDL})}.  This license is similar in spirit to the GNU General Public
+License, but is more suitable for documentation.
+@end ifclear
+
+
+
+
+
+@c --- file, manual: Getting a copy;
+@ifclear homepage
+@metaSection Getting a copy
+
+One way to get a copy of this program is from someone else who has it.
+You need not ask for our permission to do so, or tell any one else; just
+copy it.  If you have access to the Internet, you can get the latest
+distribution version of this program at @url{@value{webUrl}}.
+
+A VCS repository, where the development takes place, is also available.
+It maintains the full history of modifications for every single source
+file.  You can checkout any given revision of any file or get an
+snapshot of the entire source tree in a particular desired state.
+Special build tools, as described in @ref{Hacking}, are required to
+build from those checkouts.  To stay up to date with the latest
+developments in the source tree, you can anonymously checkout the
+repository with the following command:
+@example
+git clone @value{GITurl}
+@end example
+@end ifclear
+
+
+
+
+
+@c --- homepage: Download;
+@ifset homepage
+@anchor{Download}
+@majorheading Download
+
+@strong{The current stable release is @value{version}} (released
+@value{date}).
+
+@noindent
+Here are the compressed sources and a GPG detached signature:
+@example
+@value{tarballUrl}
+@value{tarSignUrl}
+@end example
+
+Use a @file{.sig} file to verify that the corresponding file (without
+the @file{.sig} suffix) is intact.  First, be sure to download both
+the @file{.sig} file and the corresponding tarball.  Then, run a
+command like this:
+
+@example
+gpg --verify @value{tarSign}
+@end example
+
+If that command fails because you don't have the required public key,
+then run this command to import it:
+
+@example
+gpg --recv-keys @value{keyID} --keyserver hkp://keys.gnupg.net
+@end example
+
+@noindent
+and rerun the @code{gpg --verify} command.
+
+This release is signed by @emph{@value{signer}}.  His key fingerprint
+is @code{@value{fingerprint}}.
+
+Check the key's authenticity with the command
+@example
+gpg --fingerprint @value{keyID} | sed -n '/^[[:blank:]]\+Key/s/^.*= //p'
+@end example
+
+It must print the following fingerprint:
+@example
+@value{fingerprint}
+@end example
+
+Otherwise something is wrong!  In that case don't use the downloaded
+tarball and contact the author as described in @ref{Contact}.
+
+A VCS repository, where the development takes place, is also
+available.  To stay up to date with the latest developments in the
+source tree, you can anonymously checkout the repository with the
+following command:
+@example
+git clone @value{GITurl}
+@end example
+@end ifset
+
+
+
+
+
+@c --- Contact
+@metaSection Contact
+
+You can get in touch with other users of this program by posting to its
+forum at @url{@value{forumUrl}}.  You may also join us on our friendly
+IRC channel at @url{@value{IRCurl}}.  You can contact the author at
+@url{@value{authorMail}}.
+
+
+
+
+
+@c --- Bug reporting
+@metaSection Bug reporting
+
+You can report bugs at @url{@value{issuesUrl}}.  Please, when reporting
+a bug include enough information for the author to reproduce the
+problem.  Generally speaking, that means:
+
+@itemize
+@item
+The contents of any input files necessary to reproduce the bug and
+command line invocations of the program(s) involved (crucial!).
+@item
+A description of the problem and any samples of the erroneous output.
+@item
+The version number of the program(s) involved (use
+@option{--version}).
+@item
+Hardware, operating system, and compiler versions (@code{uname -a}).
+@item
+Unusual options you gave to configure, if any (see
+@file{config.status}).
+@item
+Anything else that you think would be helpful.
+@end itemize
+
+
+
+
+
+@c --- Contributing
+@metaSection Contributing
+
+This program is a collaborative effort and we encourage contributions
+from anyone and everyone --- your help is very much appreciated.  You
+can help in many ways:
+
+@itemize
+@item
+Donate to the author in order to support his work. @xref{Donating}.
+@item
+Help users in the forum and IRC channel.  @xref{Contact}.
+@item
+Find and report bugs.  @xref{Bug reporting}.
+@item
+Suggest new features.
+@item
+Submit portability patches.
+@end itemize
+
+
+
+
+
+@c --- Donating;
+@metaSection Donating
+@include donating.texi
+
+
+
+
+@c --- Hacking;
+@metaSection Hacking
+
+@noindent
+The development sources are available through VCS:
+
+@display
+@value{GITweb}
+@end display
+
+If you are getting the sources from the VCS (or change
+@file{configure.ac}), you'll need to have Automake, Autoconf and
+help2man installed to (re)build.
+
+Building from sources should be quite straightforward, provided you
+install the Allegro@tie{}5 development libraries using your distribution’s
+package manager.  If you use an apt based distribution (Debian, Ubuntu,
+@enddots{}) you can do this by invoking the command:
+
+@example
+sudo apt-get install '^liballegro.*5-dev$'
+@end example
+
+When building the sources, the usual incantation @code{./bootstrap &&
+./configure && make} is often enough. The installation step (@code{make
+install}) is optional as MININIM is able to run directly from its source
+directory (provided you don’t make a @env{VPATH} build, in which case
+you need to specify the @emph{data path}. See the @option{--data-path}
+option).  After that first time, running @command{make} should suffice
+to rebuild the program with your changes.  See file @file{INSTALL}.
+
+When committing changes to the repository always create an entry in the
+@file{doc/release/latest-news.texi} file for any user-visible changes or
+additions made.  This file is intended to provide the latest release
+news for the @file{NEWS.texi} and @file{ANNOUNCEMENT.texi} files to
+avoid duplication of information and syncing work.  After a release is
+made the news items should be moved to the @file{NEWS.texi} file and
+another news list should be built from scratch in the
+@file{latest-news.texi} file.
+
+@section MinGW
+
+These are the steps to build using MinGW, in a machine running Microsoft
+Windows.
+
+@itemize
+@item Download and install git: @url{https://git-scm.com/download/win}.
+
+@item Clone the gnulib repository:
+  @code{git clone git://git.savannah.gnu.org/gnulib.git} and add the
+  gnulib root to your @env{PATH}.
+
+@item Download MinGW:
+  @url{http://downloads.sourceforge.net/project/mingw/Installer/mingw-get-setup.exe}
+
+@item Install the packages: @samp{mingw32-base}, @samp{mingw32-gcc-g++},
+      @samp{msys-base}, @samp{mingw32-autoconf},
+      @samp{mingw32-automake}.
+
+@item Rename the file @file{C:/MinGW/msys/1.0/etc/fstab.sample} to @file{fstab}.
+
+@item Download Allegro:
+  @url{http://cdn.allegro.cc/file/library/allegro/5.0.10/allegro-5.0.10-mingw-4.7.0.zip}
+  and extract its root folder's contents to @file{C:\MinGW}.
+
+@item Run msys: @file{C:\MinGW\msys\1.0\msys.bat}
+
+@item Clone the repository: @code{git clone https://github.com/oitofelix/mininim.git}
+
+@item Build: @code{cd mininim && ./bootstrap && ./configure && make}
+
+@item Distribute the resulting binary mininim.exe along with the following dlls:
+  @file{C:\MinGW\bin\libstdc++-6.dll} and
+  @file{C:\MinGW\bin\libgcc_s_dw2-1.dll}.
+@end itemize
+
+
+
+
+@c --- homepage: Footer;
+@ifset homepage
+@include footer.texi
+@end ifset
