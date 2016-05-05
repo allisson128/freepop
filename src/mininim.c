@@ -1119,6 +1119,9 @@ main (int _argc, char **_argv)
   show_mouse_cursor ();
   set_system_mouse_cursor (ALLEGRO_SYSTEM_MOUSE_CURSOR_BUSY);
 
+  event_queue = create_event_queue ();
+  al_register_event_source (event_queue, get_display_event_source (display));
+
   load_callback = draw_loading_screen;
 
   load_samples ();
@@ -1152,7 +1155,7 @@ main (int _argc, char **_argv)
 
   play_title ();
   stop_video_effect ();
-  if (quit_anim == QUIT_GAME) goto quit_game;
+  if (quit_anim == QUIT_GAME) quit_game ();
   stop_all_samples ();
 
  play_game:
@@ -1190,7 +1193,14 @@ main (int _argc, char **_argv)
 
   if (quit_anim == RESTART_GAME) goto restart_game;
 
- quit_game:
+  quit_game ();
+
+  return 0;
+}
+
+void
+quit_game (void)
+{
   unload_level ();
   unload_cutscenes ();
   unload_samples ();
@@ -1203,7 +1213,7 @@ main (int _argc, char **_argv)
 
   fprintf (stderr, "MININIM: Hope you enjoyed it!\n");
 
-  return 0;
+  exit (0);
 }
 
 static void
@@ -1229,7 +1239,7 @@ draw_loading_screen (void)
   draw_bitmap (icon, screen, x, y, 0);
   draw_text (screen, "Loading....", ORIGINAL_WIDTH / 2.0, ORIGINAL_HEIGHT / 2.0,
              ALLEGRO_ALIGN_CENTRE);
-  show ();
+  process_display_events ();
 }
 
 static void
