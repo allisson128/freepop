@@ -76,7 +76,7 @@ next_generator_level (int number)
       for (p.place = 0; p.place < PLACES; p.place++) {
         struct con *c = &lv->con[p.room][p.floor][p.place];
         /* c->fg = prandom (TCARPET); */
-        c->fg = LOOSE_FLOOR;
+        c->fg = NO_FLOOR;
 	c->bg = NO_BRICKS;
         /* do { */
         /*   c->bg = prandom (WINDOW); */
