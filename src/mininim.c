@@ -535,7 +535,7 @@ parser (int key, char *arg, struct argp_state *state)
   float float_val;
   int int_val0, int_val1, int_val2;
 
-  char *level_module_enum[] = {"NATIVE", "LEGACY", "PLV", "DAT", "CONSISTENCY", NULL};
+  char *level_module_enum[] = {"NATIVE", "LEGACY", "PLV", "DAT", "CONSISTENCY", "GENERATOR", NULL};
 
   char *video_mode_enum[] = {"VGA", "EGA", "CGA", "HGC", NULL};
 
@@ -606,6 +606,7 @@ parser (int key, char *arg, struct argp_state *state)
     case 2: level_module = PLV_LEVEL_MODULE; break;
     case 3: level_module = DAT_LEVEL_MODULE; break;
     case 4: level_module = CONSISTENCY_LEVEL_MODULE; break;
+    case 5: level_module = GENERATOR_LEVEL_MODULE; break;
     }
     break;
   case CONVERT_LEVELS_OPTION:
@@ -1115,14 +1116,16 @@ main (int _argc, char **_argv)
 
   al_inhibit_screensaver (inhibit_screensaver);
 
-  draw_loading_screen ();
-
   show_mouse_cursor ();
   set_system_mouse_cursor (ALLEGRO_SYSTEM_MOUSE_CURSOR_BUSY);
+
+  load_callback = draw_loading_screen;
 
   load_samples ();
   load_level ();
   load_cutscenes ();
+
+  load_callback = NULL;
 
   set_system_mouse_cursor (ALLEGRO_SYSTEM_MOUSE_CURSOR_DEFAULT);
 
@@ -1179,6 +1182,10 @@ main (int _argc, char **_argv)
   case CONSISTENCY_LEVEL_MODULE:
     play_consistency_level (start_level);
     break;
+  case GENERATOR_LEVEL_MODULE:
+    play_generator_level (start_level);
+    break;
+
   }
 
   if (quit_anim == RESTART_GAME) goto restart_game;
@@ -1221,6 +1228,7 @@ draw_loading_screen (void)
   draw_bitmap (icon, screen, x, y, 0);
   draw_text (screen, "Loading....", ORIGINAL_WIDTH / 2.0, ORIGINAL_HEIGHT / 2.0,
              ALLEGRO_ALIGN_CENTRE);
+  acknowledge_resize ();
   show ();
 }
 

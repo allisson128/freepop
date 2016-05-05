@@ -147,6 +147,7 @@
 
 #include "native-level.h"
 #include "consistency-level.h"
+#include "generator-level.h"
 #include "legacy-level.h"
 #include "dat-level.h"
 #include "plv-level.h"
