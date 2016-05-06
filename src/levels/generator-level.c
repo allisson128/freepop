@@ -19,9 +19,13 @@
 
 #include "mininim.h"
 
+#define HEIGHT 3
+#define WIDTH  8
+
 struct level generator_level;
 static void start (void);
 static void end (struct pos *p);
+static void gen_wall (void);
 
 void
 play_generator_level (int number)
@@ -81,9 +85,7 @@ next_generator_level (int number)
         /* do { */
         /*   c->bg = prandom (WINDOW); */
         /* } while (c->bg == NO_BRICKS); */
-
         /* c->ext.item = prandom (SWORD); */
-
         /* int r = prandom (255); */
         /* if (c->fg == OPENER_FLOOR */
         /*     || c->fg == CLOSER_FLOOR) c->ext.event = r; */
@@ -92,111 +94,41 @@ next_generator_level (int number)
         /*   lv->event[r].p = p; */
         /*   lv->event[r].next = prandom (1); */
         /* } */
-
       }
   }
 
-  int room, a, b, l, r, al, bl, ar, br, la, ra, lb, rb;
+  int r, prob;
+  int squareProbability         = 50;
+  int cornerProbability         = 50;
+  int newWallProbability        = 50;
+  int continuousWallProbability = 50;
+  int defaultProbability        = 50;
 
-  lv->link[1].l = 2;
-  lv->link[2].r = 1;
+  for (p.room = 1; p.room < ROOMS; p.room++) {
+    for (p.floor = 0; p.floor < FLOORS; p.floor++) {
+      for (p.place = 0; p.place < PLACES; p.place++) {
+        struct con *c = &lv->con[p.room][p.floor][p.place];
 
-  for (p.room = 3; p.room < ROOMS; p.room++) {
-    for (room = 1; room < ROOMS; room++) {
-      if (p.room == room) continue;
-
-      if (! lv->link[room].l) {
-        lv->link[room].l = p.room;
-        lv->link[p.room].r = room;
-
-        a = lv->link[room].a;
-        if (a) {
-          al = lv->link[a].l;
-          if (al) {
-            lv->link[p.room].a = al;
-            lv->link[al].b = p.room;
-          }
-        }
-
-        b = lv->link[room].b;
-        if (b) {
-          bl = lv->link[b].l;
-          if (bl) {
-            lv->link[p.room].b = bl;
-            lv->link[bl].a = p.room;
-          }
-        }
-
-        break;
-      } else if (! lv->link[room].r) {
-        lv->link[room].r = p.room;
-        lv->link[p.room].l = room;
-
-        a = lv->link[room].a;
-        if (a) {
-          ar = lv->link[a].r;
-          if (ar) {
-            lv->link[p.room].a = ar;
-            lv->link[ar].b = p.room;
-          }
-        }
-
-        b = lv->link[room].b;
-        if (b) {
-          br = lv->link[b].r;
-          if (br) {
-            lv->link[p.room].b = br;
-            lv->link[br].a = p.room;
-          }
-        }
-
-        break;
-      } else if (! lv->link[room].a) {
-        lv->link[room].a = p.room;
-        lv->link[p.room].b = room;
-
-        l = lv->link[room].l;
-        if (l) {
-          la = lv->link[l].a;
-          if (la) {
-            lv->link[p.room].l = la;
-            lv->link[la].r = p.room;
-          }
-        }
-
-        r = lv->link[room].r;
-        if (r) {
-          ra = lv->link[r].a;
-          if (ra) {
-            lv->link[p.room].r = ra;
-            lv->link[ra].l = p.room;
-          }
-        }
-        break;
-      } else if (! lv->link[room].b) {
-        lv->link[room].b = p.room;
-        lv->link[p.room].a = room;
-
-        l = lv->link[room].l;
-        if (l) {
-          lb = lv->link[l].b;
-          if (lb) {
-            lv->link[p.room].l = lb;
-            lv->link[lb].r = p.room;
-          }
-        }
-
-        r = lv->link[room].r;
-        if (r) {
-          rb = lv->link[r].b;
-          if (rb) {
-            lv->link[p.room].r = rb;
-            lv->link[rb].l = p.room;
-          }
-        }
-
-        break;
+	prob = defaultProbability;
+  	r = prandom(100);
+	if (r < prob)
+  	  c->fg = WALL;
+  	else
+	  c->fg = NO_FLOOR;
       }
+    }
+  }
+
+
+  int room, j;
+
+  for (i = 0; i < HEIGHT; ++i) {
+    for (j = 0; j < WIDTH; ++j) {
+      room = i*8+j+1;
+      lv->link[room].r = (j != (WIDTH-1))  ? room + 1 : 0;
+      lv->link[room].l = (j != 0)          ? room - 1 : 0;
+      lv->link[room].a = (i != 0)          ? room - 8 : 0;
+      lv->link[room].b = (i != (HEIGHT-1)) ? room + 8 : 0;
     }
   }
 
@@ -207,8 +139,21 @@ next_generator_level (int number)
 
   generator_level.number = number;
   generator_level.nominal_number = number;
-  generator_level.start = start;
+  /* generator_level.start = start; */
   generator_level.next_level = next_generator_level;
   generator_level.end = end;
   generator_level.start_pos = (struct pos) {1,0,0};
+  /* generator_level.special_events = gen_wall; */
+}
+
+void
+gen_wall (void) 
+{
+  struct pos p;
+  p.room = prandom (ROOMS - 2) + 1;
+  p.floor = prandom (FLOORS - 1);
+  p.place = prandom (PLACES - 1);
+  con(&p)->fg = WALL;
+
+  register_changed_pos (&p);
 }
