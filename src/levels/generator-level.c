@@ -27,6 +27,9 @@ static void start (void);
 static void end (struct pos *p);
 static void gen_wall (void);
 static bool is_square (struct pos *p);
+static bool is_corner (struct pos *p);
+static bool is_new_wall (struct pos *p);
+static bool is_continuous_wall (struct pos *p);
 
 void
 play_generator_level (int number)
@@ -83,6 +86,14 @@ next_generator_level (int number)
         struct con *c = &lv->con[p.room][p.floor][p.place];
         /* c->fg = prandom (TCARPET); */
         c->fg = NO_FLOOR;
+	if (p.room==10 && p.floor == 0 && p.place == 0)
+	  c->fg = WALL;
+	if (p.room==10 && p.floor == 0 && p.place == 1)
+	  c->fg = WALL;
+	if (p.room==10 && p.floor == 0 && p.place == 2)
+	/* if (p.room==10 && p.floor == 1 && p.place == 0) */
+	  c->fg = WALL;
+
         c->bg = NO_BRICKS;
         /* do { */
         /*   c->bg = prandom (WINDOW); */
@@ -113,28 +124,28 @@ next_generator_level (int number)
   }
 
   int r, prob;
-  int square_prob          = 98;
-  int corner_prob          = 50;
-  int new_wall_prob        = 50;
-  int continuous_wall_prob = 50;
-  int default_prob         = 10;
+  int square_prob          = 50;
+  int corner_prob          = 100;
+  int new_wall_prob        = 100;
+  int continuous_wall_prob = 100;
+  int default_prob         = 0;
 
   for (p.room = 1; p.room < ROOMS; p.room++) {
     for (p.floor = 0; p.floor < FLOORS; p.floor++) {
       for (p.place = 0; p.place < PLACES; p.place++) {
         struct con *c = &lv->con[p.room][p.floor][p.place];
 
-	if (is_square (&p))
-	  prob = square_prob;
+	/* if (is_square (&p)) */
+	/*   prob = square_prob; */
 
-	/* else if (is_corner (p)) */
-	/*   prob = coner_prob; */
+	/* else if (is_corner (&p)) */
+	/*   prob = corner_prob; */
 
-	/* else if (is_new_wall (p)) */
-	/*   prob = new_wall_prob; */
+	/* else if (is_new_wall (&p)) */
+	/*  prob = new_wall_prob; */
 
-	/* else if (is_continuous_wall (p)) */
-	/*   prob = continuous_wall_prob; */
+	if (is_continuous_wall (&p))
+	  prob = continuous_wall_prob;
 
 	else
 	  prob = default_prob;
@@ -142,11 +153,11 @@ next_generator_level (int number)
 
   	r = prandom(100);
 
-	if (r <= prob)
+	if (r < prob)
   	  c->fg = WALL;
 
-  	else
-	  c->fg = NO_FLOOR;
+  	/* else */
+	/*   c->fg = NO_FLOOR; */
       }
     }
   }
@@ -182,7 +193,9 @@ gen_wall (void)
 bool
 is_square (struct pos* p)
 {
-  if (crel (p, 0, -1)->fg == WALL
+  if (p->room % WIDTH  != 1 && p->room > WIDTH
+      &&
+      crel (p, 0, -1)->fg == WALL
       && 
       crel (p, -1,-1)->fg == WALL
       &&
@@ -193,3 +206,53 @@ is_square (struct pos* p)
   else
     return false;
 }
+
+bool
+is_corner (struct pos* p)
+{
+  if (p->room % WIDTH  != 1 && p->room > WIDTH
+      &&
+      crel (p,  0, -1)->fg == WALL
+      &&
+      crel (p, -1,  0)->fg == WALL) 
+    
+    return true;
+
+  else
+    return false;
+} 
+
+bool
+is_new_wall (struct pos* p)
+{
+  if (p->room % WIDTH  != 1 && p->room > WIDTH
+      &&
+      crel (p, -1, -1)->fg == WALL
+      &&
+      crel (p, -1,  0)->fg == WALL
+      &&
+      crel (p, -1,  1)->fg == WALL)
+    
+    return true;
+
+  else
+    return false;
+}
+
+bool
+is_continuous_wall (struct pos* p)
+{
+  if (p->room % WIDTH  != 1
+      &&
+      crel (p, 0, -1)->fg == WALL)
+    return true;
+  
+  else if (p->room > WIDTH
+	   &&
+	   crel (p, -1,  0)->fg == WALL)
+    return true;
+  
+  else
+    return false;
+}
+
