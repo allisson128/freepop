@@ -19,18 +19,18 @@
 
 #include "mininim.h"
 
-#define HEIGHT 3
-#define WIDTH  8
+#define POPSIZE 5
 
 struct level generator_level;
 static void start (void);
 static void end (struct pos *p);
-static void gen_wall (void);
+/* static void gen_wall (void); */
 static bool is_square (struct pos *p);
 static bool is_corner (struct pos *p);
 static bool is_new_wall (struct pos *p);
 static bool is_continuous_wall (struct pos *p);
 static void fix_level_generator (void);
+static void squarify (int d, int *d1, int* d2);
 
 void
 play_generator_level (int number)
@@ -52,12 +52,17 @@ end (struct pos *p)
   quit_anim = NEXT_LEVEL;
 }
 
+struct level pop[POPSIZE];
+int HEIGHT;
+int WIDTH;
+
 void
 next_generator_level (int number)
 {
-  int i;
+  int i, it, choice;
   struct pos p;
 
+  
   random_seed = 0;
   /* random_seed = time (NULL); */
   /* printf ("LEVEL NUMBER: %u\n", random_seed); */
@@ -67,109 +72,118 @@ next_generator_level (int number)
 
   memset (lv, 0, sizeof (*lv));
 
-  /* generate room 0 (delimiter room) */
-  p.room = 0;
-  for (p.floor = 0; p.floor < FLOORS; p.floor++)
-    for (p.place = 0; p.place < PLACES; p.place++) {
-      struct con *c = &lv->con[p.room][p.floor][p.place];
-      c->fg = WALL;
-      c->bg = NO_BG;
-    }
+  squarify (ROOMS-1, &HEIGHT, &WIDTH);
 
-  for (p.room = 1; p.room < ROOMS; p.room++) {
-    lv->link[p.room].l = 0;
-    lv->link[p.room].r = 0;
-    lv->link[p.room].a = 0;
-    lv->link[p.room].b = 0;
+  for (it = 0; it < POPSIZE; ++it){
+    
+    level = pop[it];
 
+    /* generate room 0 (delimiter room) */
+    p.room = 0;
     for (p.floor = 0; p.floor < FLOORS; p.floor++)
       for (p.place = 0; p.place < PLACES; p.place++) {
-        struct con *c = &lv->con[p.room][p.floor][p.place];
-        /* c->fg = prandom (TCARPET); */
-        c->fg = NO_FLOOR;
-	if (p.room==17 && p.floor == 2 && p.place == 1) {
-	  c->fg = LEVEL_DOOR;
-	  c->ext.step = LEVEL_DOOR_MAX_STEP;
-	}
-	if (p.room==24 && p.floor == 2 && p.place == 8)
-	  c->fg = LEVEL_DOOR;
+	struct con *c = &lv->con[p.room][p.floor][p.place];
+	c->fg = WALL;
+	c->bg = NO_BG;
+      }
+
+    for (p.room = 1; p.room < ROOMS; p.room++) {
+      lv->link[p.room].l = 0;
+      lv->link[p.room].r = 0;
+      lv->link[p.room].a = 0;
+      lv->link[p.room].b = 0;
+
+      for (p.floor = 0; p.floor < FLOORS; p.floor++)
+	for (p.place = 0; p.place < PLACES; p.place++) {
+	  struct con *c = &lv->con[p.room][p.floor][p.place];
+	  /* c->fg = prandom (TCARPET); */
+	  c->fg = NO_FLOOR;
+	  if (p.room==17 && p.floor == 2 && p.place == 1) {
+	    c->fg = LEVEL_DOOR;
+	    c->ext.step = LEVEL_DOOR_MAX_STEP;
+	  }
+	  if (p.room==8 && p.floor == 2 && p.place == 8)
+	    c->fg = LEVEL_DOOR;
 	
-	/* if (p.room==10 && p.floor == 0 && p.place == 2) */
-	/* if (p.room==10 && p.floor == 1 && p.place == 0) */
+	  /* if (p.room==10 && p.floor == 0 && p.place == 2) */
+	  /* if (p.room==10 && p.floor == 1 && p.place == 0) */
 	  /* c->fg = WALL; */
 
-        c->bg = NO_BRICKS;
-        /* do { */
-        /*   c->bg = prandom (WINDOW); */
-        /* } while (c->bg == NO_BRICKS); */
-        /* c->ext.item = prandom (SWORD); */
-        /* int r = prandom (255); */
-        /* if (c->fg == OPENER_FLOOR */
-        /*     || c->fg == CLOSER_FLOOR) c->ext.event = r; */
-        /* if (c->fg == DOOR */
-        /*     || c->fg == LEVEL_DOOR) { */
-        /*   lv->event[r].p = p; */
-        /*   lv->event[r].next = prandom (1); */
-        /* } */
-      }
-  }
-
-
-  int room, j;
-
-  for (i = 0; i < HEIGHT; ++i) {
-    for (j = 0; j < WIDTH; ++j) {
-      room = i*8+j+1;
-      lv->link[room].r = (j != (WIDTH-1))  ? room + 1 : 0;
-      lv->link[room].l = (j != 0)          ? room - 1 : 0;
-      lv->link[room].a = (i != 0)          ? room - 8 : 0;
-      lv->link[room].b = (i != (HEIGHT-1)) ? room + 8 : 0;
+	  c->bg = NO_BRICKS;
+	  /* do { */
+	  /*   c->bg = prandom (WINDOW); */
+	  /* } while (c->bg == NO_BRICKS); */
+	  /* c->ext.item = prandom (SWORD); */
+	  /* int r = prandom (255); */
+	  /* if (c->fg == OPENER_FLOOR */
+	  /*     || c->fg == CLOSER_FLOOR) c->ext.event = r; */
+	  /* if (c->fg == DOOR */
+	  /*     || c->fg == LEVEL_DOOR) { */
+	  /*   lv->event[r].p = p; */
+	  /*   lv->event[r].next = prandom (1); */
+	  /* } */
+	}
     }
-  }
 
-  int r, prob;
-  int square_prob          = 70;
-  int corner_prob          = 60;
-  int new_wall_prob        = 20;
-  int continuous_wall_prob = 70;
-  int default_prob         = 30;
 
-  for (p.room = 1; p.room < ROOMS; p.room++) {
-    for (p.floor = 0; p.floor < FLOORS; p.floor++) {
-      for (p.place = 0; p.place < PLACES; p.place++) {
-        struct con *c = &lv->con[p.room][p.floor][p.place];
+    int room, j;
 
-	if (is_square (&p))
-	  prob = square_prob;
-
-	else if (is_corner (&p))
-	  prob = corner_prob;
-
-	else if (is_new_wall (&p))
-	 prob = new_wall_prob;
-	
-	else if (is_continuous_wall (&p))
-	  prob = continuous_wall_prob;
-
-	else
-	  prob = default_prob;
-
-	
-  	r = prandom(100);
-
-	if (r < prob)
-  	  c->fg = WALL;
-
-  	/* else */
-	/*   c->fg = NO_FLOOR; */
+    for (i = 0; i < HEIGHT; ++i) {
+      for (j = 0; j < WIDTH; ++j) {
+	room = i*WIDTH+j+1;
+	lv->link[room].r = (j != (WIDTH-1))  ? room + 1 : 0;
+	lv->link[room].l = (j != 0)          ? room - 1 : 0;
+	lv->link[room].a = (i != 0)          ? room - WIDTH : 0;
+	lv->link[room].b = (i != (HEIGHT-1)) ? room + WIDTH : 0;
       }
     }
+
+    int r, prob;
+    int square_prob          = 50;
+    int corner_prob          = 60;
+    int new_wall_prob        = 10;
+    int continuous_wall_prob = 70;
+    int default_prob         = 20;
+
+    for (p.room = 1; p.room < ROOMS; p.room++) {
+      for (p.floor = 0; p.floor < FLOORS; p.floor++) {
+	for (p.place = 0; p.place < PLACES; p.place++) {
+	  struct con *c = &lv->con[p.room][p.floor][p.place];
+
+	  if (is_square (&p))
+	    prob = square_prob;
+
+	  else if (is_corner (&p))
+	    prob = corner_prob;
+
+	  else if (is_new_wall (&p))
+	    prob = new_wall_prob;
+	
+	  else if (is_continuous_wall (&p))
+	    prob = continuous_wall_prob;
+
+	  else
+	    prob = default_prob;
+
+	
+	  r = prandom(100);
+
+	  if (r < prob)
+	    c->fg = WALL;
+
+	  /* else */
+	  /*   c->fg = NO_FLOOR; */
+	}
+      }
+    }
+    
+    pop[it] = level;
   }
 
+  choice = prandom(POPSIZE - 1);
 
-  generator_level = level;
+  level = pop[choice];
   /* fix level */
-  level = generator_level;
   for (i = 0; i < 2; i++) fix_level_generator ();
   
   generator_level = level;
@@ -183,17 +197,17 @@ next_generator_level (int number)
   /* generator_level.special_events = gen_wall; */
 }
 
-void
-gen_wall (void) 
-{
-  struct pos p;
-  p.room = prandom (ROOMS - 2) + 1;
-  p.floor = prandom (FLOORS - 1);
-  p.place = prandom (PLACES - 1);
-  con(&p)->fg = WALL;
+/* void */
+/* gen_wall (void)  */
+/* { */
+/*   struct pos p; */
+/*   p.room = prandom (ROOMS - 2) + 1; */
+/*   p.floor = prandom (FLOORS - 1); */
+/*   p.place = prandom (PLACES - 1); */
+/*   con(&p)->fg = WALL; */
 
-  register_changed_pos (&p);
-}
+/*   register_changed_pos (&p); */
+/* } */
 
 bool
 is_square (struct pos* p)
@@ -252,10 +266,10 @@ is_continuous_wall (struct pos* p)
       crel (p, 0, -1)->fg == WALL)
     return true;
   
-  else if (p->room > WIDTH
-	   &&
-	   crel (p, -1,  0)->fg == WALL)
-    return true;
+  /* else if (p->room > WIDTH */
+  /* 	   && */
+  /* 	   crel (p, -1,  0)->fg == WALL) */
+  /*   return true; */
   
   else
     return false;
@@ -284,4 +298,29 @@ fix_level_generator (void)
         /* fix_confg_which_should_not_have_conbg (&p); */
         /* fix_partial_big_pillar (&p); */
       }
+}
+
+void
+squarify (int d, int *d1, int* d2)
+{
+  int r, i;
+
+  for (r = (int) sqrt(d); r >= 1; --r)
+
+    if (!(d % r)) {
+      
+      i = d / r;
+      
+      if (r > i) {
+	*d1 = r;
+	*d2 = i;
+      }
+      else {
+	*d1 = r;
+	*d2 = i;
+      }
+      printf ("WiDTH = %d\n", *d1);
+      printf ("HEIGHT = %d\n", *d2);
+      break;
+    }
 }

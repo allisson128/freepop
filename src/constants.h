@@ -25,7 +25,7 @@
 
 #define MIGNORE (INT_MIN)
 
-#define ROOMS 25
+#define ROOMS 130
 #define FLOORS 3
 #define PLACES 10
 #define EVENTS 256
