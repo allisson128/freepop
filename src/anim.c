@@ -37,8 +37,12 @@ play_anim (void (*draw_callback) (void),
            int freq)
 {
   if (cutscene) set_multi_room (1, 1);
-  else set_multi_room (mr_w, mr_h);
+  else {
+    mr.room = room_view;
+    apply_mr_fit_mode ();
+  }
 
+  anim_cycle = 0;
   quit_anim = NO_QUIT;
 
   struct anim *current_kid;
@@ -114,7 +118,7 @@ play_anim (void (*draw_callback) (void),
           clear_bitmap (uscreen, TRANSPARENT_COLOR);
           draw_callback ();
           play_samples ();
-          anim_cycle++;
+          if (! game_paused) anim_cycle++;
         }
         if (! cutscene) editor ();
         draw_bottom_text (uscreen, NULL, 0);
@@ -199,8 +203,10 @@ play_anim (void (*draw_callback) (void),
       if (dw < 0) while (dw++ < 0) mr_view_trans (LEFT);
       else if (dw > 0) while (dw-- > 0) mr_view_trans (RIGHT);
 
-      draw_multi_rooms ();
-      force_full_redraw = true;
+      if (dz || dw) {
+        draw_multi_rooms ();
+        force_full_redraw = true;
+      }
       break;
     case ALLEGRO_EVENT_KEY_CHAR:
       key = event;

@@ -66,7 +66,7 @@ play_level (struct level *lv)
   stop_all_samples ();
   if (level.start) level.start ();
 
-  anim_cycle = 0;
+  /* anim_cycle = 0; */
   last_auto_show_time = -1;
   current_kid_id = 0;
 
@@ -297,6 +297,7 @@ load_level (void)
   load_kid ();
   load_guard ();
   load_mouse ();
+  load_box ();
 }
 
 void
@@ -309,6 +310,7 @@ unload_level (void)
   unload_kid ();
   unload_guard ();
   unload_mouse ();
+  unload_box ();
 }
 
 static void
@@ -352,7 +354,7 @@ compute_level (void)
 
   clear_anims_keyboard_state ();
 
-  if (! anim_cycle) mr_center_room (room_view);
+  /* if (! anim_cycle) mr_center_room (room_view); */
 
   if (current_kid->f.c.room != prev_room
       && current_kid->f.c.room != 0
@@ -391,9 +393,32 @@ process_keys (void)
     button = -1;
   }
 
-  /* M: change multi-room mode */
-  if (was_key_pressed (ALLEGRO_KEY_M, 0, 0, true))
-    multi_room_fit_hv ();
+  /* M: change multi-room fit mode */
+  if (was_key_pressed (ALLEGRO_KEY_M, 0, 0, true)
+      && ! active_menu) {
+    char *fit_str;
+
+    switch (mr.fit_mode) {
+    case MR_FIT_NONE:
+      mr.fit_mode = MR_FIT_STRETCH;
+      fit_str = "STRETCH";
+      break;
+    case MR_FIT_STRETCH:
+      mr.fit_mode = MR_FIT_RATIO;
+      fit_str = "RATIO";
+      break;
+    case VGA:
+      mr.fit_mode = MR_FIT_NONE;
+      fit_str = "NONE";
+      break;
+    }
+
+    apply_mr_fit_mode ();
+
+    xasprintf (&text, "MR FIT MODE: %s", fit_str);
+    draw_bottom_text (NULL, text, 0);
+    al_free (text);
+  }
 
   /* CTRL+Z: undo */
   if (was_key_pressed (ALLEGRO_KEY_Z, 0, ALLEGRO_KEYMOD_CTRL, true))
@@ -419,7 +444,8 @@ process_keys (void)
     ui_set_multi_room (-1, +0);
 
   /* CTRL+]: increase multi-room resolution */
-  if (was_key_pressed (0, 0x1D, ALLEGRO_KEYMOD_CTRL, true)
+  if ((was_key_pressed (0, 0x1D, ALLEGRO_KEYMOD_CTRL, true)
+       || was_key_pressed (0, 0x1C, ALLEGRO_KEYMOD_CTRL, true))
       && ! cutscene)
     ui_set_multi_room (+1, +0);
 
@@ -555,7 +581,7 @@ process_keys (void)
              && ! save_game_dialog_thread)
     unpause_game ();
 
-  if (game_paused) anim_cycle--;
+  /* if (game_paused) anim_cycle--; */
 
   /* R: resurrect kid */
   if (! active_menu

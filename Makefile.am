@@ -29,6 +29,7 @@ include documentation.am
 ###########
 
 bin_PROGRAMS = mininim
+
 mininim_SOURCES = src/mininim.c src/mininim.h src/constants.h		\
 		src/types.h src/colors.h src/anim.c src/anim.h		\
 		src/pos.c src/pos.h src/physics.c src/physics.h		\
@@ -124,7 +125,7 @@ mininim_SOURCES = src/mininim.c src/mininim.h src/constants.h		\
 		src/kernel/diff.c src/kernel/diff.h src/menu.c		\
 		src/menu.h src/editor.c src/editor.h src/debug.c	\
 		src/debug.h src/undo.c src/undo.h src/multi-room.c	\
-		src/multi-room.h
+		src/multi-room.h src/box.c src/box.h
 
 ${mininim_OBJECTS}: ${top_builddir}/src/mininim.h.gch
 
