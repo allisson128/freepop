@@ -46,8 +46,7 @@ static bool is_continuous_wall (struct level *lv, int i, int j);
 static void fix_level_generator (void);
 static void squarify (int d, int *d1, int* d2);
 static void crossover (struct level *lv1, struct level *lv2, 
-		       struct level *son1, struct level *son2,
-		       int cut_point);
+		       struct level *son1, struct level *son2);
 static bool is_pattern (struct level *lv, int i, int j, 
 			struct pattern *p);
 static struct level *mutation_wall_alg (struct level *lv, 
@@ -121,8 +120,8 @@ next_generator_level (int number)
   /* struct level *lv = &generator_level; */
   /* struct level *lv = &level; */
 
-  memset (&pop, 0, sizeof (pop));
-  memset (&sons, 0, sizeof (sons));
+  /* memset (&pop, 0, sizeof (pop)); */
+  /* memset (&sons, 0, sizeof (sons)); */
   
   squarify (ROOMS-1, &HEIGHT, &WIDTH);
 
@@ -139,8 +138,8 @@ next_generator_level (int number)
     	c->fg = WALL;
     	c->bg = NO_BG;
 
-	sons[it].lv.con[p.room][p.floor][p.place].fg = WALL;
-	sons[it].lv.con[p.room][p.floor][p.place].fg = NO_BG;
+	/* sons[it].lv.con[p.room][p.floor][p.place].fg = WALL; */
+	/* sons[it].lv.con[p.room][p.floor][p.place].fg = NO_BG; */
       }
 
     for (i = 0; i < HEIGHT; ++i)
@@ -207,7 +206,7 @@ next_generator_level (int number)
     mat (lv, MH - 1, MW - 1)->fg = NO_FLOOR;
   }
     
-  crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv, 4);
+  crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv);
   choice = 0;//prandom (POPSIZE - 1);
   /* fix level */
   /* level = pop[choice].lv; */
@@ -274,13 +273,16 @@ squarify (int d, int *d1, int* d2)
 
 void
 crossover (struct level *lv1, struct level *lv2,
-	   struct level *son1, struct level *son2,
-	   int cut_point)
+	   struct level *son1, struct level *son2)
 {
-  int i, j, r = (cut_point > 0 && cut_point < (MW - 1)) ? cut_point : prandom (MH - 2) + 1;;
+  int i, j, r;
 
-  if (1) {
-    /* if (prandom (1)) { */
+  *son1 = *lv1;
+  *son2 = *lv2;
+  
+  if (0) {
+
+    r = prandom (MH - 2) + 1;
 
     for (i = 0, j = 0; mat (lv1, i, j); ++i, j = 0)
       for (j = 0; mat (lv1, i, j); ++j)
@@ -297,9 +299,9 @@ crossover (struct level *lv1, struct level *lv2,
 
   else {
     r = prandom (MW - 2) + 1;
-
-    for (i = 0, j = 0; mat (lv1, i, j); ++i, j = 0)
-      for (j = 0; mat (lv1, i, j); ++j)
+    r = 15;
+    for (i = 0, j = 0; mat (lv1, j, i); ++i, j = 0)
+      for (j = 0; mat (lv1, j, i); ++j)
 
 	if (i < r) {
 	  *mat (son1, j, i) = *mat (lv1, j, i);
@@ -316,10 +318,8 @@ crossover (struct level *lv1, struct level *lv2,
 struct level *
 mutation_wall_alg (struct level *lv, double max_mut_rate)
 {
+  assert (max_mut_rate >= 0);
   int i, j, num = round(MW * MH * max_mut_rate);
-
-  num = (num >= 0) ? num : num * -1;
-
 
   printf ("mutation\nnum_of_casilhas = %d\n", num);
   
