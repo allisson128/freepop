@@ -32,6 +32,11 @@ static bool is_continuous_wall (struct pos *p);
 static void fix_level_generator (void);
 static void squarify (int d, int *d1, int* d2);
 
+struct solution {
+  struct level lv;
+  double rate;
+};
+
 void
 play_generator_level (int number)
 {
@@ -52,7 +57,7 @@ end (struct pos *p)
   quit_anim = NEXT_LEVEL;
 }
 
-struct level pop[POPSIZE];
+struct solution pop[POPSIZE];
 int HEIGHT;
 int WIDTH;
 
@@ -73,10 +78,12 @@ next_generator_level (int number)
   memset (lv, 0, sizeof (*lv));
 
   squarify (ROOMS-1, &HEIGHT, &WIDTH);
+  printf ("HEIGHT = %d\n", HEIGHT);
+  printf ("WiDTH = %d\n", WIDTH);
 
   for (it = 0; it < POPSIZE; ++it){
     
-    level = pop[it];
+    level = pop[it].lv;
 
     /* generate room 0 (delimiter room) */
     p.room = 0;
@@ -98,12 +105,6 @@ next_generator_level (int number)
 	  struct con *c = &lv->con[p.room][p.floor][p.place];
 	  /* c->fg = prandom (TCARPET); */
 	  c->fg = NO_FLOOR;
-	  if (p.room==17 && p.floor == 2 && p.place == 1) {
-	    c->fg = LEVEL_DOOR;
-	    c->ext.step = LEVEL_DOOR_MAX_STEP;
-	  }
-	  if (p.room==8 && p.floor == 2 && p.place == 8)
-	    c->fg = LEVEL_DOOR;
 	
 	  /* if (p.room==10 && p.floor == 0 && p.place == 2) */
 	  /* if (p.room==10 && p.floor == 1 && p.place == 0) */
@@ -175,14 +176,24 @@ next_generator_level (int number)
 	  /*   c->fg = NO_FLOOR; */
 	}
       }
+
+      lv->con[WIDTH*(HEIGHT-1)+1][2][0].fg = NO_FLOOR;
+      lv->con[WIDTH*(HEIGHT-1)+1][2][1].fg = LEVEL_DOOR;
+      lv->con[WIDTH*(HEIGHT-1)+1][2][1].ext.step = LEVEL_DOOR_MAX_STEP;
+      lv->con[WIDTH*(HEIGHT-1)+1][2][2].fg = NO_FLOOR;
+
+      lv->con[WIDTH][0][7].fg = NO_FLOOR;
+      lv->con[WIDTH][0][8].fg = LEVEL_DOOR;
+      lv->con[WIDTH][0][9].fg = NO_FLOOR;
+
     }
     
-    pop[it] = level;
+    pop[it].lv = level;
   }
 
-  choice = prandom(POPSIZE - 1);
+  choice = prandom (POPSIZE - 1);
 
-  level = pop[choice];
+  level = pop[choice].lv;
   /* fix level */
   for (i = 0; i < 2; i++) fix_level_generator ();
   
@@ -193,7 +204,7 @@ next_generator_level (int number)
   /* generator_level.start = start; */
   generator_level.next_level = next_generator_level;
   generator_level.end = end;
-  generator_level.start_pos = (struct pos) {1,0,0};
+  generator_level.start_pos = (struct pos) {WIDTH*(HEIGHT-1)+1,2,1};
   /* generator_level.special_events = gen_wall; */
 }
 
@@ -311,16 +322,59 @@ squarify (int d, int *d1, int* d2)
       
       i = d / r;
       
-      if (r > i) {
+      if (r < i) {
 	*d1 = r;
 	*d2 = i;
       }
       else {
-	*d1 = r;
-	*d2 = i;
+	*d1 = i;
+	*d2 = r;
       }
-      printf ("WiDTH = %d\n", *d1);
-      printf ("HEIGHT = %d\n", *d2);
       break;
     }
 }
+
+/* struct level * */
+/* crossover (struct level *lv1, struct level *lv2,  */
+/* 	   struct level *son1, struct level *son2)  */
+/* { */
+/*   struct pos p; */
+/*   int i, j; */
+
+/*   if (prandom (1))  */
+
+/*     for (i = 0; i < 3 * HEIGHT; ++i) */
+/*       for (j = 0; j < 10 * WIDTH; ++j) */
+	
+
+/*     for (p.room = 1; p.room < ROOMS; p.room++)  */
+/*       for (p.floor = 0; p.floor < FLOORS; p.floor++)  */
+/* 	for (p.place = 0; p.place < PLACES; p.place++)  */
+	  
+/* 	  if (p.room < prandom (HEIGHT-1) * WIDTH + 1) { */
+/* 	    *xcon (son1, &p) = xcon (lv1, &p); */
+/* 	    *xcon (son2, &p) = xcon (lv2, &p); */
+/* 	  } */
+/* 	  else { */
+/* 	    *xcon (son1, &p) = xcon (lv2, &p); */
+/* 	    *xcon (son2, &p) = xcon (lv1, &p); */
+/* 	  } */
+  
+/*   else  */
+/*     for (j = 1; j <= WIDTH; ++j) */
+/*       for (p.room = j ; p.room < (HEIGHT-1) * WIDTH + j; p.room += WIDTH)  */
+/* 	for (p.floor = 0; p.floor < FLOORS; p.floor++)  */
+/* 	  for (p.place = 0; p.place < PLACES; p.place++)  */
+	  
+/* 	    if (p.room < prandom (HEIGHT-1) * WIDTH + 1) { */
+/* 	      *xcon (son1, &p) = xcon (lv1, &p); */
+/* 	      *xcon (son2, &p) = xcon (lv2, &p); */
+/* 	    } */
+/* 	    else { */
+/* 	      *xcon (son1, &p) = xcon (lv2, &p); */
+/* 	      *xcon (son2, &p) = xcon (lv1, &p); */
+/* 	    } */
+  
+/* } */
+
+
