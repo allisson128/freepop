@@ -19,7 +19,7 @@
 
 #include "mininim.h"
 
-#define POPSIZE 1
+#define POPSIZE 2
 #define MH   (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 
@@ -38,9 +38,7 @@ struct pattern {
 };
 
 struct level generator_level;
-static void start (void);
 static void end (struct pos *p);
-/* static void gen_wall (void); */
 static bool is_square (struct level *lv, int i, int j);
 static bool is_corner (struct level *lv, int i, int j);
 static bool is_new_wall (struct level *lv, int i, int j);
@@ -48,15 +46,19 @@ static bool is_continuous_wall (struct level *lv, int i, int j);
 static void fix_level_generator (void);
 static void squarify (int d, int *d1, int* d2);
 static void crossover (struct level *lv1, struct level *lv2, 
-		       struct level *son1, struct level *son2);
-bool is_pattern (struct level *lv, int i, int j, struct pattern *p);
+		       struct level *son1, struct level *son2,
+		       int cut_point);
+static bool is_pattern (struct level *lv, int i, int j, 
+			struct pattern *p);
+static struct level *mutation_wall_alg (struct level *lv, 
+					double max_mut_rate);
+
 
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = 
   {(struct cell *) &square_cells, 
-   3
-   /* sizeof (square_cells) / sizeof (struct cell) */
+   sizeof (square_cells) / sizeof (struct cell)
   };
 
 struct cell corner_cells[] = {{-1,+0}, {+0,-1}};
@@ -82,13 +84,6 @@ play_generator_level (int number)
 }
 
 static void
-start (void)
-{
-  create_anim (&anima[0], 0, NULL, 0);
-  anima[1].controllable = true;
-}
-
-static void
 end (struct pos *p)
 {
   quit_anim = NEXT_LEVEL;
@@ -97,6 +92,7 @@ end (struct pos *p)
 
 
 struct solution pop[POPSIZE];
+struct solution sons[POPSIZE];
 int HEIGHT;
 int WIDTH;
 
@@ -118,17 +114,19 @@ next_generator_level (int number)
 {
   int i, j, it, choice, room;
   struct pos p;
+  double mutation_rate = 0.0;
 
-  
-  random_seed = 0;
+  random_seed = number;
 
   /* struct level *lv = &generator_level; */
   /* struct level *lv = &level; */
 
   memset (&pop, 0, sizeof (pop));
-
+  memset (&sons, 0, sizeof (sons));
+  
   squarify (ROOMS-1, &HEIGHT, &WIDTH);
 
+  /* generate initial population */
   for (it = 0; it < POPSIZE; ++it) {
     
     struct level *lv = &pop[it].lv;
@@ -140,6 +138,9 @@ next_generator_level (int number)
     	struct con *c = &lv->con[p.room][p.floor][p.place];
     	c->fg = WALL;
     	c->bg = NO_BG;
+
+	sons[it].lv.con[p.room][p.floor][p.place].fg = WALL;
+	sons[it].lv.con[p.room][p.floor][p.place].fg = NO_BG;
       }
 
     for (i = 0; i < HEIGHT; ++i)
@@ -155,28 +156,27 @@ next_generator_level (int number)
       for (j = 0; mat (lv, i, j); ++j) {
     	mat (lv, i, j)->fg = NO_FLOOR;
     	mat (lv, i, j)->bg = NO_BRICKS;
-	if (i == 4 && j == 10) 
-	  mat (lv, i, j)->fg = WALL;
-	if (i == 5 && j == 10) 
-	  mat (lv, i, j)->fg = WALL;
-	if (i == 4 && j == 11) 
-	  mat (lv, i, j)->fg = WALL;
-
+	/* if (i == 2 && j == 5) */
+	/*   mat (lv, i, j)->fg = WALL; */
+	/* if (i == 3 && j == 5)  */
+	/*   mat (lv, i, j)->fg = WALL; */
+	/* if (i == 2 && j == 6)  */
+	/*   mat (lv, i, j)->fg = WALL; */
       }
 
     int r, prob;
-    int square_prob          = 100; //= 50;
-    int corner_prob          = 0; //= 60;
-    int new_wall_prob        = 0; //10;
-    int continuous_wall_prob = 0; //70;
-    int default_prob         = 0; //20;
+    int square_prob          = 50; //= 50;
+    int corner_prob          = 60; //= 60;
+    int new_wall_prob        = 10; //10;
+    int continuous_wall_prob = 70; //70;
+    int default_prob         = 20; //20;
 
     for (i = 0, j = 0; mat (lv, i, j); ++i, j = 0)
       for (j = 0; mat (lv, i, j); ++j) {
 
-    	if (is_pattern (lv, i, j, &square_pattern))
+    	if (is_pattern (lv, i, j, &square_pattern)) 
     	  prob = square_prob;
-	
+
     	else if (is_pattern (lv, i, j, &corner_pattern))
     	  prob = corner_prob;
 
@@ -195,7 +195,8 @@ next_generator_level (int number)
     	  mat (lv, i, j)->fg = WALL;
 
       }
-
+    mutation_wall_alg (lv, mutation_rate) ;
+    
     mat (lv, 0, 0)->fg = NO_FLOOR;
     mat (lv, 0, 1)->fg = LEVEL_DOOR;
     mat (lv, 0, 1)->ext.step = LEVEL_DOOR_MAX_STEP;
@@ -206,35 +207,20 @@ next_generator_level (int number)
     mat (lv, MH - 1, MW - 1)->fg = NO_FLOOR;
   }
     
-  choice = prandom (POPSIZE - 1);
-
+  crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv, 4);
+  choice = 0;//prandom (POPSIZE - 1);
   /* fix level */
-  level = pop[choice].lv;
+  /* level = pop[choice].lv; */
+  level = sons[0].lv;
   for (i = 0; i < 2; i++) fix_level_generator ();
   generator_level = level;
 
   generator_level.number = number;
   generator_level.nominal_number = number;
-  /* generator_level.start = start; */
   generator_level.next_level = next_generator_level;
   generator_level.end = end;
   generator_level.start_pos = (struct pos) {1,0,1};
-  /* generator_level.special_events = gen_wall; */
 }
-
-/* void */
-/* gen_wall (void)  */
-/* { */
-/*   struct pos p; */
-/*   p.room = prandom (ROOMS - 2) + 1; */
-/*   p.floor = prandom (FLOORS - 1); */
-/*   p.place = prandom (PLACES - 1); */
-/*   con(&p)->fg = WALL; */
-
-/*   register_changed_pos (&p); */
-/* } */
-
-
 
 bool
 is_pattern (struct level *lv, int i, int j, struct pattern *p)
@@ -251,58 +237,6 @@ is_pattern (struct level *lv, int i, int j, struct pattern *p)
   return true;
 }
 
-bool
-is_square (struct level *lv, int i, int j)
-{
-  if (!(mat (lv, i, j - 1) 
-	&& mat (lv, i - 1, j - 1) 
-	&& mat (lv, i - 1, j)))
-    return false;
-  
-  return mat (lv, i, j - 1)->fg == WALL
-    && mat (lv, i - 1, j - 1)->fg == WALL
-    && mat (lv, i - 1, j)->fg == WALL;
-}
-
-bool
-is_corner (struct level *lv, int i, int j)
-{
-  if (!(mat (lv, i, j - 1) 
-	&& mat (lv, i - 1, j)))
-    return false;
-
-  return mat (lv, i, j - 1)->fg == WALL
-    && mat (lv, i - 1, j)->fg == WALL;
-} 
-
-bool
-is_new_wall (struct level *lv, int i, int j)
-{
-  if (!(mat (lv, i - 1, j - 1) 
-	&& mat (lv, i - 1, j)
-	&& mat (lv, i - 1, j + 1)))
-    return false;
-
-  return mat (lv, i - 1, j - 1)->fg == WALL
-    && mat (lv, i - 1, j)->fg == WALL
-    && mat (lv, i - 1, j + 1)->fg == WALL;
-}
-
-bool
-is_continuous_wall (struct level *lv, int i, int j)
-{
-  if (!mat (lv, i, j - 1))
-    return false;
-      
-  return mat (lv, i, j - 1)->fg == WALL;
-
-  
-  /* else if (p->room > WIDTH */
-  /* 	   && */
-  /* 	   crel (p, -1,  0)->fg == WALL) */
-  /*   return true; */
-}
-
 void
 fix_level_generator (void)
 {
@@ -312,19 +246,6 @@ fix_level_generator (void)
     for (p.floor = 0; p.floor < FLOORS; p.floor++)
       for (p.place = 0; p.place < PLACES; p.place++) {
 	fix_rigid_con_no_floor_top(&p);
-        /* fix_door_lacking_opener (&p); */
-        /* fix_opener_or_closer_lacking_door (&p); */
-        /* fix_single_walls_at_place_0 (&p); */
-        /* fix_inaccessible_enclosure (&p); */
-        /* fix_loose_enclosure (&p); */
-        /* fix_door_adjacent_to_wall_or_door (&p); */
-        /* fix_broken_floor_lacking_no_floor_on_top (&p); */
-        /* fix_skeleton_or_spikes_floor_with_no_or_loose_floor_at_left (&p); */
-        /* fix_adjacent_itens (&p); */
-        /* fix_item_on_non_normal_floor (&p); */
-        /* fix_sword_at_right_of_wall_or_door (&p); */
-        /* fix_confg_which_should_not_have_conbg (&p); */
-        /* fix_partial_big_pillar (&p); */
       }
 }
 
@@ -353,13 +274,13 @@ squarify (int d, int *d1, int* d2)
 
 void
 crossover (struct level *lv1, struct level *lv2,
-	   struct level *son1, struct level *son2)
+	   struct level *son1, struct level *son2,
+	   int cut_point)
 {
-  int i, j, r;
+  int i, j, r = (cut_point > 0 && cut_point < (MW - 1)) ? cut_point : prandom (MH - 2) + 1;;
 
-  if (prandom (1)) {
-
-    r = prandom (MH - 2) + 1;
+  if (1) {
+    /* if (prandom (1)) { */
 
     for (i = 0, j = 0; mat (lv1, i, j); ++i, j = 0)
       for (j = 0; mat (lv1, i, j); ++j)
@@ -374,9 +295,44 @@ crossover (struct level *lv1, struct level *lv2,
 	}
   }
 
-  /* else { */
-  /*   r = prandom (WIDTH - 2) + 1; */
-  
+  else {
+    r = prandom (MW - 2) + 1;
+
+    for (i = 0, j = 0; mat (lv1, i, j); ++i, j = 0)
+      for (j = 0; mat (lv1, i, j); ++j)
+
+	if (i < r) {
+	  *mat (son1, j, i) = *mat (lv1, j, i);
+	  *mat (son2, j, i) = *mat (lv2, j, i);
+	}
+	else {
+	  *mat (son1, j, i) = *mat (lv2, j, i);
+	  *mat (son2, j, i) = *mat (lv1, j, i);
+	}
+
+  }
 }
 
+struct level *
+mutation_wall_alg (struct level *lv, double max_mut_rate)
+{
+  int i, j, num = round(MW * MH * max_mut_rate);
+
+  num = (num >= 0) ? num : num * -1;
+
+
+  printf ("mutation\nnum_of_casilhas = %d\n", num);
+  
+  while (num--) {
+    i = prandom (MH - 1);
+    j = prandom (MW - 1);
+
+
+    printf ("i = %d, j = %d\n", i, j);
+
+    mat (lv, i, j)->fg = (mat (lv, i, j)->fg == WALL) ? NO_FLOOR : WALL;
+  }
+
+  return lv;
+}
 
