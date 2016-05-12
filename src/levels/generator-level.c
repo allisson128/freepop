@@ -280,7 +280,7 @@ crossover (struct level *lv1, struct level *lv2,
   *son1 = *lv1;
   *son2 = *lv2;
   
-  if (0) {
+  if (prandom (1)) {
 
     r = prandom (MH - 2) + 1;
 
