@@ -51,7 +51,7 @@ static bool is_pattern (struct level *lv, int i, int j,
 			struct pattern *p);
 static struct level *mutation_wall_alg (struct level *lv, 
 					double max_mut_rate);
-
+static int fitness (struct level *s);
 
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
@@ -336,3 +336,8 @@ mutation_wall_alg (struct level *lv, double max_mut_rate)
   return lv;
 }
 
+int
+fitness (struct level *s)
+{
+  return 1;
+}
