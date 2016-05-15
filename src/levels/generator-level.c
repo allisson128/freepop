@@ -20,7 +20,7 @@
 #include "mininim.h"
 
 #define POPSIZE 2
-#define MH   (FLOORS * HEIGHT)
+#define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 
 struct solution {
@@ -39,10 +39,6 @@ struct pattern {
 
 struct level generator_level;
 static void end (struct pos *p);
-static bool is_square (struct level *lv, int i, int j);
-static bool is_corner (struct level *lv, int i, int j);
-static bool is_new_wall (struct level *lv, int i, int j);
-static bool is_continuous_wall (struct level *lv, int i, int j);
 static void fix_level_generator (void);
 static void squarify (int d, int *d1, int* d2);
 static void crossover (struct level *lv1, struct level *lv2, 
@@ -51,7 +47,8 @@ static bool is_pattern (struct level *lv, int i, int j,
 			struct pattern *p);
 static struct level *mutation_wall_alg (struct level *lv, 
 					double max_mut_rate);
-static int fitness (struct level *s);
+static int fitness (struct level *lv);
+static void aco (struct level *lv);
 
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
@@ -206,6 +203,7 @@ next_generator_level (int number)
     mat (lv, MH - 1, MW - 1)->fg = NO_FLOOR;
   }
     
+  aco (&pop[0].lv);
   crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv);
   choice = 0;//prandom (POPSIZE - 1);
   /* fix level */
@@ -251,24 +249,11 @@ fix_level_generator (void)
 void
 squarify (int d, int *d1, int* d2)
 {
-  int r, i;
+  int r;
 
-  for (r = (int) sqrt(d); r >= 1; --r)
-
-    if (!(d % r)) {
-      
-      i = d / r;
-      
-      if (r < i) {
-	*d1 = r;
-	*d2 = i;
-      }
-      else {
-	*d1 = i;
-	*d2 = r;
-      }
-      break;
-    }
+  for (r = (int) sqrt(d); d % r; --r);
+  *d1 = r;
+  *d2 = d / r;
 }
 
 void
@@ -337,7 +322,51 @@ mutation_wall_alg (struct level *lv, double max_mut_rate)
 }
 
 int
-fitness (struct level *s)
+fitness (struct level *lv)
 {
   return 1;
+}
+
+/* void */
+/* direction (int code, int *i, int *j) */
+/* { */
+/*   switch (code) { */
+/*   case 0: *i--; */
+/*   case 1: *j++; */
+/*   case 2: *i++; */
+/*   case 3: *j--; */
+/*   } */
+/* } */
+void
+aco (struct level *lv)
+{
+  int visited[MH][MW];
+  int i, j, p;
+  int limit = 1000;
+  size_t nmemb = 0;
+
+  struct cell *path;
+  struct cell c = (struct cell) {0, 1};
+
+  memset (&visited, 0, sizeof (visited));
+
+  path = add_to_array (&c, 1, NULL, &nmemb, 0, sizeof (*path));
+  /* while (VARIAR && limit--) { */
+  //POSICAO INICIAL
+  
+  i = 0, j = 1;
+  /* while (NÃO_FOR_DEAD_END OU PORTA_FINAL) { */
+  while (mat (lv, i, j) != DOOR || !visited [i][j-1] 
+	 || !visited [i][j+1]  || !visited [i-1][j] 
+	 || !visited [i][j+1]) {
+    ANDA;
+  }
+
+  /*     do {  */
+  /* 	p = prandom (3);  */
+  /* 	direction (p, &i, &j);  */
+  /*     } while (mat (lv, i, j) == WALL || visited[i][j]); */
+
+  /*   } */
+  /* } */
 }
