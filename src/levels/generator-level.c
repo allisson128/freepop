@@ -48,7 +48,7 @@ static bool is_pattern (struct level *lv, int i, int j,
 static struct level *mutation_wall_alg (struct level *lv, 
 					double max_mut_rate);
 static int fitness (struct level *lv);
-static void aco (struct level *lv);
+static bool aco (struct level *lv);
 
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
@@ -327,51 +327,41 @@ fitness (struct level *lv)
   return 1;
 }
 
-/* void */
-/* direction (int code, int *i, int *j) */
-/* { */
-/*   switch (code) { */
-/*   case 0: *i--; */
-/*   case 1: *j++; */
-/*   case 2: *i++; */
-/*   case 3: *j--; */
-/*   } */
-/* } */
-void
+bool
 aco (struct level *lv)
 {
   int visited[MH][MW];
-  int i, j, p;
+  int i, j, p, ii, jj;
   int limit = 1000;
   size_t nmemb;
 
   struct cell *path;
-  struct cell begin = (struct cell) {0, 1};
 
   memset (&visited, 0, sizeof (visited));
 
   
   do {
     //POSICAO INICIAL
+    struct cell begin = (struct cell) {0, 1};
     i = 0;
     j = 1;
     nmemb = 0;
     path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path));
-    //ENQUANTO NAO FOR SEM SAIDA OU PORTA OBJETIVO FAÇA
-    while (mat (lv, i, j) != LEVEL_DOOR 
-	   || !visited [i][j-1] 
-	   || !visited [i][j+1]  
-	   || !visited [i-1][j] 
-	   || !visited [i+1][j]) {
 
-      //PROXIMO NO NAO VISITADO
-      do {
-	/* direction (prandom (3), &i, &j); */
+    do {    //FAÇA ENQUANTO NAO FOR SEM SAIDA OU PORTA OBJETIVO 
+      
+      do {  //PROXIMO NO NAO VISITADO
+
 	if (prandom (1))
-	  i += -1 + prandom (2);
+	  ii = -1 * prandom (1) + i;
+
 	else
-	  j += -1 + prandom (2);
-      } while (mat (lv, i, j) == WALL || visited[i][j]);
+	  jj = -1 * prandom (1) + j;
+
+      } while (mat (lv, ii, jj)->fg == WALL || visited[ii][jj]);
+
+      i = ii;
+      j = jj;
 
       //GUARDA POSICAO DO CAMINHO PERCORRIDO
       struct cell c = (struct cell) {i, j};
@@ -379,8 +369,24 @@ aco (struct level *lv)
 
       //SINALIZA QUE O NÓ FOI VISITADO
       visited[i][j] = 1;
-    }
 
-  } while (limit-- && mat (lv, path[nmemb].i, path[nmemb].j) != LEVEL_DOOR);
+    } while (mat (lv, i, j)->ext.step = LEVEL_DOOR_MAX_STEP // &&mat (lv, i, j)->fg != LEVEL_DOOR  && 
+	     && mat (lv, i, j-1)->fg != WALL && !visited [i][j-1] 
+	     && mat (lv, i, j-1)->fg != WALL && !visited [i][j+1]  
+	     && mat (lv, i, j-1)->fg != WALL && !visited [i-1][j] 
+	     && mat (lv, i, j-1)->fg != WALL && !visited [i+1][j]);
 
+
+  } while (limit-- != 0 && mat (lv, path[nmemb].i, path[nmemb].j)->fg != LEVEL_DOOR);
+
+  if (mat (lv, path[nmemb].i, path[nmemb].j)->fg == LEVEL_DOOR) {
+    printf ("Encontrado:\n");
+    for (ii = 0; ii < nmemb; ++ii) 
+      printf ("%d %d\n", path[ii].i, path[ii].j);
+    return true;
+  }
+  else
+    printf ("Não encontrado\n");
+
+  return false;
 }
