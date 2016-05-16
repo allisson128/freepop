@@ -343,30 +343,44 @@ aco (struct level *lv)
   int visited[MH][MW];
   int i, j, p;
   int limit = 1000;
-  size_t nmemb = 0;
+  size_t nmemb;
 
   struct cell *path;
-  struct cell c = (struct cell) {0, 1};
+  struct cell begin = (struct cell) {0, 1};
 
   memset (&visited, 0, sizeof (visited));
 
-  path = add_to_array (&c, 1, NULL, &nmemb, 0, sizeof (*path));
-  /* while (VARIAR && limit--) { */
-  //POSICAO INICIAL
   
-  i = 0, j = 1;
-  /* while (NÃO_FOR_DEAD_END OU PORTA_FINAL) { */
-  while (mat (lv, i, j) != DOOR || !visited [i][j-1] 
-	 || !visited [i][j+1]  || !visited [i-1][j] 
-	 || !visited [i][j+1]) {
-    ANDA;
-  }
+  do {
+    //POSICAO INICIAL
+    i = 0;
+    j = 1;
+    nmemb = 0;
+    path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path));
+    //ENQUANTO NAO FOR SEM SAIDA OU PORTA OBJETIVO FAÇA
+    while (mat (lv, i, j) != LEVEL_DOOR 
+	   || !visited [i][j-1] 
+	   || !visited [i][j+1]  
+	   || !visited [i-1][j] 
+	   || !visited [i+1][j]) {
 
-  /*     do {  */
-  /* 	p = prandom (3);  */
-  /* 	direction (p, &i, &j);  */
-  /*     } while (mat (lv, i, j) == WALL || visited[i][j]); */
+      //PROXIMO NO NAO VISITADO
+      do {
+	/* direction (prandom (3), &i, &j); */
+	if (prandom (1))
+	  i += -1 + prandom (2);
+	else
+	  j += -1 + prandom (2);
+      } while (mat (lv, i, j) == WALL || visited[i][j]);
 
-  /*   } */
-  /* } */
+      //GUARDA POSICAO DO CAMINHO PERCORRIDO
+      struct cell c = (struct cell) {i, j};
+      path = add_to_array (&c, 1, &path, &nmemb, nmemb++, sizeof (*path));
+
+      //SINALIZA QUE O NÓ FOI VISITADO
+      visited[i][j] = 1;
+    }
+
+  } while (limit-- && mat (lv, path[nmemb].i, path[nmemb].j) != LEVEL_DOOR);
+
 }
