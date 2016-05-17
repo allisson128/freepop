@@ -1,3 +1,9 @@
+// OBJ:
+// Feromonio, Avaliacao
+// *Otimizar funções
+// Convergência da solução (comparar paths)
+// 
+
 /*
   generator-level.c -- generator level module;
 
@@ -19,7 +25,7 @@
 
 #include "mininim.h"
 
-#define POPSIZE 2
+#define POPSIZE 1
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 
@@ -49,6 +55,10 @@ static struct level *mutation_wall_alg (struct level *lv,
 					double max_mut_rate);
 static int fitness (struct level *lv);
 static bool aco (struct level *lv);
+static bool is_dead_end (int WIDTH, int HEIGHT; 
+			 struct level *lv, int visited[MH][MW], 
+			 int WIDTH, int HEIGHT, int i, int j);
+static bool is_objective (struct level *lv, int i, int j);
 
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
@@ -203,12 +213,13 @@ next_generator_level (int number)
     mat (lv, MH - 1, MW - 1)->fg = NO_FLOOR;
   }
     
+
+  /* crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv); */
   aco (&pop[0].lv);
-  crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv);
   choice = 0;//prandom (POPSIZE - 1);
   /* fix level */
-  /* level = pop[choice].lv; */
-  level = sons[0].lv;
+  level = pop[choice].lv;
+  /* level = sons[0].lv; */
   for (i = 0; i < 2; i++) fix_level_generator ();
   generator_level = level;
 
@@ -331,62 +342,121 @@ bool
 aco (struct level *lv)
 {
   int visited[MH][MW];
-  int i, j, p, ii, jj;
+  int i, j, ii, jj;
   int limit = 1000;
   size_t nmemb;
-
-  struct cell *path;
-
-  memset (&visited, 0, sizeof (visited));
-
   
+  struct cell *path;
+  
+  printf ("ACO\n");  
   do {
     //POSICAO INICIAL
     struct cell begin = (struct cell) {0, 1};
     i = 0;
     j = 1;
     nmemb = 0;
+    memset (&visited, 0, sizeof (visited));
     path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path));
-
-    do {    //FAÇA ENQUANTO NAO FOR SEM SAIDA OU PORTA OBJETIVO 
+    
+    printf ("ACO 2\n");  
+    //FAÇA ENQUANTO NAO FOR PORTA OBJETIVO E NAO FOR SEM SAIDA
+    while (!is_objective (lv, i, j) 
+	   && !is_dead_end (lv, visited, WIDTH, HEIGHT, i, j)) {
       
       do {  //PROXIMO NO NAO VISITADO
 
-	if (prandom (1))
-	  ii = -1 * prandom (1) + i;
+	if (prandom (1)) {
+	  ii = (prandom (1)) ? i+1 : i-1;
+	  jj = j;
+	  printf ("A\n");
+	}
+	else {
+	  ii = i;
+	  jj = (prandom (1)) ? j+1 : j-1;
+	  printf ("B\n");
+	}
 
-	else
-	  jj = -1 * prandom (1) + j;
-
-      } while (mat (lv, ii, jj)->fg == WALL || visited[ii][jj]);
-
+      } while (mat (lv, ii, jj) == NULL 
+	       || mat (lv, ii, jj)->fg == WALL 
+	       || visited[ii][jj]);
       i = ii;
       j = jj;
-
-      //GUARDA POSICAO DO CAMINHO PERCORRIDO
+      
       struct cell c = (struct cell) {i, j};
-      path = add_to_array (&c, 1, &path, &nmemb, nmemb++, sizeof (*path));
+      path = add_to_array (&c, 1, path, &nmemb, 
+			   nmemb, sizeof (*path));
 
-      //SINALIZA QUE O NÓ FOI VISITADO
       visited[i][j] = 1;
+      printf ("nmemb = %u\n", (unsigned int) nmemb);
+    } 
+    
+    for (ii = 0; ii < nmemb; ++ii) 
+      printf ("%d %d\n", path[ii].i, path[ii].j);
+    
+    printf ("limit = %d\n", limit);
+    getchar();
+  } while (limit-- 
+	   && !is_objective (lv, path[nmemb-1].i, path[nmemb-1].j));
 
-    } while (mat (lv, i, j)->ext.step = LEVEL_DOOR_MAX_STEP // &&mat (lv, i, j)->fg != LEVEL_DOOR  && 
-	     && mat (lv, i, j-1)->fg != WALL && !visited [i][j-1] 
-	     && mat (lv, i, j-1)->fg != WALL && !visited [i][j+1]  
-	     && mat (lv, i, j-1)->fg != WALL && !visited [i-1][j] 
-	     && mat (lv, i, j-1)->fg != WALL && !visited [i+1][j]);
 
 
-  } while (limit-- != 0 && mat (lv, path[nmemb].i, path[nmemb].j)->fg != LEVEL_DOOR);
-
-  if (mat (lv, path[nmemb].i, path[nmemb].j)->fg == LEVEL_DOOR) {
+  if (mat (lv, path[nmemb-1].i, path[nmemb-1].j)->fg == LEVEL_DOOR) {
     printf ("Encontrado:\n");
     for (ii = 0; ii < nmemb; ++ii) 
       printf ("%d %d\n", path[ii].i, path[ii].j);
     return true;
   }
+
   else
     printf ("Não encontrado\n");
 
   return false;
 }
+
+bool
+is_dead_end (int WIDTH, int HEIGHT; struct level *lv, 
+	     int visited[MH][MW], int WIDTH, 
+	     int HEIGHT, int i, int j)
+{
+
+  return !((mat (lv, i, j-1) != NULL 
+	    && mat (lv, i, j-1)->fg != WALL 
+	    && !visited [i][j-1])
+	   || (mat (lv, i, j+1) != NULL
+	       && mat (lv, i, j+1)->fg != WALL 
+	       && !visited [i][j+1])
+	   || (mat (lv, i-1, j) != NULL 
+	       && mat (lv, i-1, j)->fg != WALL 
+	       && !visited [i-1][j])
+	   || (mat (lv, i+1, j) != NULL 
+	       && mat (lv, i+1, j)->fg != WALL 
+	       && !visited [i+1][j]));
+}
+
+bool
+is_objective (struct level *lv, int i, int j)
+{
+  return mat (lv, i, j) != NULL
+    && mat (lv, i, j)->fg == LEVEL_DOOR  
+    && mat (lv, i, j)->ext.step == 0;
+}
+
+    /* while (!(mat (lv, i, j)->fg == LEVEL_DOOR   */
+    /* 	       && mat (lv, i, j)->ext.step == 0) */
+    /* 	     &&  */
+    /* 	     ((mat (lv, i, j-1) != NULL  */
+    /* 	       && mat (lv, i, j-1)->fg != WALL  */
+    /* 	       && !visited [i][j-1]) */
+    /* 	      || (mat (lv, i, j+1) != NULL */
+    /* 		  && mat (lv, i, j+1)->fg != WALL  */
+    /* 		  && !visited [i][j+1]) */
+    /* 	      || (mat (lv, i-1, j) != NULL  */
+    /* 		  && mat (lv, i-1, j)->fg != WALL  */
+    /* 		  && !visited [i-1][j]) */
+    /* 	      || (mat (lv, i+1, j) != NULL  */
+    /* 		  && mat (lv, i+1, j)->fg != WALL  */
+    /* 		  && !visited [i+1][j]))) {     */
+
+
+/* !(mat (lv, path[nmemb-1].i, path[nmemb-1].j)->fg == LEVEL_DOOR   */
+/* 		&& mat (lv, path[nmemb-1].i, path[nmemb-1].j)->ext.step == 0) */
