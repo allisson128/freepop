@@ -441,21 +441,34 @@ is_objective (struct level *lv, int i, int j)
     && mat (lv, i, j)->ext.step == 0;
 }
 
-    /* while (!(mat (lv, i, j)->fg == LEVEL_DOOR   */
-    /* 	       && mat (lv, i, j)->ext.step == 0) */
-    /* 	     &&  */
-    /* 	     ((mat (lv, i, j-1) != NULL  */
-    /* 	       && mat (lv, i, j-1)->fg != WALL  */
-    /* 	       && !visited [i][j-1]) */
-    /* 	      || (mat (lv, i, j+1) != NULL */
-    /* 		  && mat (lv, i, j+1)->fg != WALL  */
-    /* 		  && !visited [i][j+1]) */
-    /* 	      || (mat (lv, i-1, j) != NULL  */
-    /* 		  && mat (lv, i-1, j)->fg != WALL  */
-    /* 		  && !visited [i-1][j]) */
-    /* 	      || (mat (lv, i+1, j) != NULL  */
-    /* 		  && mat (lv, i+1, j)->fg != WALL  */
-    /* 		  && !visited [i+1][j]))) {     */
+double
+evaluation (struct level *lv, int cx, int cy)
+{
+  return proximity () * evasion () * impulse ();
+}
+
+double
+proximity (struct level *lv, int cx, int cy)
+{
+  return (1 - k) * (dist_cart () + 1) / (dist_cart () + 1);
+}
+
+
+/* while (!(mat (lv, i, j)->fg == LEVEL_DOOR   */
+/* 	       && mat (lv, i, j)->ext.step == 0) */
+/* 	     &&  */
+/* 	     ((mat (lv, i, j-1) != NULL  */
+/* 	       && mat (lv, i, j-1)->fg != WALL  */
+/* 	       && !visited [i][j-1]) */
+/* 	      || (mat (lv, i, j+1) != NULL */
+/* 		  && mat (lv, i, j+1)->fg != WALL  */
+/* 		  && !visited [i][j+1]) */
+/* 	      || (mat (lv, i-1, j) != NULL  */
+/* 		  && mat (lv, i-1, j)->fg != WALL  */
+/* 		  && !visited [i-1][j]) */
+/* 	      || (mat (lv, i+1, j) != NULL  */
+/* 		  && mat (lv, i+1, j)->fg != WALL  */
+/* 		  && !visited [i+1][j]))) {     */
 
 
 /* !(mat (lv, path[nmemb-1].i, path[nmemb-1].j)->fg == LEVEL_DOOR   */
