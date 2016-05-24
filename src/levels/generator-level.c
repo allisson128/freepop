@@ -28,6 +28,10 @@
 #define POPSIZE 1
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
+#define INIX 0
+#define INIY 1
+#define FIMX (MH-1)
+#define FIMY (MW-1)
 
 struct solution {
   struct level lv;
@@ -41,6 +45,13 @@ struct pattern {
   } *cell;
 
   int nmemb;
+};
+
+struct node {
+  int x, y;
+  int frequency;
+  double pheromone;
+  bool accessible;
 };
 
 struct level generator_level;
@@ -59,7 +70,13 @@ static bool is_dead_end (int WIDTH, int HEIGHT;
 			 struct level *lv, int visited[MH][MW], 
 			 int WIDTH, int HEIGHT, int i, int j);
 static bool is_objective (struct level *lv, int i, int j);
-
+static double evaluation (int WIDTH, int HEIGHT; int visited[MH][MW],
+			  int WIDTH, int HEIGHT,
+			  int jx, int jy, int last_x, int last_y);
+static double proximity (int jx, int jy, double k);
+static double evasion (int frequency);
+static double impulse (int last_x, int last_y, int jx, int jy);
+static double pheromone_update (double f, int solution_len);
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = 
@@ -341,8 +358,12 @@ fitness (struct level *lv)
 bool
 aco (struct level *lv)
 {
+  struct node graph[MH][MW];
+
+  memset (graph, 0, sizeof (graph));
+  /*
   int visited[MH][MW];
-  int i, j, ii, jj;
+  int x, y, i, j, ii, jj;
   int limit = 1000;
   size_t nmemb;
   
@@ -410,6 +431,7 @@ aco (struct level *lv)
   else
     printf ("Não encontrado\n");
 
+  */
   return false;
 }
 
@@ -442,18 +464,38 @@ is_objective (struct level *lv, int i, int j)
 }
 
 double
-evaluation (struct level *lv, int cx, int cy)
+evaluation (int WIDTH, int HEIGHT; int visited[MH][MW], 
+	    int WIDTH, int HEIGHT,
+	    int jx, int jy, int last_x, int last_y)
 {
-  return proximity () * evasion () * impulse ();
+  return proximity (jx, jy, 0.5) * evasion (visited[jx][jy]) 
+    * impulse (last_x, last_y, jx, jy);
 }
 
 double
-proximity (struct level *lv, int cx, int cy)
+proximity (int jx, int jy, double k)
 {
-  return (1 - k) * (dist_cart () + 1) / (dist_cart () + 1);
+  return (1 - k) * (dist_cart (INIX, INIY, FIMX, FIMY) + 1) 
+    / (dist_cart (jx, jy, FIMX, FIMY) + 1);
 }
 
+double
+evasion (int frequency)
+{
+  return (frequency) ? 1 / frequency : 1;
+}
 
+double
+impulse (int last_x, int last_y, int jx, int jy)
+{
+  return (last_x == jx && last_y == jy) ? 0.2 : 1;
+}
+
+double
+pheromone_update (double f, int solution_len)
+{
+  return pow (dist_cart (INIX, INIY, FIMX, FIMY), f) / solution_len;
+}
 /* while (!(mat (lv, i, j)->fg == LEVEL_DOOR   */
 /* 	       && mat (lv, i, j)->ext.step == 0) */
 /* 	     &&  */
