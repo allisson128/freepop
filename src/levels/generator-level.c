@@ -54,6 +54,12 @@ struct node {
   bool accessible;
 };
 
+struct prob {
+  double evaluation;
+  double pheromone;
+  double probability;
+};
+  
 struct level generator_level;
 static void end (struct pos *p);
 static void fix_level_generator (void);
@@ -70,15 +76,15 @@ static bool is_dead_end (int WIDTH, int HEIGHT;
 			 struct level *lv, int visited[MH][MW], 
 			 int WIDTH, int HEIGHT, int i, int j);
 static bool is_objective (struct level *lv, int i, int j);
-static double evaluation (int WIDTH, int HEIGHT; int visited[MH][MW],
+static bool is_begin (struct level *lv, int i, int j);
+static double eval (int WIDTH, int HEIGHT; struct node graph[MH][MW],
 			  int WIDTH, int HEIGHT,
 			  int jx, int jy, int last_x, int last_y);
 static double proximity (int jx, int jy, double k);
 static double evasion (int frequency);
 static double impulse (int last_x, int last_y, int jx, int jy);
 static double pheromone_update (double f, int solution_len);
-/* struct node * init_graph (int WIDTH, int HEIGHT; struct node graph[MH][MW],  */
-/* 			  struct level *lv, int WIDTH, int HEIGHT); */
+
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = 
   {(struct cell *) &square_cells, 
@@ -360,24 +366,59 @@ fitness (struct level *lv)
 bool
 aco (struct solution *sol)
 {
-  int i, j;
+  int i, j, ii, jj;
   int steps = 1000;
   int ant, ants  = 1000;
+  size_t nmemb = 0;
   struct node graph[MH][MW];
+  struct node *path[2];
 
   /* INIT GRAPH */
-  memset (graph, 0, sizeof (graph));
   for (i = 0; i < MH; ++i) 
     for (j = 0; j < MW; ++j) {
-      graph[i][j].i = i;
-      graph[i][j].j = j;
+      graph[i][j].x = i;
+      graph[i][j].y = j;
+      graph[i][j].frequency = 0;
+      graph[i][j].pheromone = 1;
+      graph[i][j].accessible = false;
       if (mat (&sol->lv, i, j)->fg != WALL)
 	graph[i][j].accessible = true;
     }
+
+
+  /* path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path)); */
   
   while (--steps) {
+    /* INIT PATH */
+    path[0] = add_to_array (&graph[0][1], 1, NULL, &nmemb, 
+			    0, sizeof (*path[0]));
+    nmemb = 0;
+
     for (ant = 0; ant < ants; ++ant) {
       /* ANT WALK */
+      i = INIX;
+      j = INIY;
+      do {
+	/* CALC NEIGHBORS PROB */
+	struct prob probaround[4];
+	memset (probaround, 0, sizeof (*probaround));
+	int rand_max = 0;
+	/* int ax = i-1, ay = j, rx = i, ry = j+1;  */
+	/* int bx = i+1, by = j, lx = i, ly = j-1; */
+	
+	for (ii = 0; ii < 2; ++ii)
+	  for (jj = 0; jj < 2; ++jj){
+
+	    int x = i-1+jj+2*ii*abs(ii-jj);
+	    int y = j+jj-2*ii*jj;
+	    
+	    rand_max += probaround[ii * 2 + jj].probability
+	      = (mat (&sol->lv, x, y)->fg != WALL)
+	      ? (int) 10000 * eval (MW, MH; graph, MW, MH, )
+	      : 0;
+	  }
+      } while (!is_objective (&sol->lv, i, j)
+	     && !is_begin (&sol->lv, i, j));
     }
     /* PHEROMONE UPDATE */
   }
@@ -486,12 +527,26 @@ is_objective (struct level *lv, int i, int j)
     && mat (lv, i, j)->ext.step == 0;
 }
 
+bool
+is_begin (struct level *lv, int i, int j)
+{
+  return mat (lv, i, j) != NULL
+    && mat (lv, i, j)->fg == LEVEL_DOOR
+    && !is_objective (lv, i, j);
+}
+
+/* double */
+/* probxy () */
+/* { */
+
+/* } */
+
 double
-evaluation (int WIDTH, int HEIGHT; int visited[MH][MW], 
+eval (int WIDTH, int HEIGHT; struct node graph[MH][MW], 
 	    int WIDTH, int HEIGHT,
 	    int jx, int jy, int last_x, int last_y)
 {
-  return proximity (jx, jy, 0.5) * evasion (visited[jx][jy]) 
+  return proximity (jx, jy, 0.5) * evasion (graph[jx][jy].frequency) 
     * impulse (last_x, last_y, jx, jy);
 }
 
@@ -519,6 +574,8 @@ pheromone_update (double f, int solution_len)
 {
   return pow (dist_cart (INIX, INIY, FIMX, FIMY), f) / solution_len;
 }
+
+
 /* while (!(mat (lv, i, j)->fg == LEVEL_DOOR   */
 /* 	       && mat (lv, i, j)->ext.step == 0) */
 /* 	     &&  */
