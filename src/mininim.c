@@ -54,8 +54,8 @@ char *resources_dir,
 char *levels_dat_compat_filename;
 
 ALLEGRO_THREAD *load_config_dialog_thread, *save_game_dialog_thread;
-
-ALLEGRO_TIMER *play_time;
+uint64_t play_time;
+bool play_time_stopped;
 enum vm vm = VGA;
 enum em em = DUNGEON;
 bool force_em = false;
@@ -118,6 +118,7 @@ static struct argp_option options[] = {
   {NULL, 0, NULL, 0, "Time:", 0},
   {"time-limit", TIME_LIMIT_OPTION, "N", 0, "Set the time limit to complete the game to N seconds.  The default is 3600 (1 hour).  Valid integers range from 1 to INT_MAX.  This can be changed in-game by the + and - key bindings.", 0},
   {"start-time", START_TIME_OPTION, "N", 0, "Set the play time counter to N seconds.  The default is 0.  Valid integers range from 0 to INT_MAX.", 0},
+  {"time-frequency", TIME_FREQUENCY_OPTION, "N", 0, "Set the time frequency to N Hz in case N > 0, or to 1 / (-N + 2) Hz in case N <= 0.  The default is 12Hz.  Valid integers range from INT_MIN to INT_MAX.  This can be changed in-game by the ( and ) key bindings.", 0},
 
   /* Skills */
   {NULL, 0, NULL, 0, "Skills:", 0},
@@ -577,6 +578,7 @@ parser (int key, char *arg, struct argp_state *state)
   struct int_range start_pos_place_range = {0, 9};
   struct int_range time_limit_range = {1, INT_MAX};
   struct int_range start_time_range = {0, INT_MAX};
+  struct int_range time_frequency_range = {INT_MIN, INT_MAX};
   struct int_range kca_range = {0, 100};
   struct int_range kcd_range = {0, 100};
   struct int_range window_position_range = {INT_MIN, INT_MAX};
@@ -789,12 +791,17 @@ parser (int key, char *arg, struct argp_state *state)
   case TIME_LIMIT_OPTION:
     e = optval_to_int (&i, key, arg, state, &time_limit_range, 0);
     if (e) return e;
-    time_limit = i;
+    time_limit = SEC2CYC (i);
     break;
   case START_TIME_OPTION:
     e = optval_to_int (&i, key, arg, state, &start_time_range, 0);
     if (e) return e;
-    start_time = i;
+    start_time = SEC2CYC (i);
+    break;
+  case TIME_FREQUENCY_OPTION:
+    e = optval_to_int (&i, key, arg, state, &time_frequency_range, 0);
+    if (e) return e;
+    anim_freq = i;
     break;
   case KCA_OPTION:
     e = optval_to_int (&i, key, arg, state, &kca_range, 0);
@@ -1174,6 +1181,7 @@ main (int _argc, char **_argv)
   if (skip_title) goto play_game;
 
  restart_game:
+  cutscene = true;
   set_system_mouse_cursor (ALLEGRO_SYSTEM_MOUSE_CURSOR_DEFAULT);
   set_multi_room (1, 1);
   clear_bitmap (mr.cell[0][0].screen, BLACK);
@@ -1181,11 +1189,11 @@ main (int _argc, char **_argv)
   cutscene_started = false;
   stop_all_samples ();
 
-  /* begin test */
+  /* /\* begin test *\/ */
   /* cutscene = true; */
-  /* play_anim (cutscene_11_little_time_left_anim, NULL, 10); */
+  /* play_anim (cutscene_out_of_time_anim, NULL); */
   /* exit (0); */
-  /* end test */
+  /* /\* end test *\/ */
 
   play_title ();
   stop_video_effect ();
@@ -1197,9 +1205,7 @@ main (int _argc, char **_argv)
   total_lives = initial_total_lives;
   current_lives = initial_current_lives;
 
-  if (! play_time) play_time = create_timer (1.0);
-  al_set_timer_count (play_time, start_time);
-  al_start_timer (play_time);
+  play_time = start_time;
 
   give_dat_compat_preference ();
 
@@ -1511,6 +1517,14 @@ int
 min_int (int a, int b)
 {
   return (a < b) ? a : b;
+}
+
+int
+cint (int *x, int *y)
+{
+  if (*x < *y) return -1;
+  else if (*x > *y) return 1;
+  else return 0;
 }
 
 unsigned char

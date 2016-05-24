@@ -32,11 +32,10 @@ struct undo undo;
 
 static char *undo_msg;
 static int last_auto_show_time;
-static ALLEGRO_TIMER *death_timer;
+static uint64_t death_timer;
 static bool ignore_level_cutscene;
 
 bool no_room_drawing, game_paused, step_one_cycle;
-int room_view;
 int retry_level = -1;
 int anti_camera_room;
 int camera_follow_kid;
@@ -47,7 +46,6 @@ play_level (struct level *lv)
 {
   char *text;
   vanilla_level = lv;
-  death_timer = create_timer (1.0 / 12);
 
  start:
   free_undo (&undo);
@@ -64,17 +62,17 @@ play_level (struct level *lv)
   register_anims ();
 
   stop_all_samples ();
+  play_time_stopped = false;
+  death_timer = 0;
+
   if (level.start) level.start ();
 
   /* anim_cycle = 0; */
   last_auto_show_time = -1;
   current_kid_id = 0;
 
-  al_stop_timer (death_timer);
-  al_set_timer_count (death_timer, 0);
-
   if (retry_level != level.number)
-    start_level_time = al_get_timer_count (play_time);
+    start_level_time = play_time;
 
   if (! force_em) em = level.em;
   if (! force_hue) hue = level.hue;
@@ -88,7 +86,7 @@ play_level (struct level *lv)
     al_free (text);
   }
 
-  play_anim (draw_level, compute_level, 12);
+  play_anim (draw_level, compute_level);
 
   switch (quit_anim) {
   case NO_QUIT: break;
@@ -110,7 +108,7 @@ play_level (struct level *lv)
       cutscene = true;
       stop_video_effect ();
       stop_all_samples ();
-      play_anim (level.cutscene, NULL, 10);
+      play_anim (level.cutscene, NULL);
       stop_video_effect ();
       stop_all_samples ();
 
@@ -131,7 +129,7 @@ play_level (struct level *lv)
     cutscene = true;
     stop_video_effect ();
     stop_all_samples ();
-    play_anim (cutscene_out_of_time_anim, NULL, 10);
+    play_anim (cutscene_out_of_time_anim, NULL);
     stop_video_effect ();
     stop_all_samples ();
     goto restart_game;
@@ -214,7 +212,7 @@ destroy_cons (void)
 void
 prepare_con_at_pos (struct pos *p)
 {
-  if (! is_room_visible (p->room)) return;
+  if (! is_pos_visible (p)) return;
 
   switch (con (p)->bg) {
   case BALCONY: generate_stars_for_pos (p); break;
@@ -225,9 +223,14 @@ prepare_con_at_pos (struct pos *p)
 void
 prepare_room (int room)
 {
-  if (! is_room_adjacent (room_view, room)) return;
-
+  if (! is_room_visible (room)) return;
   generate_stars_for_room (room);
+}
+
+void
+prepare_view (void)
+{
+  generate_stars ();
 }
 
 void
@@ -238,7 +241,7 @@ register_anims (void)
   if (is_valid_pos (&start_pos))
     kid_start_pos = start_pos;
   else kid_start_pos = level.start_pos;
-  room_view = kid_start_pos.room;
+  mr_center_room (kid_start_pos.room);
   int id = create_anim (NULL, KID, &kid_start_pos, level.start_dir);
   struct anim *k = &anima[id];
   k->total_lives = total_lives;
@@ -354,19 +357,17 @@ compute_level (void)
 
   clear_anims_keyboard_state ();
 
-  /* if (! anim_cycle) mr_center_room (room_view); */
-
   if (current_kid->f.c.room != prev_room
       && current_kid->f.c.room != 0
       && current_kid->f.c.room != anti_camera_room
       && camera_follow_kid == current_kid->id)  {
-    room_view = current_kid->f.c.room;
+    if (! is_room_visible (current_kid->f.c.room)) {
+      mr_coord (current_kid->f.c.prev_room,
+                current_kid->f.c.xd, &mr.x, &mr.y);
+      mr_set_origin (current_kid->f.c.room, mr.x, mr.y);
+    } else mr_focus_room (current_kid->f.c.room);
 
-    if (! is_kid_visible ()) {
-      mr_coord (current_kid->f.c.prev_room, current_kid->f.c.xd, &mr.x, &mr.y);
-      mr.room = current_kid->f.c.room;
-      mr.select_cycles = 0;
-    }
+    mr.select_cycles = 0;
   }
 
   if (level.special_events) level.special_events ();
@@ -377,6 +378,8 @@ compute_level (void)
   compute_doors ();
   compute_level_doors ();
   compute_choppers ();
+
+  if (! play_time_stopped) play_time++;
 }
 
 static void
@@ -394,8 +397,8 @@ process_keys (void)
   }
 
   /* M: change multi-room fit mode */
-  if (was_key_pressed (ALLEGRO_KEY_M, 0, 0, true)
-      && ! active_menu) {
+  if (! active_menu &&
+      was_key_pressed (ALLEGRO_KEY_M, 0, 0, true)) {
     char *fit_str;
 
     switch (mr.fit_mode) {
@@ -443,18 +446,18 @@ process_keys (void)
       && ! cutscene)
     ui_set_multi_room (-1, +0);
 
-  /* CTRL+]: increase multi-room resolution */
+  /* CTRL+]: increase multi-room width resolution */
   if ((was_key_pressed (0, 0x1D, ALLEGRO_KEYMOD_CTRL, true)
        || was_key_pressed (0, 0x1C, ALLEGRO_KEYMOD_CTRL, true))
       && ! cutscene)
     ui_set_multi_room (+1, +0);
 
-  /* ALT+[: decrease multi-room width resolution */
+  /* ALT+[: decrease multi-room height resolution */
   if (was_key_pressed (0, '[', ALLEGRO_KEYMOD_ALT, true)
       && ! cutscene)
     ui_set_multi_room (+0, -1);
 
-  /* ALT+]: increase multi-room resolution */
+  /* ALT+]: increase multi-room height resolution */
   if (was_key_pressed (0, ']', ALLEGRO_KEYMOD_ALT, true)
       && ! cutscene)
     ui_set_multi_room (+0, +1);
@@ -565,7 +568,6 @@ process_keys (void)
   if (step_one_cycle) {
     step_one_cycle = false;
     game_paused = true;
-    al_stop_timer (play_time);
   }
 
   if (was_key_pressed (ALLEGRO_KEY_ESCAPE, 0, 0, true)
@@ -573,7 +575,6 @@ process_keys (void)
     if (game_paused) {
       step_one_cycle = true;
       game_paused = false;
-      al_start_timer (play_time);
     } else pause_game ();
   } else if (game_paused
              && (! active_menu || ! was_menu_key_pressed ())
@@ -589,11 +590,13 @@ process_keys (void)
       && is_kid_dead (&current_kid->f))
     kid_resurrect (current_kid);
 
-  /* HOME: camera on kid */
-  if (was_key_pressed (ALLEGRO_KEY_HOME, 0, 0, true)) {
-    room_view = current_kid->f.c.room;
-    mr_center_room (room_view);
-  }
+  /* HOME: focus multi-room view on kid */
+  if (was_key_pressed (ALLEGRO_KEY_HOME, 0, 0, true))
+    mr_focus_room (current_kid->f.c.room);
+
+  /* SHIFT+HOME: center multi-room view */
+  if (was_key_pressed (ALLEGRO_KEY_HOME, 0, ALLEGRO_KEYMOD_SHIFT, true))
+    mr_center_room (mr.room);
 
   /* A: alternate between kid and its shadows */
   if (! active_menu
@@ -602,8 +605,7 @@ process_keys (void)
       current_kid = &anima[(current_kid - anima + 1) % anima_nmemb];
     } while (current_kid->type != KID || ! current_kid->controllable);
     current_kid_id = current_kid->id;
-    room_view = current_kid->f.c.room;
-    mr_center_room (room_view);
+    mr_focus_room (current_kid->f.c.room);
   }
 
   /* K: kill enemy */
@@ -697,18 +699,18 @@ process_keys (void)
   /* +: increment and display remaining time */
   if (! active_menu
       && was_key_pressed (ALLEGRO_KEY_EQUALS, 0, ALLEGRO_KEYMOD_SHIFT, true)) {
-    int t = time_limit - al_get_timer_count (play_time);
-    int d = t > 60 ? -60 : -1;
-    al_add_timer_count (play_time, d);
+    int t = time_limit - play_time;
+    int d = t > SEC2CYC (60) ? SEC2CYC (-60) : SEC2CYC (-1);
+    play_time += d;
     display_remaining_time ();
   }
 
   /* -: decrement and display remaining time */
   if (! active_menu
       && was_key_pressed (ALLEGRO_KEY_MINUS, 0, 0, true)) {
-    int t = time_limit - al_get_timer_count (play_time);
-    int d = t > 60 ? +60 : +1;
-    al_add_timer_count (play_time, d);
+    int t = time_limit - play_time;
+    int d = t > SEC2CYC (60) ? SEC2CYC (+60) : SEC2CYC (+1);
+    play_time += d;
     display_remaining_time ();
   }
 
@@ -780,12 +782,10 @@ process_keys (void)
   struct anim *k = get_anim_by_id (0);
   if (k->current_lives <= 0
       && ! game_paused) {
-    al_start_timer (death_timer);
-    int64_t t = al_get_timer_count (death_timer);
+    death_timer++;
+    if (death_timer < 12) k->sample = NULL;
 
-    if (t < 12) k->sample = NULL;
-
-    if (t >= 12 && ! k->sample) {
+    if (death_timer >= 12 && ! k->sample) {
       ALLEGRO_SAMPLE *sample;
       switch (k->death_reason) {
       case SHADOW_FIGHT_DEATH: sample = success_suspense_sample; break;
@@ -795,14 +795,14 @@ process_keys (void)
       k->sample = play_sample (sample, -1);
     }
 
-    if (t < 60) {
+    if (death_timer < 60 && ! active_menu) {
       key.keyboard.keycode = 0;
       button = -1;
     }
 
-    if (t >= 60) {
-      if ((t < 240 || t % 12 < 8) && ! active_menu) {
-        if (t >= 252 && t % 12 == 0)
+    if (death_timer >= 60) {
+      if ((death_timer < 240 || death_timer % 12 < 8) && ! active_menu) {
+        if (death_timer >= 252 && death_timer % 12 == 0)
           play_sample (press_key_sample, -1);
         xasprintf (&text, "Press Button to Continue");
         draw_bottom_text (NULL, text, -2);
@@ -813,14 +813,12 @@ process_keys (void)
           && ! was_menu_key_pressed ())
         quit_anim = RESTART_LEVEL;
     }
-  } else if (al_get_timer_started (death_timer)
-             && ! game_paused) {
-    al_stop_timer (death_timer);
-    al_set_timer_count (death_timer, 0);
+  } else if (death_timer && ! game_paused) {
+    death_timer = 0;
     draw_bottom_text (NULL, NULL, -2);
   }
 
-  camera_follow_kid = (current_kid->f.c.room == room_view)
+  camera_follow_kid = (current_kid->f.c.room == mr.room)
     ? current_kid->id : -1;
 }
 
@@ -832,17 +830,18 @@ draw_level (void)
   draw_lives (uscreen, get_anim_by_id (current_kid_id), vm);
 
   /* automatic remaining time display */
-  int rem_time = time_limit - al_get_timer_count (play_time);
-  if ((rem_time % (5 * 60) == 0
+  int rem_time = time_limit - play_time;
+  if ((rem_time % SEC2CYC (5 * 60) == 0
        && last_auto_show_time != rem_time
-       && anim_cycle > 720)
+       && anim_cycle > SEC2CYC (720))
       || (auto_rem_time_1st_cycle >= 0
           && last_auto_show_time != rem_time
           && anim_cycle >= auto_rem_time_1st_cycle
           && anim_cycle <= auto_rem_time_1st_cycle + 6)
-      || rem_time <= 60) {
+      || rem_time <= SEC2CYC (60)) {
     display_remaining_time ();
-    if (rem_time <= 60 && rem_time != last_auto_show_time)
+    if (rem_time <= SEC2CYC (60) && rem_time % SEC2CYC (1) == 0
+        && ! play_time_stopped)
       play_sample (press_key_sample, -1);
     last_auto_show_time = rem_time;
   }
@@ -856,11 +855,11 @@ void
 display_remaining_time (void)
 {
   char *text;
-  int t = time_limit - al_get_timer_count (play_time);
+  int t = time_limit - play_time;
   if (t < 0) t = 0;
-  int m = t / 60 + ((t % 60) ? 1 : 0);
-  if (t > 60) xasprintf (&text, "%i MINUTES LEFT", m);
-  else xasprintf (&text, "%i SECONDS LEFT", t);
+  int m = t / SEC2CYC (60) + ((t % SEC2CYC (60)) ? 1 : 0);
+  if (t > SEC2CYC (60)) xasprintf (&text, "%i MINUTES LEFT", m);
+  else xasprintf (&text, "%i SECONDS LEFT", CYC2SEC (t));
   draw_bottom_text (NULL, text, 0);
   al_free (text);
 }
@@ -887,13 +886,10 @@ display_skill (struct anim *k)
 static void
 draw_lives (ALLEGRO_BITMAP *bitmap, struct anim *k, enum vm vm)
 {
-  if ((al_get_timer_started (bottom_text_timer)
-       && al_get_timer_count (bottom_text_timer) < BOTTOM_TEXT_DURATION)
-      || game_paused
-      || edit != EDIT_NONE)
-    return;
+  bool nrlc = no_recursive_links_continuity;
+  no_recursive_links_continuity = true;
 
-  if (k->f.c.room == room_view) {
+  if (is_room_visible (k->f.c.room)) {
     draw_kid_lives (bitmap, k, vm);
     struct anim *ke = NULL;
     if (k->enemy_id != -1) {
@@ -901,6 +897,8 @@ draw_lives (ALLEGRO_BITMAP *bitmap, struct anim *k, enum vm vm)
       if (ke) draw_guard_lives (bitmap, ke, vm);
     }
   }
+
+  no_recursive_links_continuity = nrlc;
 }
 
 void
@@ -909,7 +907,6 @@ pause_game (void)
   memset (&key, 0, sizeof (key));
   button = -1;
   game_paused = true;
-  al_stop_timer (play_time);
 }
 
 void
@@ -919,7 +916,6 @@ unpause_game (void)
   draw_bottom_text (NULL, NULL, 0);
   memset (&key, 0, sizeof (key));
   button = -1;
-  al_start_timer (play_time);
 }
 
 /************************************/

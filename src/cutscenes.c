@@ -144,7 +144,7 @@ void
 play_title (void)
 {
   cutscene = true;
-  play_anim (title_anim, NULL, 10);
+  play_anim (title_anim, NULL);
 }
 
 static void
@@ -166,7 +166,7 @@ title_anim (void)
   switch (i) {
   case 0:
     if (! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
       i++;
     }
     break;
@@ -193,14 +193,14 @@ title_anim (void)
     break;
   case 7:
     if (! is_playing_sample_instance (si)) {
-      start_video_effect (VIDEO_ROLL_RIGHT, SECS_TO_VCYCLES (0.5));
+      start_video_effect (VIDEO_ROLL_RIGHT, SEC2EFF (0.5));
       si = play_sample (in_the_absence_sample, -1);
       i++;
     }
     break;
   case 8:
     if (get_sample_position (si) >= 11.0) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -230,7 +230,7 @@ title_anim (void)
 
       clock_type = -1;
 
-      start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
       i++;
     }
     break;
@@ -298,7 +298,7 @@ title_anim (void)
     jaffar.action (&jaffar);
     if (jaffar.f.b == jaffar_raise_arms_06) {
       video_effect.color = WHITE;
-      start_video_effect (VIDEO_FLICKERING, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FLICKERING, SEC2EFF (1));
       clock_type = 0;
       i++;
     }
@@ -335,31 +335,31 @@ title_anim (void)
     princess.action (&princess);
     jaffar.action (&jaffar);
     if (jaffar.f.b == jaffar_normal_00) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
   case 26:
     if (! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
       i++;
     }
     break;
   case 27:
     if (! is_playing_sample_instance (si)) {
-      start_video_effect (VIDEO_ROLL_RIGHT, SECS_TO_VCYCLES (0.5));
+      start_video_effect (VIDEO_ROLL_RIGHT, SEC2EFF (0.5));
       i++;
     }
     break;
   case 28:
-    if (! wait_anim (SECS_TO_SCYCLES (5))) {
-      start_video_effect (VIDEO_ROLL_RIGHT, SECS_TO_VCYCLES (0.5));
+    if (! wait_anim (SEC2CYC (5))) {
+      start_video_effect (VIDEO_ROLL_RIGHT, SEC2EFF (0.5));
       i++;
     }
     break;
   case 29:
-    if (! wait_anim (SECS_TO_SCYCLES (3))) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+    if (! wait_anim (SEC2CYC (3))) {
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -404,14 +404,14 @@ cutscene_01_05_11_anim (void)
 
     clock_type = get_clock_by_time_left ();
 
-    start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+    start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
     si = play_sample (cutscene_01_03_05_11_sample, -1);
     i++;
     break;
   case 1:
     if (get_sample_position (si) >= 5.5
         && ! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -458,7 +458,7 @@ cutscene_11_little_time_left_anim (void)
 
     clock_type = get_clock_by_time_left ();
 
-    start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+    start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
     si = play_sample (cutscene_11_little_time_left_sample, -1);
     i++;
     break;
@@ -472,7 +472,7 @@ cutscene_11_little_time_left_anim (void)
     princess.action (&princess);
     if (get_sample_position (si) >= 5.5
         && ! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -490,7 +490,7 @@ cutscene_11_little_time_left_anim (void)
 void
 cutscene_11_anim (void)
 {
-  if (al_get_timer_count (play_time) >= (92 * time_limit) / 100)
+  if (play_time >= (92 * time_limit) / 100)
     cutscene_11_little_time_left_anim ();
   else cutscene_01_05_11_anim ();
 }
@@ -527,14 +527,14 @@ cutscene_03_anim (void)
 
     clock_type = get_clock_by_time_left ();
 
-    start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+    start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
     si = play_sample (cutscene_01_03_05_11_sample, -1);
     i++;
     break;
   case 1:
     if (get_sample_position (si) >= 5.5
         && ! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -589,7 +589,7 @@ cutscene_07_anim (void)
 
     clock_type = get_clock_by_time_left ();
 
-    start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+    start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
     si = play_sample (cutscene_07_08_sample, -1);
     i++;
     break;
@@ -601,7 +601,7 @@ cutscene_07_anim (void)
     break;
   case 2:
     mouse.action (&mouse);
-    if (get_sample_position (si) >= 5.5) {
+    if (mouse.f.c.x >= 320) {
       princess_uncouch (&princess);
       i++;
     }
@@ -611,7 +611,7 @@ cutscene_07_anim (void)
     princess.action (&princess);
     if (get_sample_position (si) >= 7.5
         && ! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -666,7 +666,7 @@ cutscene_08_anim (void)
 
     clock_type = get_clock_by_time_left ();
 
-    start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+    start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
     si = play_sample (cutscene_07_08_sample, -1);
     i++;
     break;
@@ -674,8 +674,8 @@ cutscene_08_anim (void)
     if (get_sample_position (si) >= 1) i++;
     break;
   case 2:
-    mouse.action (&mouse);
-    if (get_sample_position (si) >= 2.5) {
+    if (mouse.f.c.x >= 204) mouse.action (&mouse);
+    if (mouse.f.c.x <= 290) {
       princess_couch (&princess);
       i++;
     }
@@ -695,7 +695,7 @@ cutscene_08_anim (void)
     princess.action (&princess);
     if (get_sample_position (si) >= 7.5
         && ! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -761,13 +761,13 @@ cutscene_14_anim (void)
 
     clock_type = -1;
 
-    start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+    start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
     si = play_sample (cutscene_14_sample, -1);
     i++;
     break;
   case 1:
     kid.action (&kid);
-    if (get_sample_position (si) >= 1) {
+    if (kid.f.c.x <= 235) {
       kid.key.left = false;
       i++;
     }
@@ -791,7 +791,7 @@ cutscene_14_anim (void)
     princess.action (&princess);
     if (get_sample_position (si) >= 10
         && ! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -799,7 +799,7 @@ cutscene_14_anim (void)
     princess.action (&princess);
     if (! is_playing_sample_instance (si)
         && ! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
       si = play_sample (happy_end_sample, -1);
       key.keyboard.keycode = 0;
       button = -1;
@@ -808,19 +808,19 @@ cutscene_14_anim (void)
     break;
   case 6:
     if (get_sample_position (si) >= 26) {
-      start_video_effect (VIDEO_ROLL_RIGHT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_ROLL_RIGHT, SEC2EFF (1));
       i++;
     }
     break;
   case 7:
     if (get_sample_position (si) >= 52) {
-      start_video_effect (VIDEO_ROLL_RIGHT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_ROLL_RIGHT, SEC2EFF (1));
       i++;
     }
     break;
   case 8:
     if (get_sample_position (si) >= 80) {
-      start_video_effect (VIDEO_ROLL_RIGHT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_ROLL_RIGHT, SEC2EFF (1));
       i++;
     }
     break;
@@ -829,7 +829,7 @@ cutscene_14_anim (void)
     break;
   case 10:
     if (! is_playing_sample_instance (si)) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;
@@ -871,14 +871,14 @@ cutscene_out_of_time_anim (void)
 
     clock_type = get_clock_by_time_left ();
 
-    start_video_effect (VIDEO_FADE_IN, SECS_TO_VCYCLES (1));
+    start_video_effect (VIDEO_FADE_IN, SEC2EFF (1));
     si = play_sample (cutscene_out_of_time_sample, -1);
     i++;
     break;
   case 1:
     if (get_sample_position (si) >= 12
         && ! is_video_effect_started ()) {
-      start_video_effect (VIDEO_FADE_OUT, SECS_TO_VCYCLES (1));
+      start_video_effect (VIDEO_FADE_OUT, SEC2EFF (1));
       i++;
     }
     break;

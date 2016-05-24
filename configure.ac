@@ -69,6 +69,9 @@ no)  debug=false ;;
 esac],[debug=false])
 AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
 
+AS_IF([[test x$debug != xtrue]],
+  [AC_DEFINE([NDEBUG], [1], [Make assert macro do nothing.])])
+
 # Optimizations option
 AC_ARG_ENABLE([optimizations],
 [AS_HELP_STRING([--enable-optimizations],[Turn on optimizations])],
@@ -163,32 +166,46 @@ AS_CASE([$host],
 
 # Default
  [PKG_CHECK_MODULES([ALLEGRO],
-  [allegro-5.0 >= $allegro_minver],,
-   AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior)]))
+  [allegro-5 >= $allegro_minver],,
+  [PKG_CHECK_MODULES([ALLEGRO],
+    [allegro-5.0 >= $allegro_minver],,
+    AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior)]))])
 
   PKG_CHECK_MODULES([ALLEGRO_IMAGE],
-  [allegro_image-5.0 >= $allegro_minver],,
-   AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) image addon]))
+   [allegro_image-5 >= $allegro_minver],,
+   [PKG_CHECK_MODULES([ALLEGRO_IMAGE],
+     [allegro_image-5.0 >= $allegro_minver],,
+     AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) image addon]))])
 
   PKG_CHECK_MODULES([ALLEGRO_AUDIO],
-  [allegro_audio-5.0 >= $allegro_minver],,
-   AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) audio addon]))
+   [allegro_audio-5 >= $allegro_minver],,
+   [PKG_CHECK_MODULES([ALLEGRO_AUDIO],
+    [allegro_audio-5.0 >= $allegro_minver],,
+    AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) audio addon]))])
 
   PKG_CHECK_MODULES([ALLEGRO_ACODEC],
-  [allegro_acodec-5.0 >= $allegro_minver],,
-   AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) audio codecs addon]))
+   [allegro_acodec-5 >= $allegro_minver],,
+   [PKG_CHECK_MODULES([ALLEGRO_ACODEC],
+    [allegro_acodec-5.0 >= $allegro_minver],,
+    AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) audio codecs addon]))])
 
   PKG_CHECK_MODULES([ALLEGRO_FONT],
-  [allegro_font-5.0 >= $allegro_minver],,
-   AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) font addon]))
+   [allegro_font-5 >= $allegro_minver],,
+   [PKG_CHECK_MODULES([ALLEGRO_FONT],
+    [allegro_font-5.0 >= $allegro_minver],,
+    AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) font addon]))])
 
   PKG_CHECK_MODULES([ALLEGRO_PRIMITIVES],
-  [allegro_primitives-5.0 >= $allegro_minver],,
-   AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) primitives addon]))
+   [allegro_primitives-5 >= $allegro_minver],,
+   [PKG_CHECK_MODULES([ALLEGRO_PRIMITIVES],
+    [allegro_primitives-5.0 >= $allegro_minver],,
+    AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) primitives addon]))])
 
   PKG_CHECK_MODULES([ALLEGRO_DIALOG],
-  [allegro_dialog-5.0 >= $allegro_minver],,
-   AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) dialogs addon]))])
+   [allegro_dialog-5 >= $allegro_minver],,
+    [PKG_CHECK_MODULES([ALLEGRO_DIALOG],
+     [allegro_dialog-5.0 >= $allegro_minver],,
+     AC_MSG_ERROR([MININIM requires Allegro $allegro_minver (or superior) dialogs addon]))])])
 
 AC_SUBST([ALLEGRO_CFLAGS])
 AC_SUBST([ALLEGRO_LIBS])

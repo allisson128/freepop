@@ -23,12 +23,11 @@ bool force_full_redraw;
 ALLEGRO_DISPLAY *display;
 ALLEGRO_BITMAP *uscreen, *iscreen;
 ALLEGRO_TIMER *video_timer;
+uint64_t bottom_text_timer;
 int screen_flags = 0;
 bool hgc;
-ALLEGRO_TIMER *bottom_text_timer = NULL;
 bool is_display_focused = true;
 ALLEGRO_BITMAP *effect_buffer;
-static ALLEGRO_BITMAP *memory_bitmap;
 ALLEGRO_BITMAP *black_screen;
 struct video_effect video_effect = {.type = VIDEO_NO_EFFECT};
 static ALLEGRO_FONT *builtin_font;
@@ -90,14 +89,7 @@ init_video (void)
   iscreen = create_bitmap (display_width, display_height);
   clear_bitmap (uscreen, TRANSPARENT_COLOR);
 
-  int flags = al_get_new_bitmap_flags ();
-  al_add_new_bitmap_flag (ALLEGRO_MEMORY_BITMAP);
-  memory_bitmap = create_bitmap (ORIGINAL_WIDTH, ORIGINAL_HEIGHT);
-  al_set_new_bitmap_flags (flags);
-
   video_timer = create_timer (1.0 / EFFECT_HZ);
-
-  bottom_text_timer = create_timer (1.0 / SCRIPT_HZ);
 
   al_init_font_addon ();
   builtin_font = al_create_builtin_font ();
@@ -116,7 +108,6 @@ finalize_video (void)
   destroy_bitmap (uscreen);
   destroy_bitmap (effect_buffer);
   destroy_bitmap (black_screen);
-  destroy_bitmap (memory_bitmap);
   al_destroy_font (builtin_font);
   al_destroy_timer (video_timer);
   al_destroy_display (display);
@@ -303,21 +294,19 @@ draw_bottom_text (ALLEGRO_BITMAP *bitmap, char *text, int priority)
   static int cur_priority = INT_MIN;
 
   if (bitmap == NULL && priority < cur_priority
-      && al_get_timer_count (bottom_text_timer) < BOTTOM_TEXT_DURATION)
+      && bottom_text_timer < BOTTOM_TEXT_DURATION)
     return;
 
   if (text) {
     if (current_text) al_free (current_text);
     xasprintf (&current_text, "%s", text);
-    al_set_timer_count (bottom_text_timer, 0);
-    al_start_timer (bottom_text_timer);
+    bottom_text_timer = 1;
     cur_priority = priority;
-  } else if ((al_get_timer_started (bottom_text_timer)
-              && al_get_timer_count (bottom_text_timer) >= BOTTOM_TEXT_DURATION)
+  } else if (bottom_text_timer > BOTTOM_TEXT_DURATION
              || ! bitmap) {
-    al_stop_timer (bottom_text_timer);
+    bottom_text_timer = 0;
     cur_priority = INT_MIN;
-  } else if (al_get_timer_started (bottom_text_timer)) {
+  } else if (bottom_text_timer) {
     ALLEGRO_COLOR bg_color;
 
     switch (vm) {
@@ -384,6 +373,23 @@ hgc_palette (ALLEGRO_COLOR c)
 }
 
 void
+draw_mr_select_rect (int x, int y, ALLEGRO_COLOR color)
+{
+  int w = al_get_display_width (display);
+  int h = al_get_display_height (display);
+  int tw, th; mr_get_resolution (&tw, &th);
+
+  ALLEGRO_BITMAP *screen = mr.cell[x][y].screen;
+  int sw = al_get_bitmap_width (screen);
+  int sh = al_get_bitmap_height (screen);
+  float dx = ((ORIGINAL_WIDTH * x) * w) / (float) tw;
+  float dy = ((ROOM_HEIGHT * y) * h) / (float) th;
+  float dw = (sw * w) / (float) tw;
+  float dh = (sh * h) / (float) th;
+  al_draw_rectangle (dx, dy, dx + dw, dy + dh, color, 2);
+}
+
+void
 flip_display (ALLEGRO_BITMAP *bitmap)
 {
   int w = al_get_display_width (display);
@@ -396,8 +402,16 @@ flip_display (ALLEGRO_BITMAP *bitmap)
     int bw = al_get_bitmap_width (bitmap);
     int bh = al_get_bitmap_height (bitmap);
     set_target_backbuffer (display);
-    al_draw_scaled_bitmap (bitmap, 0, 0, bw, bh, 0, 0, w, h, screen_flags);
+    al_draw_scaled_bitmap
+      (bitmap, 0, 0, bw, bh, 0, 0, w, h, screen_flags);
   } else {
+    if (has_mr_view_changed ()
+        && ! cutscene
+        && ! no_room_drawing) {
+      draw_multi_rooms ();
+      force_full_redraw = true;
+    }
+
     int iw = al_get_bitmap_width (iscreen);
     int ih = al_get_bitmap_height (iscreen);
 
@@ -415,8 +429,7 @@ flip_display (ALLEGRO_BITMAP *bitmap)
     for (y = mr.h - 1; y >= 0; y--)
       for (x = 0; x < mr.w; x++) {
         ALLEGRO_BITMAP *screen =
-          (mr.cell[x][y].room || no_room_drawing
-           || cutscene || (mr.w == 1 && mr.h == 1))
+          (mr.cell[x][y].room || no_room_drawing || cutscene)
           ? mr.cell[x][y].screen : mr.cell[x][y].cache;
         int sw = al_get_bitmap_width (screen);
         int sh = al_get_bitmap_height (screen);
@@ -425,17 +438,36 @@ flip_display (ALLEGRO_BITMAP *bitmap)
         float dw = (sw * w) / (float) tw;
         float dh = (sh * h) / (float) th;
 
-        if (mr_view_changed
-            || cutscene
+        if (cutscene
             || mr.cell[x][y].room
             || mr.last.display_width != w
             || mr.last.display_height != h
             || force_full_redraw)
-          al_draw_scaled_bitmap (screen, 0, 0, sw, sh, dx, dy, dw, dh, 0);
+          al_draw_scaled_bitmap
+            (screen, 0, 0, sw, sh, dx, dy, dw, dh, 0);
       }
 
     set_target_backbuffer (display);
     al_draw_bitmap (iscreen, 0, 0, screen_flags);
+
+    if (mr.room_select > 0 && ! cutscene)
+      for (y = mr.h - 1; y >= 0; y--)
+        for (x = 0; x < mr.w; x++)
+          if (mr.cell[x][y].room == mr.room_select)
+            draw_mr_select_rect (x, y, GREEN);
+
+    if ((mr.room != mr.last.room
+         || mr.x != mr.last.x
+         || mr.y != mr.last.y
+         || mr.w != mr.last.w
+         || mr.h != mr.last.h)
+        && ! cutscene)
+      mr.select_cycles = SELECT_CYCLES;
+
+    if (mr.select_cycles > 0 && ! cutscene) {
+      draw_mr_select_rect (mr.x, mr.y, RED);
+      mr.select_cycles--;
+    }
   }
 
   al_draw_scaled_bitmap (uscreen, 0, 0, uw, uh, 0, 0, w, h, 0);
@@ -494,15 +526,13 @@ draw_pattern (ALLEGRO_BITMAP *bitmap, int ox, int oy, int w, int h,
               ALLEGRO_COLOR color_0, ALLEGRO_COLOR color_1)
 {
   int x, y;
-  clear_bitmap (memory_bitmap, TRANSPARENT_COLOR);
-  draw_bitmap (bitmap, memory_bitmap, 0, 0, 0);
-  set_target_bitmap (memory_bitmap);
-  al_lock_bitmap (memory_bitmap, ALLEGRO_PIXEL_FORMAT_ANY, ALLEGRO_LOCK_WRITEONLY);
+  set_target_bitmap (bitmap);
+  al_lock_bitmap (bitmap, ALLEGRO_PIXEL_FORMAT_ANY,
+                  ALLEGRO_LOCK_WRITEONLY);
   for (y = oy; y < oy + h; y++)
     for (x = ox; x < ox + w; x++)
       al_put_pixel (x, y, (x % 2 != y % 2) ? color_0 : color_1);
-  al_unlock_bitmap (memory_bitmap);
-  draw_bitmap (memory_bitmap, bitmap, 0, 0, 0);
+  al_unlock_bitmap (bitmap);
 }
 
 void

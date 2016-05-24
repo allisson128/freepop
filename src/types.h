@@ -80,6 +80,8 @@ struct multi_room {
   } fit_mode;
   int fit_w, fit_h;
 
+  int room_select;
+
   struct multi_room_cell {
     ALLEGRO_BITMAP *screen;
     ALLEGRO_BITMAP *cache;
@@ -97,7 +99,7 @@ struct multi_room {
   } **cell;
 
   struct {
-    int w, h;
+    int w, h, x, y, room;
 
     int level;
     enum em em;
@@ -112,6 +114,22 @@ struct multi_room {
       int room;
     } **cell;
   } last;
+};
+
+struct mr_origin {
+  int w, h, x, y, room;
+};
+
+struct mouse_coord {
+  struct coord c;
+  struct mr_origin mr;
+  int x, y;
+  int sx, sy;
+};
+
+struct mr_room_list {
+  int *room;
+  size_t nmemb;
 };
 
 enum carpet_design {
@@ -334,7 +352,7 @@ struct anim {
   struct skill skill;
   int refraction;
 
-  ALLEGRO_TIMER *floating;
+  uint64_t float_timer;
   ALLEGRO_SAMPLE_INSTANCE *sample;
 
   int dc, df, dl, dcl, dch, dcd;
@@ -442,7 +460,7 @@ enum options {
   JOYSTICK_AXIS_THRESHOLD_OPTION, JOYSTICK_BUTTON_THRESHOLD_OPTION,
   JOYSTICK_AXIS_OPTION, JOYSTICK_BUTTON_OPTION, JOYSTICK_INFO_OPTION,
   START_POS_OPTION, HUE_MODE_OPTION, CONVERT_LEVELS_OPTION, MULTI_ROOM_OPTION,
-  DISPLAY_MODE_OPTION, MULTI_ROOM_FIT_MODE_OPTION,
+  DISPLAY_MODE_OPTION, MULTI_ROOM_FIT_MODE_OPTION, TIME_FREQUENCY_OPTION,
 };
 
 enum level_module {

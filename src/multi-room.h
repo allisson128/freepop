@@ -25,23 +25,33 @@ extern ALLEGRO_BITMAP *room0;
 extern ALLEGRO_COLOR room0_wall_color[3][4][11];
 extern bool con_caching;
 extern struct multi_room mr;
+extern int room_view;
 extern int mr_room, mr_x, mr_y;
-extern bool mr_view_changed;
+
+/* visibility functions */
+bool is_pos_visible (struct pos *p);
+bool is_frame_visible_at_room (struct frame *f, int room);
+bool is_frame_visible (struct frame *f);
+bool is_room_visible (int room);
 
 /* functions */
-bool is_room_visible (int room);
-bool is_kid_visible (void);
 bool has_mr_view_changed (void);
 void redim_multi_room (int w, int h);
 void create_multi_room_bitmaps (void);
 void set_multi_room (int w, int h);
 void mr_get_resolution (int *w, int *h);
-void mr_map_rooms (void);
 bool mr_topmost_cell (int *rx, int *ry);
 bool mr_leftmost_cell (int *rx, int *ry);
 bool mr_bottommost_cell (int *rx, int *ry);
 bool mr_rightmost_cell (int *rx, int *ry);
+struct mr_origin *mr_save_origin (struct mr_origin *o);
+void mr_restore_origin (struct mr_origin *o);
+void mr_map_room (int r, int x, int y);
+void mr_set_origin (int room, int x, int y);
 void mr_center_room (int room);
+void mr_focus_room (int room);
+void mr_focus_cell (int x, int y);
+void mr_focus_mouse (void);
 void mr_select_trans (enum dir d);
 void mr_view_trans (enum dir d);
 void mr_view_page_trans (enum dir d);
@@ -54,9 +64,16 @@ void update_cache (enum em em, enum vm vm);
 void update_cache_pos (struct pos *p, enum em em, enum vm vm);
 void register_changed_pos (struct pos *p);
 struct pos *get_changed_pos (struct pos *p);
+void register_changed_room (int room);
+bool has_room_changed (int room);
 void mr_update_last_settings (void);
 void multi_room_fit_stretch (void);
 void multi_room_fit_ratio (void);
 void apply_mr_fit_mode (void);
+bool mr_room_list_has_room (struct mr_room_list *l, int room);
+struct mr_room_list *mr_get_room_list (struct mr_room_list *l);
+void mr_destroy_room_list (struct mr_room_list *l);
+int mr_count_uniq_rooms (void);
+void mr_stabilize_origin (struct mr_origin *o, enum dir d);
 
 #endif	/* MININIM_MULTI_ROOM_H */

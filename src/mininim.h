@@ -171,6 +171,7 @@ ALLEGRO_TEXTLOG *load_config (char *filename);
 void save_game (char *filename);
 int max_int (int a, int b);
 int min_int (int a, int b);
+int cint (int *x, int *y);
 unsigned char add_char (unsigned char a, signed char b);
 int int_to_range (int i, int min, int max);
 float dist_cart (float x0, float y0, float x1, float y1);
@@ -178,7 +179,8 @@ void quit_game (void);
 
 /* variables */
 extern enum level_module level_module;
-extern ALLEGRO_TIMER *play_time;
+extern uint64_t play_time;
+extern bool play_time_stopped;
 extern enum vm vm;
 extern enum gm gm;
 extern enum em em;

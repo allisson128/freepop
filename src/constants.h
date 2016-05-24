@@ -47,28 +47,27 @@
 #define KID_INITIAL_TOTAL_LIVES 3
 #define KID_INITIAL_CURRENT_LIVES 3
 #define KID_MINIMUM_LIVES_TO_BLINK 1
-#define BOTTOM_TEXT_DURATION (3 * SCRIPT_HZ)
+#define BOTTOM_TEXT_DURATION (3 * anim_freq)
 
-#define TIME_LIMIT 3600
+#define TIME_LIMIT (3600 * SCRIPT_HZ_DEFAULT)
 #define START_TIME 0
 
 #define INITIAL_KCA -1
 #define INITIAL_KCD -1
 
+#define SCRIPT_HZ_DEFAULT 12
+#define SEC2CYC(x) (anim_freq > 0 ? (x) * anim_freq : (x) / (-anim_freq + 2))
+#define CYC2SEC(x) (anim_freq > 0 ? (x) / anim_freq : (x) * (-anim_freq + 2))
 #define EFFECT_HZ 30
-#define SECS_TO_VCYCLES(x) ((x) * EFFECT_HZ)
+#define SEC2EFF(x) ((x) * EFFECT_HZ)
 
-#define SCRIPT_HZ 12
-#define CYCLE_TO_EFFECT_DURATION(x) ((x) * (EFFECT_HZ / SCRIPT_HZ))
-#define SECS_TO_SCYCLES(x) ((x) * SCRIPT_HZ)
-
-#define SELECT_CYCLES (3 * SCRIPT_HZ)
+#define SELECT_CYCLES (SEC2CYC (3))
 
 #define CHOPPER_WAIT 10
 #define CHOPPER_MAX_STEP 5
 
 #define DOOR_MAX_STEP 47
-#define DOOR_WAIT SECS_TO_SCYCLES (5)
+#define DOOR_WAIT SEC2CYC (5)
 #define DOOR_CLIMB_LIMIT 40
 #define DOOR_WAIT_LOOK 4
 
@@ -85,7 +84,7 @@
 
 #define LOOSE_FLOOR_RESISTENCE 0
 
-#define SPIKES_WAIT SECS_TO_SCYCLES (1)
+#define SPIKES_WAIT SEC2CYC (1)
 #define SPIKES_FLOOR_MAX_STEP 9
 
 #define STARS_RANDOM_SEED 78234782

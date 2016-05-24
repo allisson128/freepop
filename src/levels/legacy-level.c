@@ -25,7 +25,7 @@ static int shadow_id;
 static int skeleton_id;
 static bool played_sample;
 static struct level_door *exit_level_door;
-static ALLEGRO_TIMER *mouse_timer;
+static uint64_t mouse_timer;
 static int mouse_id;
 static bool coming_from_12;
 static bool shadow_merged;
@@ -63,8 +63,7 @@ legacy_level_start (void)
   played_sample = false;
   shadow_id = mouse_id = skeleton_id = -1;
   stop_all_samples ();
-  al_destroy_timer (mouse_timer);
-  mouse_timer = NULL;
+  mouse_timer = 0;
   exit_level_door = get_exit_level_door (0);
   anti_camera_room = -1;
   shadow_merged = false;
@@ -96,15 +95,18 @@ legacy_level_start (void)
 
   /* define camera's starting room */
   if (level.number == 7) {
-    room_view = 1;
+    mr_center_room (1);
     camera_follow_kid = -1;
   } else if (level.number == 13) {
-    room_view = 23;
+    mr_center_room (23);
     camera_follow_kid = -1;
   } else {
-    room_view = k->f.c.room;
+    mr_center_room (k->f.c.room);
     camera_follow_kid = k->id;
   }
+
+  /* if in level 14 stop the timer */
+  if (level.number == 14) play_time_stopped = true;
 
   /* in the first level */
   if (level.number == 1) {
@@ -132,12 +134,9 @@ legacy_level_start (void)
       k->f.dir = (k->f.dir == LEFT) ? RIGHT : LEFT;
       place_frame (&k->f, &k->f, kid_normal_00, &p,
                    k->f.dir == LEFT ? +22 : +31, +15);
-      room_view = 2;
+      mr_center_room (2);
     }
   }
-
-  /* in the eighth level */
-  if (level.number == 8) mouse_timer = create_timer (1.0 / 12);
 
   /* in the tenth level unflip the screen vertically, (helpful if the
      kid has not drank the potion that would do it on its own) */
@@ -242,7 +241,7 @@ legacy_level_special_events (void)
        the mirror appear */
     if (exit_level_door
         && exit_level_door->i == 0
-        && room_view == 4
+        && is_pos_visible (&mirror_pos)
         && con (&mirror_pos)->fg != MIRROR) {
       register_con_undo (&undo, &mirror_pos,
                          MIRROR, MIGNORE, MIGNORE,
@@ -273,7 +272,8 @@ legacy_level_special_events (void)
        from view */
     if (shadow_id != -1) {
       struct anim *ks = get_anim_by_id (shadow_id);
-      if (is_frame_visible (&ks->f)) ks->key.right = true;
+      if (is_frame_visible_at_room (&ks->f, mirror_pos.room))
+        ks->key.right = true;
       else {
         destroy_anim (ks);
         shadow_id = -1;
@@ -290,7 +290,7 @@ legacy_level_special_events (void)
     /* if there is a door sufficiently open, and a potion in room 24,
        and the camera is there, create a kid's shadow to drink the
        potion */
-    if (room_view == 24
+    if (is_pos_visible (&potion_pos)
         && shadow_id == -1
         && con (&door_pos)->fg == DOOR
         && is_potion (&potion_pos)
@@ -320,7 +320,8 @@ legacy_level_special_events (void)
         pos2room (&pm, 24, &pm);
         if (pm.place < potion_pos.place - 1) ks->key.right = true;
         else ks->key.shift = true;
-      } else if (is_frame_visible (&ks->f)) ks->key.left = true;
+      } else if (is_frame_visible_at_room (&ks->f, potion_pos.room))
+        ks->key.left = true;
       else {
         destroy_anim (ks);
         shadow_id = -1;
@@ -386,29 +387,23 @@ legacy_level_special_events (void)
 
     if (mouse_id != -1) m = get_anim_by_id (mouse_id);
 
-    if (mouse_timer) {
-      /* if the exit level door is open and the kid is at room 16,
-         start counting (or continue if started already) for the mouse
-         arrival */
-      if (exit_level_door && exit_level_door->i == 0 &&
-          k->f.c.room == 16) al_start_timer (mouse_timer);
-      else al_stop_timer (mouse_timer);
+    /* if the exit level door is open and the kid is at room 16,
+       start counting (or continue if started already) for the mouse
+       arrival */
+    if (exit_level_door && exit_level_door->i == 0 &&
+        k->f.c.room == 16 && mouse_timer <= 138) mouse_timer++;
 
-      /* if enough cycles have passed since the start of the countdown
-         and the camera is at room 16, make the mouse appear */
-      if (al_get_timer_count (mouse_timer) >= 138
-          && room_view == 16) {
-        al_destroy_timer (mouse_timer);
-        mouse_timer = NULL;
-        mouse_id = create_anim (NULL, MOUSE, &mouse_pos, RIGHT);
-        m = &anima[mouse_id];
-        m->f.flip = ALLEGRO_FLIP_HORIZONTAL;
-      }
+    /* if enough cycles have passed since the start of the countdown
+       and the camera is at room 16, make the mouse appear */
+    if (mouse_timer == 138 && is_room_visible (mouse_pos.room)) {
+      mouse_id = create_anim (NULL, MOUSE, &mouse_pos, RIGHT);
+      m = &anima[mouse_id];
+      m->f.flip = ALLEGRO_FLIP_HORIZONTAL;
     }
 
     /* make the mouse disapear as soon as it goes out of view */
     if (m && m->action == mouse_run && m->f.dir == RIGHT
-        && ! is_frame_visible (&m->f)) {
+        && ! is_frame_visible_at_room (&m->f, mouse_pos.room)) {
         destroy_anim (m);
         mouse_id = -1;
     }
@@ -505,7 +500,6 @@ legacy_level_special_events (void)
       /* if the kid keep his sword, the shadow does the same */
       if (k->action == kid_keep_sword && ks->type == SHADOW) {
         ks->type = KID;
-        ks->floating = create_timer (1.0);
         ks->controllable = true;
         kid_keep_sword (ks);
         place_on_the_ground (&ks->f, &ks->f.c);
@@ -516,7 +510,6 @@ legacy_level_special_events (void)
          shadow becomes offensive again too */
       if (k->action == kid_take_sword && ks->type == KID) {
         ks->type = SHADOW;
-        al_destroy_timer (ks->floating);
         ks->controllable = false;
         guard_normal (ks);
         place_on_the_ground (&ks->f, &ks->f.c);
@@ -612,7 +605,7 @@ legacy_level_special_events (void)
         stop_sample (k->sample, meet_vizier_sample);
         k->sample = play_sample (vizier_death_sample, -1);
         played_vizier_death_sample = true;
-        al_stop_timer (play_time);
+        play_time_stopped = true;
         display_remaining_time ();
       }
 

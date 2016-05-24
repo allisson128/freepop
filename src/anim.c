@@ -25,6 +25,8 @@ bool pause_anim;
 bool cutscene;
 bool next_frame_inv;
 uint64_t anim_cycle;
+ALLEGRO_TIMER *timer;
+int anim_freq = SCRIPT_HZ_DEFAULT;
 
 ALLEGRO_EVENT_QUEUE *event_queue;
 
@@ -33,23 +35,17 @@ size_t anima_nmemb;
 
 void
 play_anim (void (*draw_callback) (void),
-           void (*compute_callback) (void),
-           int freq)
+           void (*compute_callback) (void))
 {
   if (cutscene) set_multi_room (1, 1);
-  else {
-    mr.room = room_view;
-    apply_mr_fit_mode ();
-  }
+  else apply_mr_fit_mode ();
 
   anim_cycle = 0;
   quit_anim = NO_QUIT;
 
-  struct anim *current_kid;
-
   acknowledge_resize ();
   ALLEGRO_EVENT event;
-  ALLEGRO_TIMER *timer = create_timer (1.0 / freq);
+  timer = create_timer (anim_freq > 0 ? 1.0 / anim_freq : -anim_freq + 2);
   if (! event_queue) event_queue = create_event_queue ();
   al_register_event_source (event_queue, get_display_event_source (display));
   al_register_event_source (event_queue, get_keyboard_event_source ());
@@ -121,6 +117,7 @@ play_anim (void (*draw_callback) (void),
           if (! game_paused) anim_cycle++;
         }
         if (! cutscene) editor ();
+        if (bottom_text_timer) bottom_text_timer++;
         draw_bottom_text (uscreen, NULL, 0);
         drop_all_events_from_source
           (event_queue, get_timer_event_source (timer));
@@ -161,15 +158,11 @@ play_anim (void (*draw_callback) (void),
       button = event.joystick.button;
       break;
     case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-      current_kid = get_anim_by_id (current_kid_id);
-
       switch (event.mouse.button) {
       case 1: enter_exit_editor (); break;
       case 3:
-        if (edit != EDIT_NONE) {
-          room_view = current_kid->f.c.room;
-          mr_center_room (room_view);
-        }
+        if (edit != EDIT_NONE)
+          mr_center_room (mr.room);
         break;
       default: break;
       }
@@ -203,15 +196,19 @@ play_anim (void (*draw_callback) (void),
       if (dw < 0) while (dw++ < 0) mr_view_trans (LEFT);
       else if (dw > 0) while (dw-- > 0) mr_view_trans (RIGHT);
 
-      if (dz || dw) {
-        draw_multi_rooms ();
-        force_full_redraw = true;
-      }
       break;
     case ALLEGRO_EVENT_KEY_CHAR:
       key = event;
 
       char *text = NULL;
+
+      /* (: decrease time frequency */
+      if (was_key_pressed (0, '(', -1, true))
+        ui_change_anim_freq (anim_freq - 1);
+
+      /* ): increase time frenquency */
+      if (was_key_pressed (0, ')', -1, true))
+        ui_change_anim_freq (anim_freq + 1);
 
       /* F8: enable/disable level editor */
       if (was_key_pressed (ALLEGRO_KEY_F8, 0, 0, true))
@@ -291,17 +288,25 @@ play_anim (void (*draw_callback) (void),
       /* SHIFT+I: flip screen */
       if (was_key_pressed (ALLEGRO_KEY_I, 0, ALLEGRO_KEYMOD_SHIFT, true)) {
         char *flip = "NONE";
+        ALLEGRO_MOUSE_STATE m;
+        al_get_mouse_state (&m);
+        int w = al_get_display_width (display);
+        int h = al_get_display_height (display);
         switch (screen_flags) {
         case 0:
+          al_set_mouse_xy (display, m.x, h - m.y);
           screen_flags = ALLEGRO_FLIP_VERTICAL;
           flip = "VERTICAL"; break;
         case ALLEGRO_FLIP_VERTICAL:
+          al_set_mouse_xy (display, w - m.x, h - m.y);
           screen_flags = ALLEGRO_FLIP_HORIZONTAL;
           flip = "HORIZONTAL"; break;
         case ALLEGRO_FLIP_HORIZONTAL:
+          al_set_mouse_xy (display, m.x, h - m.y);
           screen_flags = ALLEGRO_FLIP_VERTICAL | ALLEGRO_FLIP_HORIZONTAL;
           flip = "VERTICAL + HORIZONTAL"; break;
         case ALLEGRO_FLIP_VERTICAL | ALLEGRO_FLIP_HORIZONTAL:
+          al_set_mouse_xy (display, w - m.x, h - m.y);
           screen_flags = 0;
           break;
         }
@@ -415,6 +420,18 @@ play_anim (void (*draw_callback) (void),
   }
 
   al_stop_timer (timer);
+}
+
+void
+ui_change_anim_freq (int f)
+{
+  char *text;
+  anim_freq = f;
+  al_set_timer_speed (timer, f > 0 ? 1.0 / f : -f + 2);
+  if (anim_freq > 0) xasprintf (&text, "TIME FREQ: %iHz", anim_freq);
+  else xasprintf (&text, "TIME FREQ: 1/%iHz", -anim_freq + 2);
+  draw_bottom_text (NULL, text, 0);
+  al_free (text);
 }
 
 
@@ -638,6 +655,14 @@ is_anim_fall (struct frame *f)
 {
   return is_kid_fall (f)
     || is_guard_fall (f);
+}
+
+bool
+is_fightable_anim (struct anim *a)
+{
+  return a->type == KID || a->type == SHADOW
+    || a->type == GUARD || a->type == FAT_GUARD
+    || a->type == SKELETON || a->type == VIZIER;
 }
 
 void
