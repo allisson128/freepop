@@ -65,7 +65,7 @@ static bool is_pattern (struct level *lv, int i, int j,
 static struct level *mutation_wall_alg (struct level *lv, 
 					double max_mut_rate);
 static int fitness (struct level *lv);
-static bool aco (struct level *lv);
+static bool aco (struct solution *sol);
 static bool is_dead_end (int WIDTH, int HEIGHT; 
 			 struct level *lv, int visited[MH][MW], 
 			 int WIDTH, int HEIGHT, int i, int j);
@@ -77,7 +77,8 @@ static double proximity (int jx, int jy, double k);
 static double evasion (int frequency);
 static double impulse (int last_x, int last_y, int jx, int jy);
 static double pheromone_update (double f, int solution_len);
-
+/* struct node * init_graph (int WIDTH, int HEIGHT; struct node graph[MH][MW],  */
+/* 			  struct level *lv, int WIDTH, int HEIGHT); */
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = 
   {(struct cell *) &square_cells, 
@@ -232,7 +233,7 @@ next_generator_level (int number)
     
 
   /* crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv); */
-  aco (&pop[0].lv);
+  /* aco (&pop[0].lv); */
   choice = 0;//prandom (POPSIZE - 1);
   /* fix level */
   level = pop[choice].lv;
@@ -355,12 +356,34 @@ fitness (struct level *lv)
   return 1;
 }
 
+
 bool
-aco (struct level *lv)
+aco (struct solution *sol)
 {
+  int i, j;
+  int steps = 1000;
+  int ant, ants  = 1000;
   struct node graph[MH][MW];
 
+  /* INIT GRAPH */
   memset (graph, 0, sizeof (graph));
+  for (i = 0; i < MH; ++i) 
+    for (j = 0; j < MW; ++j) {
+      graph[i][j].i = i;
+      graph[i][j].j = j;
+      if (mat (&sol->lv, i, j)->fg != WALL)
+	graph[i][j].accessible = true;
+    }
+  
+  while (--steps) {
+    for (ant = 0; ant < ants; ++ant) {
+      /* ANT WALK */
+    }
+    /* PHEROMONE UPDATE */
+  }
+
+  /* graph = init_graph (graph, sol->lv); */
+
   /*
   int visited[MH][MW];
   int x, y, i, j, ii, jj;
