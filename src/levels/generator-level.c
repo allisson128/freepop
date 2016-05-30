@@ -31,7 +31,7 @@
 #define INIX 0
 #define INIY 1
 #define FIMX (MH-1)
-#define FIMY (MW-1)
+#define FIMY (MW-2)
 
 struct solution {
   struct level lv;
@@ -371,7 +371,7 @@ aco (struct solution *sol)
   int ant, ants  = 100;
   size_t nmemb = 0, nmemb2 = 0;
   struct node graph[MH][MW];
-  struct node *path[2];
+  struct node **path[2];
 
   double f = 1;
   double alfa = 1;
@@ -408,24 +408,26 @@ aco (struct solution *sol)
       j = INIY;
       /* INIT PATH */
       nmemb = 0;
-      printf ("free path\n");
-      if (path[0]){
-	printf ("in path\n");
-	free (path[0]);
-      }
-      printf ("pre path\n");
-      
-      path[0] = add_to_array (&graph[INIX][INIY], 1, NULL, &nmemb,
-			      0, sizeof (*path[0]));
+      /* printf ("free path\n"); */
+      /* if (path[0]){ */
+      /* 	printf ("in path\n"); */
+      /* 	free (path[0]); */
+      /* } */
       /* CLEAN FREQUENCES */
       for (ii = 0; ii < MH; ++ii)
 	for (jj = 0; jj < MW; ++jj)
 	  graph[ii][jj].frequency = 0;
 
-      path[i][j].frequency++;
+
+      printf ("pre path\n");
+      struct node *aux = &graph[INIX][INIY];
+      path[0] = add_to_array (&aux, 1, NULL, &nmemb,
+			      0, sizeof (*path[0]));
+
+      path[0][0]->frequency++;
       printf ("pos path\n");
       printf ("x = %d, y = %d\n", i, j);
-      getchar ();
+      /* getchar (); */
 
       do {
 
@@ -448,8 +450,8 @@ aco (struct solution *sol)
 	      = (mat (&sol->lv, x, y) != NULL
 		 && mat (&sol->lv, x, y)->fg != WALL)
 	      ? eval (graph, MW, MH, x, y, 
-		      path[0][nmemb-1].x, 
-		      path[0][nmemb-1].y)
+		      path[0][nmemb-1]->x, 
+		      path[0][nmemb-1]->y)
 	      * graph[x][y].pheromone
 	      : 0.;
 	  }
@@ -460,19 +462,19 @@ aco (struct solution *sol)
 
 	rand_max = prandom (ceil (rand_max));
 	for (ii = 0, prob_acc = probaround[0].probability;
-	     rand_max > prob_acc && ii < 4;
+	     rand_max > ceil (prob_acc); /* && ii < 4; */
 	     prob_acc += probaround[++ii].probability);
 
 	path[0] = add_to_array (&probaround[ii].n, 1, 
 				path[0], &nmemb, nmemb, 
 				sizeof (*path[0]));
 	printf ("nmemb = %d\n", (int)nmemb);
-	i = path[0][nmemb].x;
-	j = path[0][nmemb].y;
-	path[i][j].frequency++;
+	i = path[0][nmemb-1]->x;
+	j = path[0][nmemb-1]->y;
+	path[0][nmemb-1]->frequency++;
 
 	printf ("x = %d, y = %d\n", i, j);
-	getchar ();
+	/* getchar (); */
 
       } while (!is_objective (&sol->lv, i, j)
 	     && !is_begin (&sol->lv, i, j));
@@ -485,19 +487,20 @@ aco (struct solution *sol)
 
 	/* ATUALIZA OS PHER. DO CAMINHO */
 	for (ii = 0; ii < nmemb; ++ii) 
-	  path[0][ii].pheromone 
+	  path[0][ii]->pheromone 
 	    += pow (dist_cart (INIX, INIY, FIMX, FIMY), f)
 	    / nmemb;
 
 	/* CONTABILIZA A CONVERGENCIA */
-	if (! memcmp (path[0], path[1], 
-		      nmemb * sizeof (*path[0])))
+	if (! memcmp (*path[0], *path[1], 
+		      nmemb * sizeof (*(*path[0]))))
 	  ++converg;
 
 	else
 	  converg = 0;
 
-	free(path[1]);
+	if (path[1])
+	  free(path[1]);
 	path[1] = path[0];
 	nmemb2 = nmemb;
       }
@@ -519,7 +522,7 @@ aco (struct solution *sol)
   }
   for (ii = 0; ii < nmemb; ++ii)
 
-    printf ("%d %d\n", path[0][ii].x, path[0][ii].y);
+    printf ("%d %d\n", path[0][ii]->x, path[0][ii]->y);
 
   return ret;
 }
