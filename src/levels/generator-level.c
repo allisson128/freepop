@@ -55,8 +55,9 @@ struct node {
 };
 
 struct prob {
-  double evaluation;
-  double pheromone;
+  struct node *n;
+  /* double evaluation; */
+  /* double pheromone; */
   double probability;
 };
   
@@ -236,10 +237,9 @@ next_generator_level (int number)
     mat (lv, MH - 1, MW - 2)->fg = LEVEL_DOOR;
     mat (lv, MH - 1, MW - 1)->fg = NO_FLOOR;
   }
-    
-
+  
   /* crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv); */
-  /* aco (&pop[0].lv); */
+  aco (&pop[0]);
   choice = 0;//prandom (POPSIZE - 1);
   /* fix level */
   level = pop[choice].lv;
@@ -366,14 +366,21 @@ fitness (struct level *lv)
 bool
 aco (struct solution *sol)
 {
-  int i, j, ii, jj;
-  int steps = 1000;
-  int ant, ants  = 1000;
-  size_t nmemb = 0;
+  int i, j, ii, jj, x, y;
+  int steps = 100;
+  int ant, ants  = 100;
+  size_t nmemb = 0, nmemb2 = 0;
   struct node graph[MH][MW];
   struct node *path[2];
 
+  double f = 1;
+  double alfa = 1;
+  double beta = 1;
+  double evap = 0.5;
+  int converg = 0;
+
   /* INIT GRAPH */
+  printf ("Init Graph\n");
   for (i = 0; i < MH; ++i) 
     for (j = 0; j < MW; ++j) {
       graph[i][j].x = i;
@@ -387,116 +394,134 @@ aco (struct solution *sol)
 
 
   /* path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path)); */
-  
-  while (--steps) {
-    /* INIT PATH */
-    path[0] = add_to_array (&graph[0][1], 1, NULL, &nmemb, 
-			    0, sizeof (*path[0]));
-    nmemb = 0;
+  memset (path, 0, sizeof (*path));
+
+  while (--steps && converg < 20) {
+
+    printf ("While - step = %d\n", steps);
 
     for (ant = 0; ant < ants; ++ant) {
+
+      printf ("first for - ant = %d\n", ant);
       /* ANT WALK */
       i = INIX;
       j = INIY;
+      /* INIT PATH */
+      nmemb = 0;
+      printf ("free path\n");
+      if (path[0]){
+	printf ("in path\n");
+	free (path[0]);
+      }
+      printf ("pre path\n");
+      
+      path[0] = add_to_array (&graph[INIX][INIY], 1, NULL, &nmemb,
+			      0, sizeof (*path[0]));
+      /* CLEAN FREQUENCES */
+      for (ii = 0; ii < MH; ++ii)
+	for (jj = 0; jj < MW; ++jj)
+	  graph[ii][jj].frequency = 0;
+
+      path[i][j].frequency++;
+      printf ("pos path\n");
+      printf ("x = %d, y = %d\n", i, j);
+      getchar ();
+
       do {
+
 	/* CALC NEIGHBORS PROB */
 	struct prob probaround[4];
-	memset (probaround, 0, sizeof (*probaround));
-	int rand_max = 0;
+	memset (probaround, 0, 4*sizeof (*probaround));
+	double prob_acc = 0, rand_max = 0;
+	int intification = 10000;
 	/* int ax = i-1, ay = j, rx = i, ry = j+1;  */
 	/* int bx = i+1, by = j, lx = i, ly = j-1; */
 	
 	for (ii = 0; ii < 2; ++ii)
-	  for (jj = 0; jj < 2; ++jj){
+	  for (jj = 0; jj < 2; ++jj) {
 
-	    int x = i-1+jj+2*ii*abs(ii-jj);
-	    int y = j+jj-2*ii*jj;
-	    
-	    rand_max += probaround[ii * 2 + jj].probability
-	      = (mat (&sol->lv, x, y)->fg != WALL)
-	      ? (int) 10000 * eval (MW, MH; graph, MW, MH, )
-	      : 0;
+	    x = i-1+jj+2*ii*abs(ii-jj);
+	    y = j+jj-2*ii*jj;
+
+	    probaround[ii*2+jj].n = &graph[x][y];
+	    prob_acc += probaround[ii*2+jj].probability
+	      = (mat (&sol->lv, x, y) != NULL
+		 && mat (&sol->lv, x, y)->fg != WALL)
+	      ? eval (graph, MW, MH, x, y, 
+		      path[0][nmemb-1].x, 
+		      path[0][nmemb-1].y)
+	      * graph[x][y].pheromone
+	      : 0.;
 	  }
+
+	for (rand_max = 0, ii = 0; ii < 4; ++ii)
+	  rand_max 
+	    += probaround[ii].probability /= (prob_acc/intification);
+
+	rand_max = prandom (ceil (rand_max));
+	for (ii = 0, prob_acc = probaround[0].probability;
+	     rand_max > prob_acc && ii < 4;
+	     prob_acc += probaround[++ii].probability);
+
+	path[0] = add_to_array (&probaround[ii].n, 1, 
+				path[0], &nmemb, nmemb, 
+				sizeof (*path[0]));
+	printf ("nmemb = %d\n", (int)nmemb);
+	i = path[0][nmemb].x;
+	j = path[0][nmemb].y;
+	path[i][j].frequency++;
+
+	printf ("x = %d, y = %d\n", i, j);
+	getchar ();
+
       } while (!is_objective (&sol->lv, i, j)
 	     && !is_begin (&sol->lv, i, j));
+
+      printf ("Saída\n");
+      getchar ();
+
+      /* SE ACHOU SAÍDA */
+      if (is_objective (&sol->lv, i, j)) {
+
+	/* ATUALIZA OS PHER. DO CAMINHO */
+	for (ii = 0; ii < nmemb; ++ii) 
+	  path[0][ii].pheromone 
+	    += pow (dist_cart (INIX, INIY, FIMX, FIMY), f)
+	    / nmemb;
+
+	/* CONTABILIZA A CONVERGENCIA */
+	if (! memcmp (path[0], path[1], 
+		      nmemb * sizeof (*path[0])))
+	  ++converg;
+
+	else
+	  converg = 0;
+
+	free(path[1]);
+	path[1] = path[0];
+	nmemb2 = nmemb;
+      }
     }
     /* PHEROMONE UPDATE */
+    for (ii = 0; ii < MH; ++ii)
+      for (jj = 0; jj < MW; ++jj)
+	graph[ii][jj].pheromone *= (1-evap);
   }
-
-  /* graph = init_graph (graph, sol->lv); */
-
-  /*
-  int visited[MH][MW];
-  int x, y, i, j, ii, jj;
-  int limit = 1000;
-  size_t nmemb;
   
-  struct cell *path;
-  
-  printf ("ACO\n");  
-  do {
-    //POSICAO INICIAL
-    struct cell begin = (struct cell) {0, 1};
-    i = 0;
-    j = 1;
-    nmemb = 0;
-    memset (&visited, 0, sizeof (visited));
-    path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path));
-    
-    printf ("ACO 2\n");  
-    //FAÇA ENQUANTO NAO FOR PORTA OBJETIVO E NAO FOR SEM SAIDA
-    while (!is_objective (lv, i, j) 
-	   && !is_dead_end (lv, visited, WIDTH, HEIGHT, i, j)) {
-      
-      do {  //PROXIMO NO NAO VISITADO
-
-	if (prandom (1)) {
-	  ii = (prandom (1)) ? i+1 : i-1;
-	  jj = j;
-	  printf ("A\n");
-	}
-	else {
-	  ii = i;
-	  jj = (prandom (1)) ? j+1 : j-1;
-	  printf ("B\n");
-	}
-
-      } while (mat (lv, ii, jj) == NULL 
-	       || mat (lv, ii, jj)->fg == WALL 
-	       || visited[ii][jj]);
-      i = ii;
-      j = jj;
-      
-      struct cell c = (struct cell) {i, j};
-      path = add_to_array (&c, 1, path, &nmemb, 
-			   nmemb, sizeof (*path));
-
-      visited[i][j] = 1;
-      printf ("nmemb = %u\n", (unsigned int) nmemb);
-    } 
-    
-    for (ii = 0; ii < nmemb; ++ii) 
-      printf ("%d %d\n", path[ii].i, path[ii].j);
-    
-    printf ("limit = %d\n", limit);
-    getchar();
-  } while (limit-- 
-	   && !is_objective (lv, path[nmemb-1].i, path[nmemb-1].j));
-
-
-
-  if (mat (lv, path[nmemb-1].i, path[nmemb-1].j)->fg == LEVEL_DOOR) {
-    printf ("Encontrado:\n");
-    for (ii = 0; ii < nmemb; ++ii) 
-      printf ("%d %d\n", path[ii].i, path[ii].j);
-    return true;
+  bool ret;
+  if (converg >= 20) {
+    printf ("Convergiu\n");
+    ret = true;
   }
+  else {
+    printf ("Não Convergiu\n");
+    ret = false;
+  }
+  for (ii = 0; ii < nmemb; ++ii)
 
-  else
-    printf ("Não encontrado\n");
+    printf ("%d %d\n", path[0][ii].x, path[0][ii].y);
 
-  */
-  return false;
+  return ret;
 }
 
 bool
@@ -595,3 +620,87 @@ pheromone_update (double f, int solution_len)
 
 /* !(mat (lv, path[nmemb-1].i, path[nmemb-1].j)->fg == LEVEL_DOOR   */
 /* 		&& mat (lv, path[nmemb-1].i, path[nmemb-1].j)->ext.step == 0) */
+
+
+
+
+
+
+
+
+
+
+
+  /* graph = init_graph (graph, sol->lv); */
+
+  /*
+  int visited[MH][MW];
+  int x, y, i, j, ii, jj;
+  int limit = 1000;
+  size_t nmemb;
+  
+  struct cell *path;
+  
+  printf ("ACO\n");  
+  do {
+    //POSICAO INICIAL
+    struct cell begin = (struct cell) {0, 1};
+    i = 0;
+    j = 1;
+    nmemb = 0;
+    memset (&visited, 0, sizeof (visited));
+    path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path));
+    
+    printf ("ACO 2\n");  
+    //FAÇA ENQUANTO NAO FOR PORTA OBJETIVO E NAO FOR SEM SAIDA
+    while (!is_objective (lv, i, j) 
+	   && !is_dead_end (lv, visited, WIDTH, HEIGHT, i, j)) {
+      
+      do {  //PROXIMO NO NAO VISITADO
+
+	if (prandom (1)) {
+	  ii = (prandom (1)) ? i+1 : i-1;
+	  jj = j;
+	  printf ("A\n");
+	}
+	else {
+	  ii = i;
+	  jj = (prandom (1)) ? j+1 : j-1;
+	  printf ("B\n");
+	}
+
+      } while (mat (lv, ii, jj) == NULL 
+	       || mat (lv, ii, jj)->fg == WALL 
+	       || visited[ii][jj]);
+      i = ii;
+      j = jj;
+      
+      struct cell c = (struct cell) {i, j};
+      path = add_to_array (&c, 1, path, &nmemb, 
+			   nmemb, sizeof (*path));
+
+      visited[i][j] = 1;
+      printf ("nmemb = %u\n", (unsigned int) nmemb);
+    } 
+    
+    for (ii = 0; ii < nmemb; ++ii) 
+      printf ("%d %d\n", path[ii].i, path[ii].j);
+    
+    printf ("limit = %d\n", limit);
+    getchar();
+  } while (limit-- 
+	   && !is_objective (lv, path[nmemb-1].i, path[nmemb-1].j));
+
+
+
+  if (mat (lv, path[nmemb-1].i, path[nmemb-1].j)->fg == LEVEL_DOOR) {
+    printf ("Encontrado:\n");
+    for (ii = 0; ii < nmemb; ++ii) 
+      printf ("%d %d\n", path[ii].i, path[ii].j);
+    return true;
+  }
+
+  else
+    printf ("Não encontrado\n");
+
+  */
