@@ -252,7 +252,8 @@ void
 register_loose_floor (struct pos *p)
 {
   assert (con (p)->fg == LOOSE_FLOOR
-          && loose_floor_at_pos (p) == NULL);
+          && (loose_floor_at_pos (p) == NULL
+              || loose_floor_at_pos (p)->action == FALL_LOOSE_FLOOR));
 
   struct loose_floor l;
 
@@ -334,11 +335,11 @@ compute_loose_floors (void)
     switch (l->action) {
     case SHAKE_LOOSE_FLOOR:
       compute_loose_floor_shake (l);
-      register_changed_pos (&l->p);
+      register_changed_pos (&l->p, CHPOS_SHAKE_LOOSE_FLOOR);
       break;
     case RELEASE_LOOSE_FLOOR:
       compute_loose_floor_release (l);
-      register_changed_pos (&l->p);
+      register_changed_pos (&l->p, CHPOS_RELEASE_LOOSE_FLOOR);
       break;
     case FALL_LOOSE_FLOOR: compute_loose_floor_fall (l); break;
     default: break;
@@ -628,10 +629,19 @@ draw_falling_loose_floor (ALLEGRO_BITMAP *bitmap, struct pos *p,
     if (vm == VGA) f.b = apply_hue_palette (f.b);
     if (hgc) f.b = apply_palette (f.b, hgc_palette);
     draw_frame (bitmap, &f);
+
+    int w = al_get_bitmap_width (f.b);
+    int h = al_get_bitmap_height (f.b);
+
+    set_target_bitmap (bitmap);
+    al_set_clipping_rectangle (f.c.x, f.c.y, w, h);
+
     draw_confg_base (bitmap, &fptr, em, vm);
     draw_confg_left (bitmap, &fptr, em, vm, true);
     draw_confg_base (bitmap, &fpbr, em, vm);
     draw_confg_left (bitmap, &fpbr, em, vm, true);
+
+    al_reset_clipping_rectangle ();
   } else return;
 }
 

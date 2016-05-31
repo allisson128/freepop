@@ -67,6 +67,19 @@ enum hue {
   HUE_BLUE = 4,
 };
 
+struct changed_pos {
+  struct pos p;
+  enum changed_pos_reason {
+    CHPOS_OPEN_DOOR, CHPOS_CLOSE_DOOR, CHPOS_ABRUPTLY_CLOSE_DOOR,
+    CHPOS_OPEN_LEVEL_DOOR, CHPOS_CLOSE_LEVEL_DOOR,
+    CHPOS_SHAKE_LOOSE_FLOOR, CHPOS_RELEASE_LOOSE_FLOOR,
+    CHPOS_PRESS_OPENER_FLOOR, CHPOS_UNPRESS_OPENER_FLOOR,
+    CHPOS_PRESS_CLOSER_FLOOR, CHPOS_UNPRESS_CLOSER_FLOOR,
+    CHPOS_SPIKES, CHPOS_CHOPPER,
+    CHPOS_MOUSE_SELECT, CHPOS_MOUSE_DESELECT
+  } reason;
+};
+
 struct multi_room {
   int w, h;
   int x, y;
@@ -500,6 +513,7 @@ struct closer_floor {
   struct pos p;
   int event;
   bool pressed;
+  bool prev_pressed;
   bool noise;
   bool broken;
   bool unresponsive;
@@ -551,6 +565,7 @@ struct opener_floor {
   struct pos p;
   int event;
   bool pressed;
+  bool prev_pressed;
   bool noise;
   bool broken;
 };
@@ -561,6 +576,16 @@ struct spikes_floor {
   bool inactive;
   int murdered_anim;
   bool activate;
+};
+
+struct chopper {
+  struct pos p;
+  int i;
+  int wait;
+  bool blood;
+  bool activate;
+  bool inactive;
+  bool alert;
 };
 
 /********

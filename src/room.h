@@ -33,9 +33,11 @@ void draw_bitmap_regionc (ALLEGRO_BITMAP *from, ALLEGRO_BITMAP *to,
                           float sx, float sy, float sw, float sh,
                           struct coord *c, int flags);
 
-struct rect new_rect (int room, int x, int y, int w, int h);
+struct rect *new_rect (struct rect *r, int room, int x, int y, int w, int h);
 void draw_filled_rect (ALLEGRO_BITMAP *to, struct rect *r,
                        ALLEGRO_COLOR color);
+void clear_rect_to_color (ALLEGRO_BITMAP *to, struct rect *r,
+                          ALLEGRO_COLOR color);
 
 void draw_room (ALLEGRO_BITMAP *bitmap, int room,
                 enum em em, enum vm vm);
@@ -57,6 +59,8 @@ void draw_room_anim_fg (ALLEGRO_BITMAP *bitmap,
                         enum em em, enum vm vm, struct anim *a);
 void draw_confg_fg (ALLEGRO_BITMAP *bitmap, struct pos *p,
                     enum em em, enum vm vm, struct frame *f);
+void draw_room_frame_fg (ALLEGRO_BITMAP *bitmap, enum em em,
+                         enum vm vm, struct frame *f);
 /* void draw_room_fg (ALLEGRO_BITMAP *bitmap, struct pos *p, */
 /*                    enum em em, enum vm vm, struct frame *f); */
 

@@ -98,7 +98,7 @@ play_anim (void (*draw_callback) (void),
         if (was_key_pressed (ALLEGRO_KEY_ESCAPE, 0, ALLEGRO_KEYMOD_CTRL, true))
           pause_anim = false;
 
-        kid_debug ();
+        /* kid_debug (); */
 
         if (anim_cycle > 0) {
           if (is_video_effect_started ()) {
@@ -162,7 +162,7 @@ play_anim (void (*draw_callback) (void),
       case 1: enter_exit_editor (); break;
       case 3:
         if (edit != EDIT_NONE)
-          mr_center_room (mr.room);
+          ui_place_kid (&mouse_pos);
         break;
       default: break;
       }
@@ -835,6 +835,15 @@ xframe_frame (struct frame *f, struct frame_offset *xf, struct frame *nf)
   *nf = *f;
   nf->b = xf->b;
   xframe_coord (f, xf, &nf->c);
+  return nf;
+}
+
+struct frame *
+splash_frame (struct frame *f, struct frame *nf)
+{
+  *nf = *f;
+  nf->b = v_kid_splash;
+  splash_coord (f, &nf->c);
   return nf;
 }
 

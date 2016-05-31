@@ -74,15 +74,14 @@ unload_room (void)
   unload_mirror ();
 }
 
-struct rect
-new_rect (int room, int x, int y, int w, int h)
+struct rect *
+new_rect (struct rect *r, int room, int x, int y, int w, int h)
 {
-  struct rect r;
-  r.c.room = room;
-  r.c.x = x;
-  r.c.y = y;
-  r.w = w;
-  r.h = h;
+  r->c.room = room;
+  r->c.x = x;
+  r->c.y = y;
+  r->w = w;
+  r->h = h;
   return r;
 }
 
@@ -102,98 +101,23 @@ draw_filled_rect (ALLEGRO_BITMAP *to, struct rect *r,
 }
 
 void
+clear_rect_to_color (ALLEGRO_BITMAP *to, struct rect *r,
+                     ALLEGRO_COLOR color)
+{
+  int op, src, dst;
+  al_get_blender (&op, &src, &dst);
+  al_set_blender (ALLEGRO_ADD, ALLEGRO_ONE, ALLEGRO_ZERO);
+  draw_filled_rect (to, r, color);
+  al_set_blender (op, src, dst);
+}
+
+void
 draw_bitmapc (ALLEGRO_BITMAP *from, ALLEGRO_BITMAP *to,
               struct coord *c, int flags)
 {
-  if (! from) return;
-
-  struct coord nc = *c;
-
-  if (! cutscene && nc.room != room_view) {
-    struct frame f;
-    f.b = from;
-    f.c = *c;
-    frame2room (&f, room_view, &nc);
-    if (nc.room != room_view) return;
-  }
-
-  draw_bitmap (from, to, nc.x, nc.y, flags);
-
-  if (cutscene || con_caching
-      || no_recursive_links_continuity) return;
-
-  int x = nc.x;
-  int y = nc.y;
-  int room = nc.room;
   int w = al_get_bitmap_width (from);
   int h = al_get_bitmap_height (from);
-
-  struct coord mc;
-
-  if (room == roomd (room, LEFT)
-      && x < 0) {
-    mc = nc;
-    mc.x += PLACE_WIDTH * PLACES;
-    draw_bitmap (from, to, mc.x, mc.y, flags);
-  }
-
-  if (room == roomd (room, RIGHT)
-      && x + w - 1 >= PLACE_WIDTH * PLACES) {
-    mc = nc;
-    mc.x -= PLACE_WIDTH * PLACES;
-    draw_bitmap (from, to, mc.x, mc.y, flags);
-  }
-
-  if (room == roomd (room, ABOVE)
-      && y < 3) {
-    mc = nc;
-    mc.y += PLACE_HEIGHT * FLOORS;
-    draw_bitmap (from, to, mc.x, mc.y, flags);
-  }
-
-  if (room == roomd (room, BELOW)
-      && y + h - 1 >= PLACE_HEIGHT * FLOORS) {
-    mc = nc;
-    mc.y -= PLACE_HEIGHT * FLOORS;
-    draw_bitmap (from, to, mc.x, mc.y, flags);
-  }
-
-  if (room == roomd (room, LEFT) && x < 0
-      && room == roomd (room, ABOVE) && y < 3) {
-    mc = nc;
-    mc.x += PLACE_WIDTH * PLACES;
-    mc.y += PLACE_HEIGHT * FLOORS;
-    draw_bitmap (from, to, mc.x, mc.y, flags);
-  }
-
-  if (room == roomd (room, RIGHT)
-      && x + w - 1 >= PLACE_WIDTH * PLACES
-      && room == roomd (room, ABOVE) && y < 3) {
-    mc = nc;
-    mc.x -= PLACE_WIDTH * PLACES;
-    mc.y += PLACE_HEIGHT * FLOORS;
-    draw_bitmap (from, to, mc.x, mc.y, flags);
-  }
-
-  if (room == roomd (room, LEFT)
-      && x < 0
-      && room == roomd (room, BELOW)
-      && y + h - 1 >= PLACE_HEIGHT * FLOORS) {
-    mc = nc;
-    mc.x += PLACE_WIDTH * PLACES;
-    mc.y -= PLACE_HEIGHT * FLOORS;
-    draw_bitmap (from, to, mc.x, mc.y, flags);
-  }
-
-  if (room == roomd (room, RIGHT)
-      && x + w - 1 >= PLACE_WIDTH * PLACES
-      && room == roomd (room, BELOW)
-      && y + h - 1 >= PLACE_HEIGHT * FLOORS) {
-    mc = nc;
-    mc.x -= PLACE_WIDTH * PLACES;
-    mc.y -= PLACE_HEIGHT * FLOORS;
-    draw_bitmap (from, to, mc.x, mc.y, flags);
-  }
+  draw_bitmap_regionc (from, to, 0, 0, w, h, c, flags);
 }
 
 void
@@ -214,6 +138,88 @@ draw_bitmap_regionc (ALLEGRO_BITMAP *from, ALLEGRO_BITMAP *to,
   }
 
   draw_bitmap_region (from, to, sx, sy, sw, sh, nc.x, nc.y, flags);
+
+  if (cutscene || con_caching
+      || no_recursive_links_continuity) return;
+
+  int x = nc.x;
+  int y = nc.y;
+  int room = nc.room;
+  int w = sw;
+  int h = sh;
+
+  struct coord mc;
+
+  int cx, cy,cw, ch;
+  al_get_clipping_rectangle (&cx, &cy, &cw, &ch);
+  al_reset_clipping_rectangle ();
+
+  if (room == roomd (room, LEFT)
+      && x < 0) {
+    mc = nc;
+    mc.x += PLACE_WIDTH * PLACES;
+    draw_bitmap_region (from, to, sx, sy, sw, sh, mc.x, mc.y, flags);
+  }
+
+  if (room == roomd (room, RIGHT)
+      && x + w - 1 >= PLACE_WIDTH * PLACES) {
+    mc = nc;
+    mc.x -= PLACE_WIDTH * PLACES;
+    draw_bitmap_region (from, to, sx, sy, sw, sh, mc.x, mc.y, flags);
+  }
+
+  if (room == roomd (room, ABOVE)
+      && y < 3) {
+    mc = nc;
+    mc.y += PLACE_HEIGHT * FLOORS;
+    draw_bitmap_region (from, to, sx, sy, sw, sh, mc.x, mc.y, flags);
+  }
+
+  if (room == roomd (room, BELOW)
+      && y + h - 1 >= PLACE_HEIGHT * FLOORS) {
+    mc = nc;
+    mc.y -= PLACE_HEIGHT * FLOORS;
+    draw_bitmap_region (from, to, sx, sy, sw, sh, mc.x, mc.y, flags);
+  }
+
+  if (room == roomd (room, LEFT) && x < 0
+      && room == roomd (room, ABOVE) && y < 3) {
+    mc = nc;
+    mc.x += PLACE_WIDTH * PLACES;
+    mc.y += PLACE_HEIGHT * FLOORS;
+    draw_bitmap_region (from, to, sx, sy, sw, sh, mc.x, mc.y, flags);
+  }
+
+  if (room == roomd (room, RIGHT)
+      && x + w - 1 >= PLACE_WIDTH * PLACES
+      && room == roomd (room, ABOVE) && y < 3) {
+    mc = nc;
+    mc.x -= PLACE_WIDTH * PLACES;
+    mc.y += PLACE_HEIGHT * FLOORS;
+    draw_bitmap_region (from, to, sx, sy, sw, sh, mc.x, mc.y, flags);
+  }
+
+  if (room == roomd (room, LEFT)
+      && x < 0
+      && room == roomd (room, BELOW)
+      && y + h - 1 >= PLACE_HEIGHT * FLOORS) {
+    mc = nc;
+    mc.x += PLACE_WIDTH * PLACES;
+    mc.y -= PLACE_HEIGHT * FLOORS;
+    draw_bitmap_region (from, to, sx, sy, sw, sh, mc.x, mc.y, flags);
+  }
+
+  if (room == roomd (room, RIGHT)
+      && x + w - 1 >= PLACE_WIDTH * PLACES
+      && room == roomd (room, BELOW)
+      && y + h - 1 >= PLACE_HEIGHT * FLOORS) {
+    mc = nc;
+    mc.x -= PLACE_WIDTH * PLACES;
+    mc.y -= PLACE_HEIGHT * FLOORS;
+    draw_bitmap_region (from, to, sx, sy, sw, sh, mc.x, mc.y, flags);
+  }
+
+  al_set_clipping_rectangle (cx, cy, cw, ch);
 }
 
 void
@@ -222,6 +228,8 @@ draw_room (ALLEGRO_BITMAP *bitmap, int room,
 {
   struct pos p;
   p.room = room;
+
+  set_target_bitmap (bitmap);
 
   for (p.floor = FLOORS; p.floor >= -1; p.floor--)
     for (p.place = -1; p.place < PLACES; p.place++)
@@ -381,11 +389,6 @@ void
 draw_confg_right (ALLEGRO_BITMAP *bitmap, struct pos *p,
                   enum em em, enum vm vm, bool redraw)
 {
-  struct pos pr;
-  prel (p, &pr, +0, +1);
-
-  if (con (&pr)->fg == WALL) return;
-
   switch (con (p)->fg) {
   case NO_FLOOR: break;
   case FLOOR: draw_floor_right (bitmap, p, em, vm); break;
@@ -422,9 +425,14 @@ draw_confg_right (ALLEGRO_BITMAP *bitmap, struct pos *p,
 
   if (! redraw) return;
 
-  if (con (p)->fg == WALL
-      && (wall_correlation (p) == SWW
-          || wall_correlation (p) == WWW)) return;
+  struct pos pr, pa;
+  prel (p, &pr, +0, +1);
+  prel (p, &pa, -1, +0);
+
+  if (con (p)->fg == DOOR) {
+    draw_confg_base (bitmap, &pa, em, vm);
+    draw_confg_right (bitmap, &pa, em, vm, true);
+  }
 
   draw_confg_base (bitmap, &pr, em, vm);
   draw_confg_left (bitmap, &pr, em, vm, true);
@@ -449,7 +457,7 @@ draw_confg_top (ALLEGRO_BITMAP *bitmap, struct pos *p,
   case BIG_PILLAR_BOTTOM: break;
   case BIG_PILLAR_TOP: draw_big_pillar_top_top (bitmap, p, em, vm); break;
   case WALL: draw_wall_top (bitmap, p, em, vm); break;
-  case DOOR: break;
+  case DOOR: draw_door_top (bitmap, p, em, vm); break;
   case LEVEL_DOOR: break;
   case CHOPPER: break;
   case ARCH_BOTTOM: break;
@@ -521,6 +529,14 @@ draw_room_frame_fg (ALLEGRO_BITMAP *bitmap, enum em em, enum vm vm,
   bool pm_p = ! peq (&pm, &pbr) && ! peq (&pm, &pbl);
   bool ptl_p = ! peq (&ptl, &pm) && ! peq (&ptl, &pbr) && ! peq (&ptl, &pbl);
   bool ptr_p = ! peq (&ptr, &ptl) && ! peq (&ptr, &pm) && ! peq (&ptr, &pbr) && ! peq (&ptr, &pbl);
+
+  struct coord c; frame2room (f, room_view, &c);
+
+  int w = al_get_bitmap_width (f->b);
+  int h = al_get_bitmap_height (f->b);
+
+  set_target_bitmap (bitmap);
+  al_set_clipping_rectangle (c.x, c.y, w, h);
 
   /* SPIKES FLOOR */
   if (con (&pbl)->fg == SPIKES_FLOOR) draw_spikes_fg (bitmap, &pbl, em, vm);
@@ -647,6 +663,8 @@ draw_room_frame_fg (ALLEGRO_BITMAP *bitmap, enum em em, enum vm vm,
   if (con (&pm)->fg == TCARPET && pm_p) draw_carpet_fg (bitmap, &pm, f, em, vm);
   if (con (&ptl)->fg == TCARPET && ptl_p) draw_carpet_fg (bitmap, &ptl, f, em, vm);
   if (con (&ptr)->fg == TCARPET && ptr_p) draw_carpet_fg (bitmap, &ptr, f, em, vm);
+
+  al_reset_clipping_rectangle ();
 }
 
 void
@@ -654,9 +672,14 @@ draw_room_anim_fg_sub (ALLEGRO_BITMAP *bitmap,
                        enum em em, enum vm vm, struct anim *a)
 {
   struct coord nc;
-  struct pos p, np, pbl, pbr, pm, ptl, ptr;
+  struct pos p, np, pbl, pbr, pm, ptl, ptr,
+    ptl2, pbr2, ptr2;
 
   struct frame *f = &a->f;
+  struct coord c; frame2room (f, room_view, &c);
+
+  int w = al_get_bitmap_width (f->b);
+  int h = al_get_bitmap_height (f->b);
 
   survey (_bl, posf, f, &nc, &pbl, &np);
   survey (_br, posf, f, &nc, &pbr, &np);
@@ -664,14 +687,29 @@ draw_room_anim_fg_sub (ALLEGRO_BITMAP *bitmap,
   survey (_tl, posf, f, &nc, &ptl, &np);
   survey (_tr, posf, f, &nc, &ptr, &np);
 
+  survey (_br, pos, f, &nc, &pbr2, &np);
+  survey (_tl, pos, f, &nc, &ptl2, &np);
+  survey (_tr, pos, f, &nc, &ptr2, &np);
+
+  set_target_bitmap (bitmap);
+  al_set_clipping_rectangle (c.x, c.y, w, h);
+
   /* FALLING */
   if (is_anim_fall (f)) {
-    draw_confg_base (bitmap, &pbr, em, vm);
-    draw_confg_left (bitmap, &pbr, em, vm, true);
+    if (a->i < 2) {
+      draw_confg_base (bitmap, &pbr, em, vm);
+      draw_confg_left (bitmap, &pbr, em, vm, true);
+    }
 
     if (! peq (&pbr, &ptr)) {
       draw_confg_base (bitmap, &ptr, em, vm);
       draw_confg_left (bitmap, &ptr, em, vm, true);
+    }
+
+    if (! peq (&pbr2, &ptr2)) {
+      draw_confg_base (bitmap, &ptr2, em, vm);
+      draw_confg_left (bitmap, &ptr2, em, vm, true);
+      draw_confg_right (bitmap, &ptr2, em, vm, true);
     }
   }
 
@@ -682,8 +720,18 @@ draw_room_anim_fg_sub (ALLEGRO_BITMAP *bitmap,
   if (is_kid_vjump_touching_above (f)) {
     if (! is_strictly_traversable (&ptl))
       draw_confg_no_top (bitmap, &ptl, em, vm, true);
-    if (! peq (&ptr, &ptl) && ! is_strictly_traversable (&ptr))
-      draw_confg_no_top (bitmap, &ptr, em, vm, true);
+
+    if (! peq (&ptl2, &ptl) && ! is_strictly_traversable (&ptl2)
+        && ! is_strictly_traversable (&ptl)) {
+      draw_confg_base (bitmap, &ptl2, em, vm);
+      draw_confg_right (bitmap, &ptl2, em, vm, true);
+    }
+
+    if (! peq (&ptr, &ptl) && ! peq (&ptr, &ptl2)
+        && ! is_strictly_traversable (&ptr)) {
+      draw_confg_base (bitmap, &ptr, em, vm);
+      draw_confg_left (bitmap, &ptr, em, vm, true);
+    }
   }
 
   /* HANGING */
@@ -719,12 +767,21 @@ draw_room_anim_fg_sub (ALLEGRO_BITMAP *bitmap,
     }
   }
 
+  al_reset_clipping_rectangle ();
+
   draw_room_frame_fg (bitmap, em, vm, f);
 
   /* xframe */
-  if (! a->xf.b) return;
-  struct frame xf; xframe_frame (&a->f, &a->xf, &xf);
-  draw_room_frame_fg (bitmap, em, vm, &xf);
+  if (a->xf.b) {
+    struct frame xf; xframe_frame (&a->f, &a->xf, &xf);
+    draw_room_frame_fg (bitmap, em, vm, &xf);
+  }
+
+  /* splash */
+  if (a->splash) {
+    struct frame sf; splash_frame (&a->f, &sf);
+    draw_room_frame_fg (bitmap, em, vm, &sf);
+  }
 }
 
 void
@@ -1113,9 +1170,10 @@ void
 draw_no_floor_selection (ALLEGRO_BITMAP *bitmap, struct pos *p)
 {
   if (peq (p, &mouse_pos)) {
-    struct rect r = new_rect (p->room, p->place * PLACE_WIDTH + 25,
-                              p->floor * PLACE_HEIGHT - 13,
-                              PLACE_WIDTH, PLACE_HEIGHT);
+    struct rect r;
+    new_rect (&r, p->room, p->place * PLACE_WIDTH + 25,
+              p->floor * PLACE_HEIGHT - 13,
+              PLACE_WIDTH, PLACE_HEIGHT);
     draw_filled_rect (bitmap, &r, NO_FLOOR_SELECTION_COLOR);
   }
 }

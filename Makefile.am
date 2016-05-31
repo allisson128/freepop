@@ -130,7 +130,7 @@ mininim_SOURCES = src/mininim.c src/mininim.h src/constants.h		\
 ${mininim_OBJECTS}: ${top_builddir}/src/mininim.h.gch
 
 ${top_builddir}/src/mininim.h.gch: ${mininim_SOURCES:%.c=${srcdir}/%.h}
-	$(AM_V_CC) $(COMPILE) -o $@ -c $<
+	$(AM_V_CC) $(COMPILE) ${AM_CFLAGS} -o $@ -c $<
 
 CLEANFILES = ${top_builddir}/src/mininim.h.gch
 
@@ -154,6 +154,10 @@ endif
 
 if OPTIMIZATIONS
  CFLAGS += -O3 -march=native
+endif
+
+if PROFILING
+ CFLAGS += -O0 -pg --coverage
 endif
 
 LIBS = -lm ${ALLEGRO_LIBS} ${ALLEGRO_IMAGE_LIBS}										\
@@ -193,7 +197,9 @@ uninstall-local:
 ACLOCAL_AMFLAGS = -I gnulib/m4 -I build-aux
 SUBDIRS = gnulib
 if !mingw_build
+if MAKEINFO
 SUBDIRS += doc
+endif
 endif
 EXTRA_DIST = ${top_level_doc} ChangeLog data
 
