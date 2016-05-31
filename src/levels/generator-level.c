@@ -78,9 +78,12 @@ static bool is_dead_end (int WIDTH, int HEIGHT;
 			 int WIDTH, int HEIGHT, int i, int j);
 static bool is_objective (struct level *lv, int i, int j);
 static bool is_begin (struct level *lv, int i, int j);
-static double eval (int WIDTH, int HEIGHT; struct node graph[MH][MW],
-			  int WIDTH, int HEIGHT,
-			  int jx, int jy, int last_x, int last_y);
+static double eval (struct node **graph, int jx, int jy, 
+		    int last_x, int last_y);
+
+/* static double eval (int WIDTH, int HEIGHT; struct node graph[MH][MW], */
+/* 			  int WIDTH, int HEIGHT, */
+/* 			  int jx, int jy, int last_x, int last_y); */
 static double proximity (int jx, int jy, double k);
 static double evasion (int frequency);
 static double impulse (int last_x, int last_y, int jx, int jy);
@@ -370,7 +373,8 @@ aco (struct solution *sol)
   int steps = 100;
   int ant, ants  = 100;
   size_t nmemb = 0, nmemb2 = 0;
-  struct node graph[MH][MW];
+  struct node **graph;
+  /* struct node graph[MH][MW]; */
   struct node **path[2];
 
   double f = 1;
@@ -380,7 +384,10 @@ aco (struct solution *sol)
   int converg = 0;
 
   /* INIT GRAPH */
-  printf ("Init Graph\n");
+  graph = (struct node**) malloc (MH * sizeof (struct node*));
+  for (ii = 0; ii < MH; ++ii)
+    graph[ii] = (struct node*) malloc (MW * sizeof (struct node));
+
   for (i = 0; i < MH; ++i) 
     for (j = 0; j < MW; ++j) {
       graph[i][j].x = i;
@@ -395,14 +402,14 @@ aco (struct solution *sol)
 
   /* path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path)); */
   memset (path, 0, sizeof (*path));
+  path[1] = NULL;
 
-  while (--steps && converg < 20) {
+  while (--steps && converg < 2) {
 
     printf ("While - step = %d\n", steps);
 
     for (ant = 0; ant < ants; ++ant) {
 
-      printf ("first for - ant = %d\n", ant);
       /* ANT WALK */
       i = INIX;
       j = INIY;
@@ -418,16 +425,12 @@ aco (struct solution *sol)
 	for (jj = 0; jj < MW; ++jj)
 	  graph[ii][jj].frequency = 0;
 
-
-      printf ("pre path\n");
       struct node *aux = &graph[INIX][INIY];
       path[0] = add_to_array (&aux, 1, NULL, &nmemb,
 			      0, sizeof (*path[0]));
 
       path[0][0]->frequency++;
-      printf ("pos path\n");
-      printf ("x = %d, y = %d\n", i, j);
-      /* getchar (); */
+      /* printf ("x = %d, y = %d\n", i, j); */
 
       do {
 
@@ -449,7 +452,7 @@ aco (struct solution *sol)
 	    prob_acc += probaround[ii*2+jj].probability
 	      = (mat (&sol->lv, x, y) != NULL
 		 && mat (&sol->lv, x, y)->fg != WALL)
-	      ? eval (graph, MW, MH, x, y, 
+	      ? eval (graph, x, y, 
 		      path[0][nmemb-1]->x, 
 		      path[0][nmemb-1]->y)
 	      * graph[x][y].pheromone
@@ -461,6 +464,8 @@ aco (struct solution *sol)
 	    += probaround[ii].probability /= (prob_acc/intification);
 
 	rand_max = prandom (ceil (rand_max));
+	rand_max = (rand_max == 0) ? 1 : rand_max;
+
 	for (ii = 0, prob_acc = probaround[0].probability;
 	     rand_max > ceil (prob_acc); /* && ii < 4; */
 	     prob_acc += probaround[++ii].probability);
@@ -468,19 +473,16 @@ aco (struct solution *sol)
 	path[0] = add_to_array (&probaround[ii].n, 1, 
 				path[0], &nmemb, nmemb, 
 				sizeof (*path[0]));
-	printf ("nmemb = %d\n", (int)nmemb);
 	i = path[0][nmemb-1]->x;
 	j = path[0][nmemb-1]->y;
 	path[0][nmemb-1]->frequency++;
-
-	printf ("x = %d, y = %d\n", i, j);
+	/* printf ("i = %d, j = %d\n", i, j); */
 	/* getchar (); */
 
       } while (!is_objective (&sol->lv, i, j)
 	     && !is_begin (&sol->lv, i, j));
 
-      printf ("Saída\n");
-      getchar ();
+      /* printf ("Saída\n"); */
 
       /* SE ACHOU SAÍDA */
       if (is_objective (&sol->lv, i, j)) {
@@ -492,17 +494,27 @@ aco (struct solution *sol)
 	    / nmemb;
 
 	/* CONTABILIZA A CONVERGENCIA */
-	if (! memcmp (*path[0], *path[1], 
-		      nmemb * sizeof (*(*path[0]))))
-	  ++converg;
+	/* if (! memcmp (*path[0], *path[1],  */
+	/* 	      nmemb * sizeof (*(*path[0])))) */
 
+	if (nmemb == nmemb2) {
+	  ++converg;
+	  for (jj = 0; jj < nmemb; jj++)
+	    if (path[0][jj] != path[1][jj]) {
+	      converg = 0;
+	      break;
+	    }
+	}
 	else
 	  converg = 0;
-
+	
 	if (path[1])
 	  free(path[1]);
+	/* printf ("path[0] = %p\n", path[0]); */
 	path[1] = path[0];
+	/* printf ("path[1] = %p\n", path[1]); */
 	nmemb2 = nmemb;
+	/* printf ("nmemb2 = %d\n",(int)nmemb2); */
       }
     }
     /* PHEROMONE UPDATE */
@@ -563,17 +575,19 @@ is_begin (struct level *lv, int i, int j)
     && !is_objective (lv, i, j);
 }
 
+
 /* double */
-/* probxy () */
-/* { */
-
-/* } */
-
+/* eval (int WIDTH, int HEIGHT; struct node graph[MH][MW],  */
+/* 	    int WIDTH, int HEIGHT, */
+/* 	    int jx, int jy, int last_x, int last_y) */
 double
-eval (int WIDTH, int HEIGHT; struct node graph[MH][MW], 
-	    int WIDTH, int HEIGHT,
-	    int jx, int jy, int last_x, int last_y)
+eval (struct node **graph, int jx, int jy, int last_x, int last_y)
+
 {
+  /* printf ("====> %i,%i,%i,%f\n", jx, jy,  */
+  /* 	  graph[jx][jy].frequency,  */
+  /* 	  evasion (graph[jx][jy].frequency)); */
+
   return proximity (jx, jy, 0.5) * evasion (graph[jx][jy].frequency) 
     * impulse (last_x, last_y, jx, jy);
 }
@@ -581,14 +595,16 @@ eval (int WIDTH, int HEIGHT; struct node graph[MH][MW],
 double
 proximity (int jx, int jy, double k)
 {
-  return (1 - k) * (dist_cart (INIX, INIY, FIMX, FIMY) + 1) 
-    / (dist_cart (jx, jy, FIMX, FIMY) + 1);
+  return (1. - k) * (dist_cart (INIX, INIY, FIMX, FIMY) + 1.) 
+    / (dist_cart (jx, jy, FIMX, FIMY) + 1.);
 }
 
 double
 evasion (int frequency)
 {
-  return (frequency) ? 1 / frequency : 1;
+  /* printf ("FFFF> %i\n", frequency); */
+
+  return (frequency) ? 1.0 / frequency : 1;
 }
 
 double
