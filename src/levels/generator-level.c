@@ -381,7 +381,7 @@ aco (struct solution *sol)
   double alfa = 1;
   double beta = 1;
   double evap = 0.5;
-  int converg = 0;
+  int converg = 0, conv = 1;
 
   /* INIT GRAPH */
   graph = (struct node**) malloc (MH * sizeof (struct node*));
@@ -404,7 +404,7 @@ aco (struct solution *sol)
   memset (path, 0, sizeof (*path));
   path[1] = NULL;
 
-  while (--steps && converg < 2) {
+  while (--steps && converg < conv) {
 
     printf ("While - step = %d\n", steps);
 
@@ -497,6 +497,10 @@ aco (struct solution *sol)
 	/* if (! memcmp (*path[0], *path[1],  */
 	/* 	      nmemb * sizeof (*(*path[0])))) */
 
+	for (ii = 0; ii < nmemb; ++ii)
+	  printf ("%d %d\n", path[0][ii]->x, path[0][ii]->y);
+	getchar();
+	printf ("\n---------------------------------\n");
 	if (nmemb == nmemb2) {
 	  ++converg;
 	  for (jj = 0; jj < nmemb; jj++)
@@ -524,7 +528,7 @@ aco (struct solution *sol)
   }
   
   bool ret;
-  if (converg >= 20) {
+  if (converg >= conv) {
     printf ("Convergiu\n");
     ret = true;
   }
