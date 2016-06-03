@@ -446,6 +446,7 @@ aco (struct solution *sol)
       
       i = formiga[ant].posi;
       j = formiga[ant].posj;
+      printf ("ant = %d, i = %d, j = %d\n", ant, i, j);
       /* CLEAN FREQUENCES 
       for (ii = 0; ii < MH; ++ii)
 	for (jj = 0; jj < MW; ++jj)
