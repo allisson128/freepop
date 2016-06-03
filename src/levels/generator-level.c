@@ -49,7 +49,7 @@ struct pattern {
 
 struct node {
   int x, y;
-  int frequency;
+  /* int frequency; */
   double pheromone;
   bool accessible;
 };
@@ -61,6 +61,14 @@ struct prob {
   double probability;
 };
   
+struct ant {
+  int posi;
+  int posj;
+  struct node **path;
+  size_t nmemb;
+  int **frequency;
+};
+
 struct level generator_level;
 static void end (struct pos *p);
 static void fix_level_generator (void);
@@ -78,8 +86,8 @@ static bool is_dead_end (int WIDTH, int HEIGHT;
 			 int WIDTH, int HEIGHT, int i, int j);
 static bool is_objective (struct level *lv, int i, int j);
 static bool is_begin (struct level *lv, int i, int j);
-static double eval (struct node **graph, int jx, int jy, 
-		    int last_x, int last_y);
+static double eval (int frequency, int jx, int jy, 
+		    double k, int last_x, int last_y);
 
 /* static double eval (int WIDTH, int HEIGHT; struct node graph[MH][MW], */
 /* 			  int WIDTH, int HEIGHT, */
@@ -88,6 +96,7 @@ static double proximity (int jx, int jy, double k);
 static double evasion (int frequency);
 static double impulse (int last_x, int last_y, int jx, int jy);
 static double pheromone_update (double f, int solution_len);
+static void print_nodes (struct node **g, int **f);
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = 
@@ -374,14 +383,14 @@ aco (struct solution *sol)
   int ant, ants  = 100;
   size_t nmemb = 0, nmemb2 = 0;
   struct node **graph;
-  /* struct node graph[MH][MW]; */
-  struct node **path[2];
+  struct node **path2 = NULL;
 
   double f = 1;
+  double k = 0.5;
   double alfa = 1;
   double beta = 1;
   double evap = 0.5;
-  int converg = 0, conv = 1;
+  int converg = 0, conv_rate = 1;
 
   /* INIT GRAPH */
   graph = (struct node**) malloc (MH * sizeof (struct node*));
@@ -392,7 +401,7 @@ aco (struct solution *sol)
     for (j = 0; j < MW; ++j) {
       graph[i][j].x = i;
       graph[i][j].y = j;
-      graph[i][j].frequency = 0;
+      /* graph[i][j].frequency = 0; */
       graph[i][j].pheromone = 1;
       graph[i][j].accessible = false;
       if (mat (&sol->lv, i, j)->fg != WALL)
@@ -400,111 +409,129 @@ aco (struct solution *sol)
     }
 
 
-  /* path = add_to_array (&begin, 1, NULL, &nmemb, 0, sizeof (*path)); */
-  memset (path, 0, sizeof (*path));
-  path[1] = NULL;
+  /* INIT ANTS */
+  struct ant formiga[ants];
 
-  while (--steps && converg < conv) {
+  for (ant = 0; ant < ants; ++ant) {
+
+    formiga[ant].posi = INIX;
+    formiga[ant].posj = INIY;
+
+    formiga[ant].frequency = (int **) malloc (MH * sizeof (int*));
+    for (ii = 0; ii < MH; ++ii) 
+      formiga[ant].frequency[ii] = (int *) malloc (MW * sizeof (int));
+
+    for (ii = 0; ii < MH; ++ii)
+      for (jj = 0; jj < MW; ++jj)
+	formiga[ant].frequency[ii][jj] = 0;
+
+    formiga[ant].nmemb = 0;
+    struct node *aux = &graph[INIX][INIY];
+    formiga[ant].path = add_to_array (&aux, 1, NULL, 
+				      &formiga[ant].nmemb,
+				      0, sizeof (*formiga[ant].path));
+    formiga[ant].frequency[INIX][INIY]++;
+  }
+  
+
+
+  while (--steps && converg < conv_rate) {
 
     printf ("While - step = %d\n", steps);
-
+    
     for (ant = 0; ant < ants; ++ant) {
 
       /* ANT WALK */
-      i = INIX;
-      j = INIY;
       /* INIT PATH */
-      nmemb = 0;
-      /* printf ("free path\n"); */
-      /* if (path[0]){ */
-      /* 	printf ("in path\n"); */
-      /* 	free (path[0]); */
-      /* } */
-      /* CLEAN FREQUENCES */
+      
+      i = formiga[ant].posi;
+      j = formiga[ant].posj;
+      /* CLEAN FREQUENCES 
       for (ii = 0; ii < MH; ++ii)
 	for (jj = 0; jj < MW; ++jj)
 	  graph[ii][jj].frequency = 0;
+      */
+      
+      /* struct node *aux = &graph[INIX][INIY]; */
+      /* path[0] = add_to_array (&aux, 1, NULL, &nmemb, */
+      /* 			      0, sizeof (*path[0])); */
 
-      struct node *aux = &graph[INIX][INIY];
-      path[0] = add_to_array (&aux, 1, NULL, &nmemb,
-			      0, sizeof (*path[0]));
-
-      path[0][0]->frequency++;
-      /* printf ("x = %d, y = %d\n", i, j); */
-
-      do {
-
-	/* CALC NEIGHBORS PROB */
-	struct prob probaround[4];
-	memset (probaround, 0, 4*sizeof (*probaround));
-	double prob_acc = 0, rand_max = 0;
-	int intification = 10000;
-	/* int ax = i-1, ay = j, rx = i, ry = j+1;  */
-	/* int bx = i+1, by = j, lx = i, ly = j-1; */
+      /* CALC NEIGHBORS PROB */
+      struct prob probaround[4];
+      memset (probaround, 0, 4*sizeof (*probaround));
+      double prob_acc = 0, rand_max = 0;
+      int intification = 10000;
+      /* int ax = i-1, ay = j, rx = i, ry = j+1;  */
+      /* int bx = i+1, by = j, lx = i, ly = j-1; */
 	
-	for (ii = 0; ii < 2; ++ii)
-	  for (jj = 0; jj < 2; ++jj) {
+      for (ii = 0; ii < 2; ++ii)
+	for (jj = 0; jj < 2; ++jj) {
 
-	    x = i-1+jj+2*ii*abs(ii-jj);
-	    y = j+jj-2*ii*jj;
+	  x = i - 1+jj+2*ii*abs(ii-jj);
+	  y = j + jj-2*ii*jj;
 
-	    probaround[ii*2+jj].n = &graph[x][y];
-	    prob_acc += probaround[ii*2+jj].probability
-	      = (mat (&sol->lv, x, y) != NULL
-		 && mat (&sol->lv, x, y)->fg != WALL)
-	      ? eval (graph, x, y, 
-		      path[0][nmemb-1]->x, 
-		      path[0][nmemb-1]->y)
-	      * graph[x][y].pheromone
-	      : 0.;
-	  }
+	  probaround[ii*2+jj].n = &graph[x][y];
+	  prob_acc += probaround[ii*2+jj].probability
+	    = (mat (&sol->lv, x, y) != NULL
+	       && mat (&sol->lv, x, y)->fg != WALL)
+	    ? pow ( eval (formiga[ant].frequency[x][y], x, y, k,
+			  formiga[ant].path[formiga[ant].nmemb-1]->x,
+			  formiga[ant].path[formiga[ant].nmemb-1]->y),
+		    beta)
+	    * pow (graph[x][y].pheromone, alfa)
+	    : 0.;
+	}
 
-	for (rand_max = 0, ii = 0; ii < 4; ++ii)
-	  rand_max 
-	    += probaround[ii].probability /= (prob_acc/intification);
+      for (rand_max = 0, ii = 0; ii < 4; ++ii)
+	rand_max 
+	  += probaround[ii].probability /= (prob_acc/intification);
 
-	rand_max = prandom (ceil (rand_max));
-	rand_max = (rand_max == 0) ? 1 : rand_max;
+      rand_max = prandom (ceil (rand_max));
+      rand_max = (rand_max == 0) ? 1 : rand_max;
 
-	for (ii = 0, prob_acc = probaround[0].probability;
-	     rand_max > ceil (prob_acc); /* && ii < 4; */
-	     prob_acc += probaround[++ii].probability);
+      for (ii = 0, prob_acc = probaround[0].probability;
+	   rand_max > ceil (prob_acc); /* && ii < 4; */
+	   prob_acc += probaround[++ii].probability);
 
-	path[0] = add_to_array (&probaround[ii].n, 1, 
-				path[0], &nmemb, nmemb, 
-				sizeof (*path[0]));
-	i = path[0][nmemb-1]->x;
-	j = path[0][nmemb-1]->y;
-	path[0][nmemb-1]->frequency++;
-	/* printf ("i = %d, j = %d\n", i, j); */
-	/* getchar (); */
-
-      } while (!is_objective (&sol->lv, i, j)
-	     && !is_begin (&sol->lv, i, j));
-
-      /* printf ("Saída\n"); */
+      formiga[ant].path = add_to_array (&probaround[ii].n, 1, 
+					formiga[ant].path,
+					&formiga[ant].nmemb, 
+					formiga[ant].nmemb, 
+					sizeof (*formiga[ant].path[0]));
+      i = formiga[ant].posi = probaround[ii].n->x;
+      j = formiga[ant].posj = probaround[ii].n->y;
+      formiga[ant].frequency[i][j]++;
 
       /* SE ACHOU SAÍDA */
       if (is_objective (&sol->lv, i, j)) {
 
 	/* ATUALIZA OS PHER. DO CAMINHO */
-	for (ii = 0; ii < nmemb; ++ii) 
-	  path[0][ii]->pheromone 
+	for (ii = 0; ii < formiga[ant].nmemb; ++ii) 
+	  formiga[ant].path[ii]->pheromone 
 	    += pow (dist_cart (INIX, INIY, FIMX, FIMY), f)
-	    / nmemb;
+	    / formiga[ant].nmemb;
 
 	/* CONTABILIZA A CONVERGENCIA */
 	/* if (! memcmp (*path[0], *path[1],  */
 	/* 	      nmemb * sizeof (*(*path[0])))) */
 
 	for (ii = 0; ii < nmemb; ++ii)
-	  printf ("%d %d\n", path[0][ii]->x, path[0][ii]->y);
-	getchar();
+	  printf ("%d %d\n", formiga[ant].path[ii]->x, 
+		  formiga[ant].path[ii]->y);
+
 	printf ("\n---------------------------------\n");
-	if (nmemb == nmemb2) {
+	print_nodes (graph, formiga[ant].frequency);
+	getchar();
+
+
+	if (formiga[ant].nmemb == nmemb2) {
+
 	  ++converg;
+
 	  for (jj = 0; jj < nmemb; jj++)
-	    if (path[0][jj] != path[1][jj]) {
+
+	    if (formiga[ant].path[jj] != path2[jj]) {
+
 	      converg = 0;
 	      break;
 	    }
@@ -512,13 +539,24 @@ aco (struct solution *sol)
 	else
 	  converg = 0;
 	
-	if (path[1])
-	  free(path[1]);
-	/* printf ("path[0] = %p\n", path[0]); */
-	path[1] = path[0];
-	/* printf ("path[1] = %p\n", path[1]); */
-	nmemb2 = nmemb;
-	/* printf ("nmemb2 = %d\n",(int)nmemb2); */
+	if (path2)
+	  free (path2);
+	path2 = formiga[ant].path;
+	nmemb2 = formiga[ant].nmemb;
+
+	/* RESTART ANT */
+	formiga[ant].posi = INIX;
+	formiga[ant].posj = INIY;
+	for (ii = 0; ii < MH; ++ii)
+	  for (jj = 0; jj < MW; ++jj)
+	    formiga[ant].frequency[ii][jj] = 0;
+
+	formiga[ant].nmemb = 0;
+	struct node *aux = &graph[INIX][INIY];
+	formiga[ant].path = add_to_array (&aux, 1, NULL,
+					  &formiga[ant].nmemb, 0,
+					  sizeof (*formiga[ant].path));
+	formiga[ant].frequency[INIX][INIY]++;
       }
     }
     /* PHEROMONE UPDATE */
@@ -528,7 +566,7 @@ aco (struct solution *sol)
   }
   
   bool ret;
-  if (converg >= conv) {
+  if (converg >= conv_rate) {
     printf ("Convergiu\n");
     ret = true;
   }
@@ -538,7 +576,7 @@ aco (struct solution *sol)
   }
   for (ii = 0; ii < nmemb; ++ii)
 
-    printf ("%d %d\n", path[0][ii]->x, path[0][ii]->y);
+    printf ("%d %d\n", path2[ii]->x, path2[ii]->y);
 
   return ret;
 }
@@ -580,19 +618,10 @@ is_begin (struct level *lv, int i, int j)
 }
 
 
-/* double */
-/* eval (int WIDTH, int HEIGHT; struct node graph[MH][MW],  */
-/* 	    int WIDTH, int HEIGHT, */
-/* 	    int jx, int jy, int last_x, int last_y) */
 double
-eval (struct node **graph, int jx, int jy, int last_x, int last_y)
-
+eval (int frequency, int jx, int jy, double k, int last_x, int last_y)
 {
-  /* printf ("====> %i,%i,%i,%f\n", jx, jy,  */
-  /* 	  graph[jx][jy].frequency,  */
-  /* 	  evasion (graph[jx][jy].frequency)); */
-
-  return proximity (jx, jy, 0.5) * evasion (graph[jx][jy].frequency) 
+  return proximity (jx, jy, k) * evasion (frequency) 
     * impulse (last_x, last_y, jx, jy);
 }
 
@@ -608,7 +637,7 @@ evasion (int frequency)
 {
   /* printf ("FFFF> %i\n", frequency); */
 
-  return (frequency) ? 1.0 / frequency : 1;
+  return (frequency) ? 1.0 / frequency : 1.0;
 }
 
 double
@@ -623,6 +652,20 @@ pheromone_update (double f, int solution_len)
   return pow (dist_cart (INIX, INIY, FIMX, FIMY), f) / solution_len;
 }
 
+void
+print_nodes (struct node **g, int **f)
+{
+  int ii, jj;
+  for (ii = 0; ii < MH; ++ii) {
+    for (jj = 0; jj < MW; ++jj) {
+      if (g[ii][jj].accessible)
+	printf ("%2d ", f[ii][jj]);
+      else
+	printf ("%2c ", 'w');
+    }
+    putchar ('\n');
+  }
+}
 
 /* while (!(mat (lv, i, j)->fg == LEVEL_DOOR   */
 /* 	       && mat (lv, i, j)->ext.step == 0) */
