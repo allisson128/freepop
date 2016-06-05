@@ -1,11 +1,16 @@
 # MININIM
-The Advanced Prince of Persia Engine (a childhood dream)
+**The Advanced Prince of Persia Engine (a childhood dream)**
 
-- Homepage: http://oitofelix.github.io/mininim/
-- Forum: http://forum.princed.org/viewforum.php?f=127
-- IRC: irc://irc.freenode.net/mininim
-- VCS: http://github.com/oitofelix/mininim/
+![MININIM](http://oitofelix.github.io/mininim/mininim.png)
 
+- [Homepage](http://oitofelix.github.io/mininim/)
+- [Forum](http://forum.princed.org/viewforum.php?f=127)
+- **IRC:** irc://irc.freenode.net/mininim
+- [VCS](http://github.com/oitofelix/mininim/)
+
+## Game play demo
+
+[![GAME PLAY DEMO](https://img.youtube.com/vi/i8kXFLuZ8Io/0.jpg)](https://www.youtube.com/watch?v=i8kXFLuZ8Io)
 
 ## Building
 

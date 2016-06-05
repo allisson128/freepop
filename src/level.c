@@ -207,6 +207,7 @@ destroy_cons (void)
   destroy_array ((void **) &door, &door_nmemb);
   destroy_array ((void **) &level_door, &level_door_nmemb);
   destroy_array ((void **) &chopper, &chopper_nmemb);
+  destroy_array ((void **) &mirror, &mirror_nmemb);
 }
 
 void
@@ -353,6 +354,9 @@ compute_level (void)
   for (i = 0; i < anima_nmemb; i++) anima[i].action (&anima[i]);
   for (i = 0; i < anima_nmemb; i++) fight_mechanics (&anima[i]);
 
+  for (i = 0; i < anima_nmemb; i++)
+    if (anima[i].float_timer) anima[i].float_timer++;
+
   fight_turn_controllable (current_kid);
 
   clear_anims_keyboard_state ();
@@ -378,6 +382,9 @@ compute_level (void)
   compute_doors ();
   compute_level_doors ();
   compute_choppers ();
+
+  register_changed_opener_floors ();
+  register_changed_closer_floors ();
 
   if (! play_time_stopped) play_time++;
 }

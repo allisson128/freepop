@@ -130,6 +130,7 @@ legacy_level_start (void)
       register_con_undo (&undo, &plf,
                          NO_FLOOR, MIGNORE, MIGNORE,
                          true, true, false, true,
+                         CHPOS_LOOSE_FLOOR_FALL,
                          "NO FLOOR");
       k->f.dir = (k->f.dir == LEFT) ? RIGHT : LEFT;
       place_frame (&k->f, &k->f, kid_normal_00, &p,
@@ -205,7 +206,7 @@ legacy_level_special_events (void)
       register_con_undo (&undo, &skeleton_floor_pos,
                          FLOOR, MIGNORE, MIGNORE,
                          true, true, false, true,
-                         "FLOOR");
+                         -1, "FLOOR");
       skeleton_id = create_anim (NULL, SKELETON, &skeleton_floor_pos, LEFT);
       s = &anima[skeleton_id];
       get_legacy_skill (2, &s->skill);
@@ -246,27 +247,28 @@ legacy_level_special_events (void)
       register_con_undo (&undo, &mirror_pos,
                          MIRROR, MIGNORE, MIGNORE,
                          true, true, true, true,
-                         "MIRROR");
+                         -1, "MIRROR");
       play_sample (suspense_sample, -1);
     }
 
     /* if the kid is crossing the mirror, make his shadow appear */
-    if (con (&mirror_pos)->fg == MIRROR) {
-      struct mirror *m = mirror_at_pos (&mirror_pos);
-      if (m->kid_crossing == k->id
-          && shadow_id == -1) {
-        k->current_lives = 1;
-        int id = create_anim (k, 0, NULL, 0);
-        struct anim *ks = &anima[id];
-        ks->shadow = true;
-        ks->fight = false;
-        ks->f.dir = (ks->f.dir == LEFT) ? RIGHT : LEFT;
-        ks->controllable = false;
-        ks->dont_draw_lives = true;
-        ks->immortal = true;
-        shadow_id = id;
-      }
-    }
+    struct mirror *m;
+    if (con (&mirror_pos)->fg == MIRROR
+        && (m = mirror_at_pos (&mirror_pos))
+        && m->kid_crossing == k->id
+        && shadow_id == -1) {
+      k->current_lives = 1;
+      int id = create_anim (k, 0, NULL, 0);
+      struct anim *ks = &anima[id];
+      ks->fight = false;
+      ks->f.dir = (ks->f.dir == LEFT) ? RIGHT : LEFT;
+      ks->f.flip ^= ALLEGRO_FLIP_HORIZONTAL;
+      ks->controllable = false;
+      ks->dont_draw_lives = true;
+      ks->immortal = true;
+      ks->shadow = true;
+      shadow_id = id;
+    } else m = NULL;
 
     /* make the kid's shadow run to the right until he disappears
        from view */
