@@ -103,6 +103,9 @@ static void print_pheromones (struct node **g);
 static void printdep (int ** f, struct prob *pba, double rsum, 
 		      double r, int ii, struct node **g);
 static void opt_sol (struct ant *ant);
+struct node ** acessos (struct node **g, struct level *lv, 
+			struct cell *c, size_t tamanho);
+static void print_accessible (struct node **g, struct level *lv);
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = 
@@ -146,17 +149,44 @@ int HEIGHT;
 int WIDTH;
 
 
-struct con *
-mat (struct level *lv, int dfloor, int dplace)
-{
-  struct pos p = (struct pos) {1, 0, 0};
+/* struct con * */
+/* mat (struct level *lv, int dfloor, int dplace) */
+/* { */
+/*   struct pos p = (struct pos) {1, 0, 0}; */
 
+/*   if (dfloor < 0 || dfloor >= FLOORS * HEIGHT   */
+/*       || dplace < 0 || dplace >= PLACES * WIDTH) */
+/*     return NULL; */
+
+/*   return xcrel (lv, &p, dfloor, dplace); */
+/* } */
+
+struct pos *
+mat (struct pos *p, struct level *lv, int dfloor, int dplace)
+{
   if (dfloor < 0 || dfloor >= FLOORS * HEIGHT  
       || dplace < 0 || dplace >= PLACES * WIDTH)
     return NULL;
 
-  return xcrel (lv, &p, dfloor, dplace);
+  *p = (struct pos) {1, 0, 0};
+
+  p = prel (p, p, dfloor, dplace);
+
+  return xnpos (lv, p, p); 
 }
+
+struct con *
+mat_con (struct level *lv, int dfloor, int dplace)
+{
+  struct pos p = (struct pos) {1, 0, 0};
+
+  if (!mat (&p, lv, dfloor, dplace))
+    return NULL;
+
+  return xcon (lv, &p);
+}
+
+
 
 void
 next_generator_level (int number)
@@ -201,16 +231,16 @@ next_generator_level (int number)
     	lv->link[room].b = (i != (HEIGHT-1)) ? room + WIDTH : 0;
       }
 
-    for (i = 0, j = 0; mat (lv, i, j); ++i, j = 0)
-      for (j = 0; mat (lv, i, j); ++j) {
-    	mat (lv, i, j)->fg = NO_FLOOR;
-    	mat (lv, i, j)->bg = NO_BRICKS;
+    for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
+      for (j = 0; mat_con (lv, i, j); ++j) {
+    	mat_con (lv, i, j)->fg = NO_FLOOR;
+    	mat_con (lv, i, j)->bg = NO_BRICKS;
 	/* if (i == 2 && j == 5) */
-	/*   mat (lv, i, j)->fg = WALL; */
+	/*   mat_con (lv, i, j)->fg = WALL; */
 	/* if (i == 3 && j == 5)  */
-	/*   mat (lv, i, j)->fg = WALL; */
+	/*   mat_con (lv, i, j)->fg = WALL; */
 	/* if (i == 2 && j == 6)  */
-	/*   mat (lv, i, j)->fg = WALL; */
+	/*   mat_con (lv, i, j)->fg = WALL; */
       }
 
     int r, prob;
@@ -220,8 +250,8 @@ next_generator_level (int number)
     int continuous_wall_prob = 70; //70;
     int default_prob         = 20; //20;
 
-    for (i = 0, j = 0; mat (lv, i, j); ++i, j = 0)
-      for (j = 0; mat (lv, i, j); ++j) {
+    for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
+      for (j = 0; mat_con (lv, i, j); ++j) {
 
     	if (is_pattern (lv, i, j, &square_pattern)) 
     	  prob = square_prob;
@@ -241,19 +271,19 @@ next_generator_level (int number)
     	r = prandom(100);
 
     	if (r > 0 && r <= prob)
-    	  mat (lv, i, j)->fg = WALL;
+    	  mat_con (lv, i, j)->fg = WALL;
 
       }
     mutation_wall_alg (lv, mutation_rate) ;
     
-    mat (lv, 0, 0)->fg = NO_FLOOR;
-    mat (lv, 0, 1)->fg = LEVEL_DOOR;
-    mat (lv, 0, 1)->ext.step = LEVEL_DOOR_MAX_STEP;
-    mat (lv, 0, 2)->fg = NO_FLOOR;
+    mat_con (lv, 0, 0)->fg = NO_FLOOR;
+    mat_con (lv, 0, 1)->fg = LEVEL_DOOR;
+    mat_con (lv, 0, 1)->ext.step = LEVEL_DOOR_MAX_STEP;
+    mat_con (lv, 0, 2)->fg = NO_FLOOR;
 
-    mat (lv, MH - 1, MW - 3)->fg = NO_FLOOR;
-    mat (lv, MH - 1, MW - 2)->fg = LEVEL_DOOR;
-    mat (lv, MH - 1, MW - 1)->fg = NO_FLOOR;
+    mat_con (lv, MH - 1, MW - 3)->fg = NO_FLOOR;
+    mat_con (lv, MH - 1, MW - 2)->fg = LEVEL_DOOR;
+    mat_con (lv, MH - 1, MW - 1)->fg = NO_FLOOR;
   }
   
   /* crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv); */
@@ -277,11 +307,11 @@ is_pattern (struct level *lv, int i, int j, struct pattern *p)
 {
   int m;
   for (m = 0; m < p->nmemb; ++m) 
-    if (! mat (lv, i + p->cell[m].i, j + p->cell[m].j))
+    if (! mat_con (lv, i + p->cell[m].i, j + p->cell[m].j))
       return false;
 
   for (m = 0; m < p->nmemb; ++m) 
-    if (mat (lv, i + p->cell[m].i, j + p->cell[m].j)->fg != WALL)
+    if (mat_con (lv, i + p->cell[m].i, j + p->cell[m].j)->fg != WALL)
       return false;
 
   return true;
@@ -322,32 +352,32 @@ crossover (struct level *lv1, struct level *lv2,
 
     r = prandom (MH - 2) + 1;
 
-    for (i = 0, j = 0; mat (lv1, i, j); ++i, j = 0)
-      for (j = 0; mat (lv1, i, j); ++j)
+    for (i = 0, j = 0; mat_con (lv1, i, j); ++i, j = 0)
+      for (j = 0; mat_con (lv1, i, j); ++j)
 
 	if (i < r) {
-	  *mat (son1, i, j) = *mat (lv1, i, j);
-	  *mat (son2, i, j) = *mat (lv2, i, j);
+	  *mat_con (son1, i, j) = *mat_con (lv1, i, j);
+	  *mat_con (son2, i, j) = *mat_con (lv2, i, j);
 	}
 	else {
-	  *mat (son1, i, j) = *mat (lv2, i, j);
-	  *mat (son2, i, j) = *mat (lv1, i, j);
+	  *mat_con (son1, i, j) = *mat_con (lv2, i, j);
+	  *mat_con (son2, i, j) = *mat_con (lv1, i, j);
 	}
   }
 
   else {
     r = prandom (MW - 2) + 1;
     r = 15;
-    for (i = 0, j = 0; mat (lv1, j, i); ++i, j = 0)
-      for (j = 0; mat (lv1, j, i); ++j)
+    for (i = 0, j = 0; mat_con (lv1, j, i); ++i, j = 0)
+      for (j = 0; mat_con (lv1, j, i); ++j)
 
 	if (i < r) {
-	  *mat (son1, j, i) = *mat (lv1, j, i);
-	  *mat (son2, j, i) = *mat (lv2, j, i);
+	  *mat_con (son1, j, i) = *mat_con (lv1, j, i);
+	  *mat_con (son2, j, i) = *mat_con (lv2, j, i);
 	}
 	else {
-	  *mat (son1, j, i) = *mat (lv2, j, i);
-	  *mat (son2, j, i) = *mat (lv1, j, i);
+	  *mat_con (son1, j, i) = *mat_con (lv2, j, i);
+	  *mat_con (son2, j, i) = *mat_con (lv1, j, i);
 	}
 
   }
@@ -368,7 +398,7 @@ mutation_wall_alg (struct level *lv, double max_mut_rate)
 
     printf ("i = %d, j = %d\n", i, j);
 
-    mat (lv, i, j)->fg = (mat (lv, i, j)->fg == WALL) ? NO_FLOOR : WALL;
+    mat_con (lv, i, j)->fg = (mat_con (lv, i, j)->fg == WALL) ? NO_FLOOR : WALL;
   }
 
   return lv;
@@ -409,12 +439,23 @@ aco (struct solution *sol)
       graph[i][j].y = j;
       graph[i][j].frequency = 0;
       graph[i][j].pheromone = 1.;
-      /* if (mat (&sol->lv, i, j)->fg != WALL) */
+      /* if (mat_con (&sol->lv, i, j)->fg != WALL) */
       /* 	graph[i][j].accessible = true; */
       /* else */
-      graph[i][j].accessible = false;
+	graph[i][j].accessible = false;
     }
-  acessos (&sol->lv, graph);
+
+  struct cell inicio;
+  inicio.i = 3; inicio.j = 2;
+
+  struct cell *checar_em;
+  size_t tamanho = 0;
+  checar_em = add_to_array (&inicio, 1, NULL, &tamanho, 
+			    0, sizeof (*checar_em));
+
+  acessos (graph, &sol->lv, checar_em, tamanho);
+  print_accessible (graph, &sol->lv);
+  getchar ();
 
   //#####################################
   /* printf ("Feromonios iniciais:\n"); */
@@ -486,8 +527,8 @@ aco (struct solution *sol)
 
 	  probaround[ii*2+jj].n = &graph[x][y];
 
-	  if (mat (&sol->lv, x, y) != NULL
-	      && mat (&sol->lv, x, y)->fg != WALL) {
+	  if (mat_con (&sol->lv, x, y) != NULL
+	      && mat_con (&sol->lv, x, y)->fg != WALL) {
 
 	    probaround[ii*2+jj].pher 
 	      = pow (graph[x][y].pheromone, alfa);
@@ -588,7 +629,7 @@ aco (struct solution *sol)
 		printf ("convergencia 2\n");
 		for (i = 0; i < MH; ++i) {
 		  for (j = 0; j < MW; ++j)
-		    if (mat(&sol->lv, i, j)->fg != WALL)
+		    if (mat_con (&sol->lv, i, j)->fg != WALL)
 		      printf ("%2d ", graph[i][j].frequency);
 		    else
 		      printf ("%2c ", 'w');
@@ -662,7 +703,7 @@ aco (struct solution *sol)
 
   for (ii = 0; ii < MH; ++ii){
     for (jj = 0; jj < MW; ++jj)
-      if (mat(&sol->lv, ii, jj)->fg != WALL)
+      if (mat_con (&sol->lv, ii, jj)->fg != WALL)
 	printf ("%3d ", graph[ii][jj].frequency);
       else
 	printf ("%3c ", 'w');
@@ -679,33 +720,33 @@ is_dead_end (int WIDTH, int HEIGHT; struct level *lv,
 	     int HEIGHT, int i, int j)
 {
 
-  return !((mat (lv, i, j-1) != NULL 
-	    && mat (lv, i, j-1)->fg != WALL 
+  return !((mat_con (lv, i, j-1) != NULL 
+	    && mat_con (lv, i, j-1)->fg != WALL 
 	    && !visited [i][j-1])
-	   || (mat (lv, i, j+1) != NULL
-	       && mat (lv, i, j+1)->fg != WALL 
+	   || (mat_con (lv, i, j+1) != NULL
+	       && mat_con (lv, i, j+1)->fg != WALL 
 	       && !visited [i][j+1])
-	   || (mat (lv, i-1, j) != NULL 
-	       && mat (lv, i-1, j)->fg != WALL 
+	   || (mat_con (lv, i-1, j) != NULL 
+	       && mat_con (lv, i-1, j)->fg != WALL 
 	       && !visited [i-1][j])
-	   || (mat (lv, i+1, j) != NULL 
-	       && mat (lv, i+1, j)->fg != WALL 
+	   || (mat_con (lv, i+1, j) != NULL 
+	       && mat_con (lv, i+1, j)->fg != WALL 
 	       && !visited [i+1][j]));
 }
 
 bool
 is_objective (struct level *lv, int i, int j)
 {
-  return mat (lv, i, j) != NULL
-    && mat (lv, i, j)->fg == LEVEL_DOOR  
-    && mat (lv, i, j)->ext.step == 0;
+  return mat_con (lv, i, j) != NULL
+    && mat_con (lv, i, j)->fg == LEVEL_DOOR  
+    && mat_con (lv, i, j)->ext.step == 0;
 }
 
 bool
 is_begin (struct level *lv, int i, int j)
 {
-  return mat (lv, i, j) != NULL
-    && mat (lv, i, j)->fg == LEVEL_DOOR
+  return mat_con (lv, i, j) != NULL
+    && mat_con (lv, i, j)->fg == LEVEL_DOOR
     && !is_objective (lv, i, j);
 }
 
@@ -825,10 +866,65 @@ opt_sol (struct ant *ant)
   }
 }
 
-void
-acessos (struct level *lv, struct node **graph)
+
+struct node **
+acessos (struct node **g, struct level *lv, 
+	 struct cell *c, size_t tamanho)
 {
   int ii, jj;
+  int x, y;
+  struct pos p;
+  enum dir d;
+  struct cell *add;
+
+  if (tamanho == 0)
+    return g;
+
+  x = c[tamanho-1].i;
+  y = c[tamanho-1].j;
+
+  c = remove_from_array (c, &tamanho, tamanho-1, 1, sizeof (*c));
   
-  
+  for (d = LEFT; d < RIGHT; d++) {
+    d = RIGHT;
+    if (is_hangable_pos (mat (&p, lv, x, y), d)) {
+
+      if (g[x-1][y].accessible == false) {
+	g[x-1][y].accessible = true;
+	add = (struct cell *) malloc (sizeof (*add));
+	add->i = x-1; add->j = y;
+	c = add_to_array (&add, 1, c, &tamanho, tamanho, sizeof (*c));
+      }
+
+      if (g[x-1][y+1].accessible == false) {
+	g[x-1][y+1].accessible = true;
+	add = (struct cell *) malloc (sizeof (*add));
+	add->i = x-1; add->j = y+1;
+	c = add_to_array (&add, 1, c, &tamanho, tamanho, sizeof (*c));
+      }
+	
+    }
+  }
+  return g;
+}
+    /* formiga[ant].path = add_to_array (&aux, 1, NULL,  */
+    /* 				      &formiga[ant].nmemb, */
+    /* 				      0, sizeof (*formiga[ant].path)); */
+
+void
+print_accessible (struct node **g, struct level *lv)
+{
+  int ii, jj;
+  for (ii = 0; ii < MH; ++ii) {
+    for (jj = 0; jj < MW; ++jj) {
+      if (mat_con (lv, ii, jj)->fg == WALL)
+	printf ("%2c ", 'w');
+      else
+	if (g[ii][jj].accessible)
+	  printf ("%2c ", '1');
+	else
+	  printf ("%2c ", '0');
+    }
+    putchar ('\n');
+  }
 }
