@@ -71,7 +71,6 @@ struct ant {
   int posj;
   struct node **path;
   size_t nmemb;
-  size_t thin_memb;
   int **frequency;
 };
 
@@ -98,13 +97,13 @@ static double proximity (int jx, int jy);
 static double evasion (int frequency);
 static double impulse (int last_x, int last_y, int jx, int jy);
 static double pheromone_update (double f, int solution_len);
-static void print_nodes (struct node **g, int **f);
+static void print_nodes (struct level *lv, int **f);
 static void print_pheromones (struct node **g);
 static void printdep (int ** f, struct prob *pba, double rsum, 
-		      double r, int ii, struct node **g);
+		      double r, int ii, struct level *lv);
 static void opt_sol (struct ant *ant);
 struct node ** acessos (struct node **g, struct level *lv, 
-			struct cell *c, size_t tamanho);
+			struct cell *c, size_t nmemb, int lifes);
 static void print_accessible (struct node **g, struct level *lv);
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
@@ -287,12 +286,14 @@ next_generator_level (int number)
   }
   
   /* crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv); */
-  aco (&pop[0]);
+
   choice = 0;//prandom (POPSIZE - 1);
   /* fix level */
   level = pop[choice].lv;
   /* level = sons[0].lv; */
   for (i = 0; i < 2; i++) fix_level_generator ();
+  pop[0].lv = level;
+  aco (&pop[0]);
   generator_level = level;
 
   generator_level.number = number;
@@ -415,11 +416,13 @@ bool
 aco (struct solution *sol)
 {
   int i, j, ii, jj, x, y;
-  int steps = 10000;
+  int steps = 100;
   int ant, ants  = 100, atn;
-  size_t thin_memb = 0, nmemb2 = 0;
+  size_t nbest = 0, nworst = 0, nconv = 0, nmemb2 = 0;
   struct node **graph;
   struct node **path2 = NULL;
+  struct node **best = NULL;
+  struct node **worst = NULL;
 
   double f = 1;
   double alfa = .75;
@@ -446,16 +449,17 @@ aco (struct solution *sol)
     }
 
   struct cell inicio;
-  inicio.i = 3; inicio.j = 2;
+  inicio.i = 0; inicio.j = 1;
 
   struct cell *checar_em;
   size_t tamanho = 0;
   checar_em = add_to_array (&inicio, 1, NULL, &tamanho, 
 			    0, sizeof (*checar_em));
 
-  acessos (graph, &sol->lv, checar_em, tamanho);
-  print_accessible (graph, &sol->lv);
-  getchar ();
+  graph = acessos (graph, &sol->lv, checar_em, tamanho, 3);
+
+  /* print_accessible (graph, &sol->lv); */
+  /* getchar (); */
 
   //#####################################
   /* printf ("Feromonios iniciais:\n"); */
@@ -478,13 +482,11 @@ aco (struct solution *sol)
 	formiga[ant].frequency[ii][jj] = 0;
 
     formiga[ant].nmemb = 0;
-    formiga[ant].thin_memb = 0;
     struct node *aux = &graph[INIX][INIY];
     formiga[ant].path = add_to_array (&aux, 1, NULL, 
 				      &formiga[ant].nmemb,
 				      0, sizeof (*formiga[ant].path));
     formiga[ant].frequency[INIX][INIY]++;
-    formiga[ant].thin_memb = formiga[ant].nmemb;
   }
   
 
@@ -527,8 +529,11 @@ aco (struct solution *sol)
 
 	  probaround[ii*2+jj].n = &graph[x][y];
 
+	  /* if (mat_con (&sol->lv, x, y) != NULL */
+	  /*     && mat_con (&sol->lv, x, y)->fg != WALL) { */
+
 	  if (mat_con (&sol->lv, x, y) != NULL
-	      && mat_con (&sol->lv, x, y)->fg != WALL) {
+	      &&  probaround[ii*2+jj].n->accessible) {
 
 	    probaround[ii*2+jj].pher 
 	      = pow (graph[x][y].pheromone, alfa);
@@ -564,7 +569,7 @@ aco (struct solution *sol)
       if (ant == 0) {
 	/* printf("\nstep = %d\n", steps); */
 	/* printdep (formiga[ant].frequency, probaround, */
-	/* 	  rsum, rand_max, ii, graph); */
+	/* 	  rsum, rand_max, ii, &sol->lv); */
 	/* getchar(); */
       }
 
@@ -575,8 +580,7 @@ aco (struct solution *sol)
 					sizeof (*formiga[ant].path));
       i = formiga[ant].posi = probaround[ii].n->x;
       j = formiga[ant].posj = probaround[ii].n->y;
-      if (formiga[ant].frequency[i][j] == 0) 
-	formiga[ant].thin_memb++;
+
       formiga[ant].frequency[i][j]++;
 
       /* SE ACHOU SAÍDA */
@@ -636,7 +640,7 @@ aco (struct solution *sol)
 		  putchar('\n');
 		}
 		printf ("Quebra de convergencia\n");
-		print_nodes (graph, formiga[ant].frequency);
+		print_nodes (&sol->lv, formiga[ant].frequency);
 	      }
 	      converg = 0;
 	      break;
@@ -648,7 +652,7 @@ aco (struct solution *sol)
 	if (converg) {
 	  //#####################################
 	  printf ("\n-------- CONVERGE --------------\n");
-	  /* print_nodes (graph, formiga[ant].frequency); */
+	  /* print_nodes (&sol->lv, formiga[ant].frequency); */
 	  /* getchar(); */
 	  /* printf ("\n---------------------------------\n"); */
 	}
@@ -667,7 +671,6 @@ aco (struct solution *sol)
 	    formiga[ant].frequency[ii][jj] = 0;
 	  }
 	formiga[ant].nmemb = 0;
-	formiga[ant].thin_memb = 0;
 	struct node *aux = &graph[INIX][INIY];
 	formiga[ant].path = add_to_array (&aux, 1, NULL,
 					  &formiga[ant].nmemb, 0,
@@ -687,29 +690,43 @@ aco (struct solution *sol)
   }
   
   bool ret;
-  if (converg >= conv_rate) {
-    printf ("Convergiu\n");
-    ret = true;
-  }
-  else {
-    printf ("Não Convergiu\n");
+
+  if (path2 == NULL) {
+    printf ("Sem solução\n");
+    path2 = formiga[0].path; nmemb2 = formiga[0].nmemb;
+    print_nodes (&sol->lv, formiga[0].frequency);
     ret = false;
   }
+  else {
+    if (converg >= conv_rate) {
+      printf ("Convergiu\n");
+      ret = true;
+    }
 
-  for (ii = 0; ii < nmemb2; ++ii)
-    printf ("%d %d\n", path2[ii]->x, path2[ii]->y);
+    else {
+      printf ("Não Convergiu\n");
+      ret = false;
+      path2 = formiga[0].path; nmemb2 = formiga[0].nmemb;
+    }
 
-  printf ("step = %d, nmemb2 = %d\n", steps, (int)nmemb2);
+    for (ii = 0; ii < nmemb2; ++ii)
+      printf ("%d %d\n", path2[ii]->x, path2[ii]->y);
 
-  for (ii = 0; ii < MH; ++ii){
-    for (jj = 0; jj < MW; ++jj)
-      if (mat_con (&sol->lv, ii, jj)->fg != WALL)
-	printf ("%3d ", graph[ii][jj].frequency);
-      else
-	printf ("%3c ", 'w');
-    putchar('\n');
+
+    for (ii = 0; ii < MH; ++ii){
+      for (jj = 0; jj < MW; ++jj)
+	if (mat_con (&sol->lv, ii, jj)->fg != WALL)
+	  printf ("%d ", graph[ii][jj].frequency);
+	else
+	  printf ("%c ", 'w');
+      putchar('\n');
+    }
+  
   }
-  /* print_nodes (graph, formiga[atn].frequency); */
+  /* print_nodes (&sol->lv, formiga[atn].frequency); */
+  printf ("--- ########## ----\n");
+  print_accessible (graph, &sol->lv);
+  printf ("step = %d, nmemb2 = %d\n", steps, (int)nmemb2);
 
   return ret;
 }
@@ -794,15 +811,16 @@ pheromone_update (double f, int solution_len)
 }
 
 void
-print_nodes (struct node **g, int **f)
+print_nodes (struct level *lv, int **f)
 {
   int ii, jj;
   for (ii = 0; ii < MH; ++ii) {
     for (jj = 0; jj < MW; ++jj) {
-      if (g[ii][jj].accessible)
-	printf ("%2d ", f[ii][jj]);
+      if (mat_con (lv, ii, jj)->fg == WALL)
+	printf ("%c ", 'w');
       else
-	printf ("%2c ", 'w');
+	printf ("%d ", f[ii][jj]);
+
     }
     putchar ('\n');
   }
@@ -821,9 +839,9 @@ print_pheromones (struct node **g)
 
 void
 printdep (int ** f, struct prob *pba, double rsum, 
-	  double r, int ii, struct node **g)
+	  double r, int ii, struct level *lv)
 {
-  print_nodes (g, f);
+  print_nodes (lv, f);
   printf("%12.3lf\t\t%12.3lf\t\t%12.3lf\t\t%12.3lf\n",pba[0].normprob,
 	 pba[0].probability, pba[0].pher, pba[0].eval);
   printf ("%8.3lf %8.3lf\t%8.3lf %8.3lf\t%8.3lf %8.3lf\t%8.3lf %8.3lf\n",
@@ -869,47 +887,90 @@ opt_sol (struct ant *ant)
 
 struct node **
 acessos (struct node **g, struct level *lv, 
-	 struct cell *c, size_t tamanho)
+	 struct cell *c, size_t nmemb, int lifes)
 {
   int ii, jj;
-  int x, y;
-  struct pos p;
-  enum dir d;
   struct cell *add;
 
-  if (tamanho == 0)
+  if (nmemb == 0)
     return g;
 
-  x = c[tamanho-1].i;
-  y = c[tamanho-1].j;
+  int x = c[nmemb-1].i;
+  int y = c[nmemb-1].j;
 
-  c = remove_from_array (c, &tamanho, tamanho-1, 1, sizeof (*c));
+  c = remove_from_array (c, &nmemb, nmemb-1, 1, sizeof (*c));
   
-  for (d = LEFT; d < RIGHT; d++) {
-    d = RIGHT;
-    if (is_hangable_pos (mat (&p, lv, x, y), d)) {
+  struct pos *p = mat (malloc (sizeof (*p)), lv, x, y);
+  int pa = x - 1;
 
-      if (g[x-1][y].accessible == false) {
-	g[x-1][y].accessible = true;
+  int di;
+  enum dir d;
+  for (di = 0, d = RIGHT; di < 2; ++di, d = LEFT) {
+    int inc = (d == RIGHT) ? 1 : -1;
+
+    if (xis_hangable_pos (lv, p, d)) {
+
+      if (g[pa][y].accessible == false) {
+	g[pa][y].accessible = true;
 	add = (struct cell *) malloc (sizeof (*add));
-	add->i = x-1; add->j = y;
-	c = add_to_array (&add, 1, c, &tamanho, tamanho, sizeof (*c));
+	add->i = pa; add->j = y;
+	c = add_to_array (add, 1, c, &nmemb, nmemb, sizeof (*c));
       }
 
-      if (g[x-1][y+1].accessible == false) {
-	g[x-1][y+1].accessible = true;
+      if (g[pa][y+inc].accessible == false) {
+	g[pa][y+inc].accessible = true;
 	add = (struct cell *) malloc (sizeof (*add));
-	add->i = x-1; add->j = y+1;
-	c = add_to_array (&add, 1, c, &tamanho, tamanho, sizeof (*c));
+	add->i = pa; add->j = y+inc;
+	c = add_to_array (add, 1, c, &nmemb, nmemb, sizeof (*c));
       }
-	
+    }
+
+    if (!xis_strictly_traversable (lv, p)) {
+
+
+      int j;
+      int cut = x-1;
+      for (j = 0, jj = y+inc; j < 3; ++j, jj += inc) {
+
+	for (ii = x; (ii < x+3 && j != 0) || (j == 0 && ii < (x+(lifes > 1)?4:3));
+	     ++ii) {
+
+	  if (cut >= ii)
+	    break;
+
+	  if (ii == x+3)
+	    --lifes;
+
+	  struct con *co = mat_con (lv, ii, jj);
+	  if (co == NULL || co->fg == WALL) {
+	    cut = ii;
+	    break;
+	  }
+
+	  if (j == 2 && ii == x)
+	    continue;
+
+	  if (g[ii][jj].accessible == false) {
+	    g[ii][jj].accessible = true;
+	    add = (struct cell *) malloc (sizeof (*add));
+	    add->i = ii; add->j = jj;
+	    c = add_to_array (add, 1, c, &nmemb, nmemb, sizeof (*c));
+	  }
+	  
+	}
+
+	if (cut >= x) {
+	  if (ii == x && jj == y+inc)
+	    break;
+	  else if (jj == y+inc)
+	    cut = x-1;
+	}
+      }
     }
   }
-  return g;
+  return acessos (g, lv, c, nmemb, lifes);
 }
-    /* formiga[ant].path = add_to_array (&aux, 1, NULL,  */
-    /* 				      &formiga[ant].nmemb, */
-    /* 				      0, sizeof (*formiga[ant].path)); */
+
 
 void
 print_accessible (struct node **g, struct level *lv)
@@ -917,13 +978,15 @@ print_accessible (struct node **g, struct level *lv)
   int ii, jj;
   for (ii = 0; ii < MH; ++ii) {
     for (jj = 0; jj < MW; ++jj) {
-      if (mat_con (lv, ii, jj)->fg == WALL)
-	printf ("%2c ", 'w');
+      if (mat_con (lv, ii, jj)->fg == WALL && g[ii][jj].accessible)
+	printf ("%c ", '5');
+      else if (mat_con (lv, ii, jj)->fg == WALL)
+	printf ("%c ", 'w');
       else
 	if (g[ii][jj].accessible)
-	  printf ("%2c ", '1');
+	  printf ("%c ", '1');
 	else
-	  printf ("%2c ", '0');
+	  printf ("%c ", '0');
     }
     putchar ('\n');
   }
