@@ -1,27 +1,6 @@
 // OBJ:
 // Feromonio, Avaliacao
-// *Otimizar funções
 // Convergência da solução (comparar paths)
-// 
-
-/*
-  generator-level.c -- generator level module;
-
-  Copyright (C) 2015, 2016 Bruno Félix Rezende Ribeiro <oitofelix@gnu.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 3, or (at your option)
-  any later version.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
 
 #include "mininim.h"
 
@@ -103,7 +82,7 @@ static void printdep (int ** f, struct prob *pba, double rsum,
 		      double r, int ii, struct level *lv);
 static void opt_sol (struct ant *ant);
 struct node ** acessos (struct node **g, struct level *lv, 
-			struct cell *c, size_t nmemb, int lifes);
+			struct cell c, int lifes);
 static void print_accessible (struct node **g, struct level *lv);
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
@@ -146,19 +125,6 @@ struct solution pop[POPSIZE];
 struct solution sons[POPSIZE];
 int HEIGHT;
 int WIDTH;
-
-
-/* struct con * */
-/* mat (struct level *lv, int dfloor, int dplace) */
-/* { */
-/*   struct pos p = (struct pos) {1, 0, 0}; */
-
-/*   if (dfloor < 0 || dfloor >= FLOORS * HEIGHT   */
-/*       || dplace < 0 || dplace >= PLACES * WIDTH) */
-/*     return NULL; */
-
-/*   return xcrel (lv, &p, dfloor, dplace); */
-/* } */
 
 struct pos *
 mat (struct pos *p, struct level *lv, int dfloor, int dplace)
@@ -442,21 +408,11 @@ aco (struct solution *sol)
       graph[i][j].y = j;
       graph[i][j].frequency = 0;
       graph[i][j].pheromone = 1.;
-      /* if (mat_con (&sol->lv, i, j)->fg != WALL) */
-      /* 	graph[i][j].accessible = true; */
-      /* else */
-	graph[i][j].accessible = false;
+      graph[i][j].accessible = false;
     }
 
-  struct cell inicio;
-  inicio.i = 0; inicio.j = 1;
-
-  struct cell *checar_em;
-  size_t tamanho = 0;
-  checar_em = add_to_array (&inicio, 1, NULL, &tamanho, 
-			    0, sizeof (*checar_em));
-
-  graph = acessos (graph, &sol->lv, checar_em, tamanho, 3);
+  struct cell inicio = {0, 1};
+  graph = acessos (graph, &sol->lv, inicio, 3);
 
   /* print_accessible (graph, &sol->lv); */
   /* getchar (); */
@@ -493,8 +449,6 @@ aco (struct solution *sol)
 
   while (steps-- && converg < conv_rate) {
 
-    /* printf ("While - step = %d\n", steps); */
-    
     for (ant = 0; ant < ants; ++ant) {
 
       /* ANT WALK */
@@ -566,12 +520,12 @@ aco (struct solution *sol)
 	   rand_max > ceil (prob_acc); /* && ii < 4; */
 	   prob_acc += probaround[++ii].normprob);
 
-      if (ant == 0) {
+      /* if (ant == 0) { */
 	/* printf("\nstep = %d\n", steps); */
 	/* printdep (formiga[ant].frequency, probaround, */
 	/* 	  rsum, rand_max, ii, &sol->lv); */
 	/* getchar(); */
-      }
+      /* } */
 
       formiga[ant].path = add_to_array (&probaround[ii].n, 1, 
 					formiga[ant].path,
@@ -786,15 +740,12 @@ proximity (int jx, int jy)
 
   return 
     (1. - k) 
-    //1
     * (dtotal + 1.) / (dist + 1.);
 }
 
 double
 evasion (int frequency)
 {
-  /* printf ("FFFF> %i\n", frequency); */
-
   return (frequency) ? 1.0 / frequency : 1.0;
 }
 
@@ -887,59 +838,61 @@ opt_sol (struct ant *ant)
 
 struct node **
 acessos (struct node **g, struct level *lv, 
-	 struct cell *c, size_t nmemb, int lifes)
+	 struct cell c, int lifes)
 {
   int ii, jj;
-  struct cell *add;
 
-  if (nmemb == 0)
-    return g;
+  int x = c.i;
+  int y = c.j;
 
-  int x = c[nmemb-1].i;
-  int y = c[nmemb-1].j;
-
-  c = remove_from_array (c, &nmemb, nmemb-1, 1, sizeof (*c));
+  g[x][y].accessible = true;
   
   struct pos *p = mat (malloc (sizeof (*p)), lv, x, y);
-  int pa = x - 1;
+  int pa = x - 1;      
 
   int di;
   enum dir d;
   for (di = 0, d = RIGHT; di < 2; ++di, d = LEFT) {
     int inc = (d == RIGHT) ? 1 : -1;
-
+ 
     if (xis_hangable_pos (lv, p, d)) {
 
       if (g[pa][y].accessible == false) {
 	g[pa][y].accessible = true;
-	add = (struct cell *) malloc (sizeof (*add));
-	add->i = pa; add->j = y;
-	c = add_to_array (add, 1, c, &nmemb, nmemb, sizeof (*c));
+	struct cell cel = {pa, y};
+	g = acessos (g, lv, cel, lifes);
       }
 
       if (g[pa][y+inc].accessible == false) {
 	g[pa][y+inc].accessible = true;
-	add = (struct cell *) malloc (sizeof (*add));
-	add->i = pa; add->j = y+inc;
-	c = add_to_array (add, 1, c, &nmemb, nmemb, sizeof (*c));
+	struct cell cel = {pa, y+inc};
+	g = acessos (g, lv, cel, lifes);
       }
+    }
+
+    int veloc;
+    if (mat_con (lv, x, (y-inc)) != NULL 
+	&& mat_con (lv, x, (y-2*inc)) != NULL 
+	&& mat_con (lv, x, (y-inc))->fg == FLOOR
+	&& mat_con (lv, x, (y-2*inc))->fg == FLOOR)
+ 
+      veloc = 1;
+    
+    else {
+      veloc = 0;
     }
 
     if (!xis_strictly_traversable (lv, p)) {
 
-
       int j;
       int cut = x-1;
-      for (j = 0, jj = y+inc; j < 3; ++j, jj += inc) {
+      for (j = 0, jj = y+inc; j < (3+veloc); ++j, jj += inc) {
 
-	for (ii = x; (ii < x+3 && j != 0) || (j == 0 && ii < (x+(lifes > 1)?4:3));
-	     ++ii) {
-
-	  if (cut >= ii)
+	for (ii = x; (j == 0 && ii < (x+((lifes > 1)?4:3)))
+	       || (j != 0 && ii < x+3); ++ii) {
+	  
+	  if (cut == ii)
 	    break;
-
-	  if (ii == x+3)
-	    --lifes;
 
 	  struct con *co = mat_con (lv, ii, jj);
 	  if (co == NULL || co->fg == WALL) {
@@ -947,14 +900,13 @@ acessos (struct node **g, struct level *lv,
 	    break;
 	  }
 
-	  if (j == 2 && ii == x)
+	  if ((j == (2+veloc)) && (ii == x))
 	    continue;
 
 	  if (g[ii][jj].accessible == false) {
 	    g[ii][jj].accessible = true;
-	    add = (struct cell *) malloc (sizeof (*add));
-	    add->i = ii; add->j = jj;
-	    c = add_to_array (add, 1, c, &nmemb, nmemb, sizeof (*c));
+	    struct cell cel = {ii, jj};
+	    g = acessos (g, lv, cel, ((ii != x+3)?lifes:lifes-1));
 	  }
 	  
 	}
@@ -968,7 +920,7 @@ acessos (struct node **g, struct level *lv,
       }
     }
   }
-  return acessos (g, lv, c, nmemb, lifes);
+  return g;
 }
 
 
