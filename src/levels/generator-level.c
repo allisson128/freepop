@@ -14,6 +14,9 @@
 
 struct solution {
   struct level lv;
+  struct node ***dbsolutions;
+  int *nmembs;
+  int nsolutions;
   double rate;
 };
 
@@ -63,7 +66,7 @@ static bool is_pattern (struct level *lv, int i, int j,
 			struct pattern *p);
 static struct level *mutation_wall_alg (struct level *lv, 
 					double max_mut_rate);
-static int fitness (struct level *lv);
+static double fitness (struct solution *lv);
 static bool aco (struct solution *sol);
 static bool is_dead_end (int WIDTH, int HEIGHT; 
 			 struct level *lv, int visited[MH][MW], 
@@ -159,23 +162,28 @@ next_generator_level (int number)
   int i, j, it, choice, room;
   struct pos p;
   double mutation_rate = 0.0;
-
   random_seed = number;
+
+  /* struct solution *pop = (struct solution *) malloc (POPSIZE * sizeof (struct solution)); */
+  /* memset (pop, 0, POPSIZE * sizeof (pop)); */
 
   /* struct level *lv = &generator_level; */
   /* struct level *lv = &level; */
+  
 
-  /* memset (&pop, 0, sizeof (pop)); */
   /* memset (&sons, 0, sizeof (sons)); */
   
+  /* Define as dimensoes */
   squarify (ROOMS-1, &HEIGHT, &WIDTH);
 
-  /* generate initial population */
+  /* Gerador da Populacao Inicial */
+  /* pop_generator ();  */
+  /* pop_generator ();  */
   for (it = 0; it < POPSIZE; ++it) {
-    
+
     struct level *lv = &pop[it].lv;
 
-    /* generate room 0 (delimiter room) */
+    /* gera sala 0 (delimiter room) */
     p.room = 0;
     for (p.floor = 0; p.floor < FLOORS; p.floor++)
       for (p.place = 0; p.place < PLACES; p.place++) {
@@ -187,6 +195,7 @@ next_generator_level (int number)
 	/* sons[it].lv.con[p.room][p.floor][p.place].fg = NO_BG; */
       }
 
+    /* Liga as salas do cenario */
     for (i = 0; i < HEIGHT; ++i)
       for (j = 0; j < WIDTH; ++j) {
     	room = i*WIDTH+j+1;
@@ -196,6 +205,7 @@ next_generator_level (int number)
     	lv->link[room].b = (i != (HEIGHT-1)) ? room + WIDTH : 0;
       }
 
+    /* cenario sem paredes */
     for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
       for (j = 0; mat_con (lv, i, j); ++j) {
     	mat_con (lv, i, j)->fg = NO_FLOOR;
@@ -208,6 +218,7 @@ next_generator_level (int number)
 	/*   mat_con (lv, i, j)->fg = WALL; */
       }
 
+    /* Parametros para Alg. Geracao de Paredes */
     int r, prob;
     int square_prob          = 50; //= 50;
     int corner_prob          = 60; //= 60;
@@ -215,6 +226,7 @@ next_generator_level (int number)
     int continuous_wall_prob = 70; //70;
     int default_prob         = 20; //20;
 
+    /* mini-roleta para decidir onde tera parede segundo os parametros */
     for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
       for (j = 0; mat_con (lv, i, j); ++j) {
 
@@ -354,16 +366,16 @@ struct level *
 mutation_wall_alg (struct level *lv, double max_mut_rate)
 {
   assert (max_mut_rate >= 0);
-  int i, j, num = round(MW * MH * max_mut_rate);
+  int i, j, num = round (MW * MH * max_mut_rate);
 
-  printf ("mutation\nnum_of_casilhas = %d\n", num);
+  printf ("mutation at %d positions\n", num);
   
   while (num--) {
     i = prandom (MH - 1);
     j = prandom (MW - 1);
 
 
-    printf ("i = %d, j = %d\n", i, j);
+    printf ("position %d: i = %d, j = %d\n", num, i, j);
 
     mat_con (lv, i, j)->fg = (mat_con (lv, i, j)->fg == WALL) ? NO_FLOOR : WALL;
   }
@@ -371,9 +383,12 @@ mutation_wall_alg (struct level *lv, double max_mut_rate)
   return lv;
 }
 
-int
-fitness (struct level *lv)
+double
+fitness (struct solution *sol)
 {
+  /* num_pos_sol = sol->nmemb_best;*/
+  /* num_wall = calcNumWall (&sol->lv); */
+  /* return num_pos_sol * num_wall / num_others */
   return 1;
 }
 
