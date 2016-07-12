@@ -222,8 +222,7 @@ flow (struct anim *g)
 static bool
 physics_in (struct anim *g)
 {
-  struct coord nc;
-  struct pos np, pbf, pmt, pmtf, pmtb,
+  struct pos pbf, pmt, pmtf, pmtb,
     npmbo, npmbo_nf;
   struct frame nf;
   struct frame_offset fo;
@@ -233,7 +232,7 @@ physics_in (struct anim *g)
 
     int dirf = (g->f.dir == LEFT) ? -1 : +1;
     int dirb = (g->f.dir == LEFT) ? +1 : -1;
-    survey (_mt, pos, &g->f, &nc, &pmt, &np);
+    survey (_mt, pos, &g->f, NULL, &pmt, NULL);
     prel (&pmt, &pmtf, +0, dirf);
     prel (&pmt, &pmtb, +0, dirb);
 
@@ -264,9 +263,9 @@ physics_in (struct anim *g)
   }
   fo.dy += 8;
 
-  survey (_mbo, pos, &g->f, &nc, &np, &npmbo);
+  survey (_mbo, pos, &g->f, NULL, NULL, &npmbo);
   next_frame (&g->f, &nf, &fo);
-  survey (_mbo, pos, &nf, &nc, &np, &npmbo_nf);
+  survey (_mbo, pos, &nf, NULL, NULL, &npmbo_nf);
 
   if (g->i > 2
       && ! is_strictly_traversable (&npmbo)
@@ -277,7 +276,7 @@ physics_in (struct anim *g)
     uncollide (&g->f, &g->fo, &g->fo, +0, false, &g->ci);
     uncollide (&g->f, &g->fo, &g->fo, +0, true, &g->ci);
 
-    survey (_bf, pos, &g->f, &nc, &pbf, &np);
+    survey (_bf, pos, &g->f, NULL, &pbf, NULL);
     /* pos2view (&pbf, &pbf); */
     frameset = get_guard_vigilant_frameset (g->type);
     g->f.b = frameset[0].frame;
@@ -301,7 +300,7 @@ physics_in (struct anim *g)
 
     stop_sample (scream_sample, NULL, g->id);
 
-    survey (_mt, pos, &g->f, &nc, &pmt, &np);
+    survey (_mt, pos, &g->f, NULL, &pmt, NULL);
     g->p = pmt;
 
     if (con (&pmt)->fg == SPIKES_FLOOR
@@ -366,17 +365,16 @@ is_guard_fall (struct frame *f)
 static void
 place_in_initial_fall (struct anim *g)
 {
-  struct coord nc;
-  struct pos np, pmt, pmtf, pmtb;
+  struct pos pmt, pmtf, pmtb;
   struct pos fall_pos;
 
   int dirf = (g->f.dir == LEFT) ? -1 : +1;
   int dirb = (g->f.dir == LEFT) ? +1 : -1;
-  survey (_mt, pos, &g->f, &nc, &pmt, &np);
+  survey (_mt, pos, &g->f, NULL, &pmt, NULL);
   prel (&pmt, &pmtf, +0, dirf);
   prel (&pmt, &pmtb, +0, dirb);
 
-  fall_pos.room = -1;
+  invalid_pos (&fall_pos);
 
   if (is_strictly_traversable (&pmt)) fall_pos = pmt;
   else if (is_strictly_traversable (&pmtf)) fall_pos = pmtf;
@@ -384,7 +382,7 @@ place_in_initial_fall (struct anim *g)
 
   struct frameset *frameset = get_guard_fall_frameset (g->type);
 
-  if (fall_pos.room != - 1)
+  if (is_valid_pos (&fall_pos))
     place_frame (&g->f, &g->f, frameset[0].frame,
                  &fall_pos,
                  (g->f.dir == LEFT) ? PLACE_WIDTH - 12 : +6,

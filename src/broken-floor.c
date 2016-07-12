@@ -192,8 +192,8 @@ draw_broken_floor_fg (ALLEGRO_BITMAP *bitmap, struct pos *p,
   int i;
   for (i = 0; i < anima_nmemb; i++) {
     struct anim *a = &anima[i];
-    struct coord nc; struct pos np, pmt;
-    survey (_mt, pos, &a->f, &nc, &pmt, &np);
+    struct pos pmt;
+    survey (_mt, pos, &a->f, NULL, &pmt, NULL);
     if (peq (&pmt, p) && is_anim_dead (&a->f)) return;
   }
 
@@ -228,19 +228,19 @@ draw_broken_floor_fg (ALLEGRO_BITMAP *bitmap, struct pos *p,
 struct coord *
 broken_floor_right_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * (p->place + 1);
-  c->y = PLACE_HEIGHT * p->floor + 49;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * (p->place + 1),
+               PLACE_HEIGHT * p->floor + 49);
 }
 
 struct coord *
 broken_floor_front_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * p->place;
-  c->y = PLACE_HEIGHT * p->floor + 54;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * p->place,
+               PLACE_HEIGHT * p->floor + 54);
 }
 
 ALLEGRO_BITMAP *

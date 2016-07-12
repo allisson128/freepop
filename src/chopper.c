@@ -327,14 +327,13 @@ bool
 should_chomp (struct pos *p)
 {
   int i;
-  struct coord nc;
-  struct pos np, pm, _p;
+  struct pos pm, _p;
 
   for (i = 0; i < anima_nmemb; i++) {
     struct anim *a = &anima[i];
     if (a->type != KID
         || (is_anim_dead (&a->f) && ! a->id == 0)) continue;
-    survey (_m, pos, &a->f, &nc, &pm, &np);
+    survey (_m, pos, &a->f, NULL, &pm, NULL);
     int inc = p->place < pm.place ? +1 : -1;
     if (p->room == pm.room && p->floor == pm.floor) {
       for (_p = *p; _p.place != pm.place; _p.place += inc)
@@ -356,10 +355,6 @@ compute_choppers (void)
 
     if (c->inactive) continue;
 
-    if (c->p.room == -1) {
-      /* remove_chopper (d); i--; */
-      continue;
-    }
     switch (c->i) {
     case 0:
       if (! c->alert) c->alert = ! should_chomp (&c->p);
@@ -400,10 +395,12 @@ compute_choppers (void)
       if (a->type == MOUSE
           || is_anim_fall (&a->f)
           || a->immortal
-          || a->chopper_immune) continue;
-      struct coord nc; struct pos np, pbf, pbb;
-      survey (_bf, pos, &a->f, &nc, &pbf, &np);
-      survey (_bb, pos, &a->f, &nc, &pbb, &np);
+          || a->chopper_immune
+          || (a->action == kid_walk && a->walk != -1))
+        continue;
+      struct pos pbf, pbb;
+      survey (_bf, pos, &a->f, NULL, &pbf, NULL);
+      survey (_bb, pos, &a->f, NULL, &pbb, NULL);
       pos2room (&pbf, c->p.room, &pbf);
       pos2room (&pbb, c->p.room, &pbb);
       if ((((pbf.room == c->p.room
@@ -417,7 +414,6 @@ compute_choppers (void)
           && (! is_anim_dead (&a->f) || ! is_anim_chopped (&a->f))) {
         if (a->type != SKELETON) c->blood = true;
         a->splash = true;
-        a->current_lives = 0;
         a->p = c->p;
         a->death_reason = CHOPPER_DEATH;
         if (a->id == current_kid_id) {
@@ -855,55 +851,55 @@ draw_fg_05 (ALLEGRO_BITMAP *bitmap, struct pos *p, struct chopper *ch,
 struct coord *
 chopper_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * p->place;
-  c->y = PLACE_HEIGHT * p->floor + 3;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * p->place,
+               PLACE_HEIGHT * p->floor + 3);
 }
 
 struct coord *
 blood_01_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * p->place + 12;
-  c->y = PLACE_HEIGHT * p->floor + 48;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * p->place + 12,
+               PLACE_HEIGHT * p->floor + 48);
 }
 
 struct coord *
 blood_02_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * p->place + 12;
-  c->y = PLACE_HEIGHT * p->floor + 39;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * p->place + 12,
+               PLACE_HEIGHT * p->floor + 39);
 }
 
 struct coord *
 blood_03_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * p->place + 12;
-  c->y = PLACE_HEIGHT * p->floor + 28;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * p->place + 12,
+               PLACE_HEIGHT * p->floor + 28);
 }
 
 struct coord *
 blood_04_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * p->place + 12;
-  c->y = PLACE_HEIGHT * p->floor + 32;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * p->place + 12,
+               PLACE_HEIGHT * p->floor + 32);
 }
 
 struct coord *
 blood_05_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * p->place + 12;
-  c->y = PLACE_HEIGHT * p->floor + 52;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * p->place + 12,
+               PLACE_HEIGHT * p->floor + 52);
 }
 
 ALLEGRO_COLOR

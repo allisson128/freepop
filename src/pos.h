@@ -23,19 +23,22 @@
 extern bool coord_wa;
 
 /* types */
-int *xroomd_ptr (struct level *l, int room, enum dir dir);
-int *roomd_ptr (int room, enum dir dir);
-int roomd (int room, enum dir dir);
-int xroomd (struct level *l, int room, enum dir dir);
-int roomd_n0 (int room, enum dir dir);
-bool is_room_adjacent (int room0, int room1);
-void link_room (int room0, int room1, enum dir dir);
-int room_dist (int r0, int r1, int max);
+int *roomd_ptr (struct level *l, int room, enum dir dir);
+int roomd (struct level *l, int room, enum dir dir);
+int roomd_n0 (struct level *l, int room, enum dir dir);
+bool is_room_adjacent (struct level *l, int room0, int room1);
+void link_room (struct level *l, int room0, int room1, enum dir dir);
+int room_dist (struct level *l, int r0, int r1, int max);
 int min_room_dist (struct room_dist room[], int *dmax);
+struct coord *new_coord (struct coord *c, struct level *l, int room, int x, int y);
+struct coord *invalid_coord (struct coord *c);
+bool is_valid_coord (struct coord *c);
 bool coord_eq (struct coord *_c0, struct coord *_c1);
 struct coord *ncoord (struct coord *c, struct coord *nc);
+struct pos *new_pos (struct pos *p, struct level *l,
+                     int room, int floor, int place);
+struct pos *invalid_pos (struct pos *p);
 bool is_valid_pos (struct pos *p);
-struct pos *xnpos (struct level *l, struct pos *p, struct pos *np);
 struct pos *npos (struct pos *p, struct pos *np);
 struct coord *nframe (struct frame *f, struct coord *c);
 struct pos *pos2room (struct pos *p, int room, struct pos *pv);
@@ -46,6 +49,7 @@ bool coord4draw (struct coord *c, int room, struct coord *cv);
 int pos_mod (struct pos *p0, struct pos *p1);
 int coord_mod (struct coord *c);
 struct pos *pos_gen (struct coord *c, struct pos *p, int dx, int dy);
+struct pos *posb (struct coord *c, struct pos *p);
 struct pos *pos (struct coord *c, struct pos *p);
 struct pos *posf (struct coord *c, struct pos *p);
 struct pos *prel (struct pos *p, struct pos *pr, int floor, int place);
@@ -55,7 +59,7 @@ bool peq (struct pos *p0, struct pos *p1);
 bool peqr (struct pos *p0, struct pos *p1, int floor, int place);
 struct pos *reflect_pos_h (struct pos *p0, struct pos *p1);
 struct pos *reflect_pos_v (struct pos *p0, struct pos *p1);
-struct pos *random_pos (struct pos *p);
+struct pos *random_pos (struct level *l, struct pos *p);
 double dist_coord (struct coord *a, struct coord *b);
 struct frame *place_frame (struct frame *f, struct frame *nf,
                            ALLEGRO_BITMAP *b, struct pos *p,
@@ -84,6 +88,9 @@ struct coord *_bf (struct frame *f, struct coord *c);
 struct coord *_bb (struct frame *f, struct coord *c);
 
 struct con *
+survey (coord_f cf, pos_f pf, struct frame *f,
+        struct coord *c, struct pos *p, struct pos *np);
+struct con *
 surveyo (coord_f cf, int dx, int dy, pos_f pf, struct frame *f,
          struct coord *c, struct pos *p, struct pos *np);
 struct coord *place_on_the_ground (struct frame *f, struct coord *c);
@@ -92,7 +99,5 @@ struct coord *place_at_distance (struct frame *f0, coord_f cf0,
                                  int d, enum dir dir, struct coord *c);
 struct coord *
 place_at_pos (struct frame *f, coord_f cf, struct pos *p, struct coord *c);
-
-#define survey(coord_f,pos_f,f,c,p,np) (con (npos ((pos_f) ((coord_f) ((f), (c)), (p)), (np))))
 
 #endif	/* MININIM_POSITION_H */

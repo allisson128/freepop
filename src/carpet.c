@@ -263,27 +263,27 @@ draw_carpet_fg (ALLEGRO_BITMAP *bitmap, struct pos *p,
 
   draw_door_pole (bitmap, p, em, vm);
 
-  if (should_draw_door_grid (p, f))
+  if (should_draw_door_grid (p, f)) {
     draw_carpet_right (bitmap, p, em, vm);
-
-  draw_confg_base (bitmap, &pr, em, vm);
-  draw_confg_left (bitmap, &pr, em, vm, true);
+    draw_confg_base (bitmap, &pr, em, vm);
+    draw_confg_left (bitmap, &pr, em, vm, true);
+  }
 }
 
 struct coord *
 carpet_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * (p->place + 1);
-  c->y = PLACE_HEIGHT * p->floor + 3;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * (p->place + 1),
+               PLACE_HEIGHT * p->floor + 3);
 }
 
 struct coord *
 carpet_top_coord (struct pos *p, struct coord *c)
 {
-  c->x = PLACE_WIDTH * (p->place + 1);
-  c->y = PLACE_HEIGHT * p->floor - 9;
-  c->room = p->room;
-  return c;
+  return
+    new_coord (c, p->l, p->room,
+               PLACE_WIDTH * (p->place + 1),
+               PLACE_HEIGHT * p->floor - 9);
 }

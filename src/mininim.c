@@ -66,7 +66,7 @@ bool immortal_mode;
 int initial_total_lives = KID_INITIAL_TOTAL_LIVES, total_lives;
 int initial_current_lives = KID_INITIAL_CURRENT_LIVES, current_lives;
 int start_level = 1;
-struct pos start_pos = {-1,-1,-1};
+struct pos start_pos = {NULL, -1,-1,-1};
 int time_limit = TIME_LIMIT;
 int start_time = START_TIME;
 int start_level_time;
@@ -116,8 +116,8 @@ static struct argp_option options[] = {
 
   /* Time */
   {NULL, 0, NULL, 0, "Time:", 0},
-  {"time-limit", TIME_LIMIT_OPTION, "N", 0, "Set the time limit to complete the game to N seconds.  The default is 3600 (1 hour).  Valid integers range from 1 to INT_MAX.  This can be changed in-game by the + and - key bindings.", 0},
-  {"start-time", START_TIME_OPTION, "N", 0, "Set the play time counter to N seconds.  The default is 0.  Valid integers range from 0 to INT_MAX.", 0},
+  {"time-limit", TIME_LIMIT_OPTION, "N", 0, "Set the time limit to complete the game to N cycles.  The default is 43200 (1 hour at 12 Hz).  Valid integers range from 1 to INT_MAX.  This can be changed in-game by the + and - key bindings.", 0},
+  {"start-time", START_TIME_OPTION, "N", 0, "Set the play time counter to N cycles.  The default is 0.  Valid integers range from 0 to INT_MAX.", 0},
   {"time-frequency", TIME_FREQUENCY_OPTION, "N", 0, "Set the time frequency to N Hz in case N > 0, or to 1 / (-N + 2) Hz in case N <= 0.  The default is 12Hz.  Valid integers range from INT_MIN to INT_MAX.  This can be changed in-game by the ( and ) key bindings.", 0},
 
   /* Skills */
@@ -784,19 +784,17 @@ parser (int key, char *arg, struct argp_state *state)
                          &int_val0, &int_val1, &int_val2,
                          &start_pos_room_range, &start_pos_floor_range, &start_pos_place_range);
     if (e) return e;
-    start_pos.room = int_val0;
-    start_pos.floor = int_val1;
-    start_pos.place = int_val2;
+    new_pos (&start_pos, &global_level, int_val0, int_val1, int_val2);
     break;
   case TIME_LIMIT_OPTION:
     e = optval_to_int (&i, key, arg, state, &time_limit_range, 0);
     if (e) return e;
-    time_limit = SEC2CYC (i);
+    time_limit = i;
     break;
   case START_TIME_OPTION:
     e = optval_to_int (&i, key, arg, state, &start_time_range, 0);
     if (e) return e;
-    start_time = SEC2CYC (i);
+    start_time = i;
     break;
   case TIME_FREQUENCY_OPTION:
     e = optval_to_int (&i, key, arg, state, &time_frequency_range, 0);
@@ -1480,7 +1478,7 @@ save_game (char *filename)
   char *start_level_str, *start_time_str,
     *total_lives_str, *kca_str, *kcd_str;
 
-  xasprintf (&start_level_str, "%i", level.number);
+  xasprintf (&start_level_str, "%i", global_level.number);
   xasprintf (&start_time_str, "%i", start_level_time);
   xasprintf (&total_lives_str, "%i", total_lives);
   xasprintf (&kca_str, "%i", skill.counter_attack_prob + 1);

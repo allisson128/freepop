@@ -27,6 +27,7 @@ enum vm {
 };
 
 struct pos {
+  struct level *l;
   int room, floor, place;
 };
 
@@ -44,7 +45,9 @@ enum dir {
 };
 
 struct coord {
-  int prev_room, room, x, y;
+  struct level *l;
+  int room, x, y;
+  int prev_room;
   enum dir xd;
 };
 
@@ -379,10 +382,13 @@ struct anim {
   int dc, df, dl, dcl, dch, dcd;
 
   bool immortal, poison_immune, loose_floor_immune, fall_immune,
-    spikes_immune, chopper_immune, sword_immune;
+    spikes_immune, chopper_immune;
+
+  int sword_immune;
 
   int enemy_id, oenemy_id;
   bool enemy_aware;
+  int enemy_refraction;
 
   bool dont_draw_lives;
 
@@ -400,6 +406,8 @@ struct anim {
     NO_DEATH, FALL_DEATH, LOOSE_FLOOR_DEATH, POTION_DEATH,
     SPIKES_DEATH, CHOPPER_DEATH, FIGHT_DEATH, SHADOW_FIGHT_DEATH
   } death_reason;
+
+  bool glory_sample;
 
   /* depressible floor */
   struct pos df_pos[2];
@@ -554,6 +562,7 @@ struct loose_floor {
   int resist;
   int state;
   bool cant_fall;
+  bool remove;
 
   enum {
     NO_LOOSE_FLOOR_ACTION,

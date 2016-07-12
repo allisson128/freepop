@@ -20,17 +20,10 @@
 #include "mininim.h"
 
 struct con *
-xcon (struct level *l, struct pos *p)
-{
-  struct pos np; xnpos (l, p, &np);
-  return &l->con[np.room][np.floor][np.place];
-}
-
-struct con *
 con (struct pos *p)
 {
   struct pos np; npos (p, &np);
-  return &level.con[np.room][np.floor][np.place];
+  return &np.l->con[np.room][np.floor][np.place];
 }
 
 struct con *
@@ -38,13 +31,6 @@ crel (struct pos *p, int floor, int place)
 {
   struct pos pr;
   return con (prel (p, &pr, floor, place));
-}
-
-struct con *
-xcrel (struct level *l, struct pos *p, int floor, int place)
-{
-  struct pos pr;
-  return xcon (l, prel (p, &pr, floor, place));
 }
 
 bool
@@ -57,16 +43,10 @@ strictly_traversable_cs (enum confg t)
 }
 
 bool
-xis_strictly_traversable (struct level *l, struct pos *p)
-{
-  enum confg t = xcon (l, p)->fg;
-  return strictly_traversable_cs (t);
-}
-
-bool
 is_strictly_traversable (struct pos *p)
 {
-  return xis_strictly_traversable (&level, p);
+  enum confg t = con (p)->fg;
+  return strictly_traversable_cs (t);
 }
 
 bool
@@ -108,16 +88,10 @@ is_carpet_cs (enum confg t)
 }
 
 bool
-xis_carpet (struct level *l, struct pos *p)
-{
-  enum confg t = xcon (l, p)->fg;
-  return is_carpet_cs (t);
-}
-
-bool
 is_carpet (struct pos *p)
 {
-  return xis_carpet (&level, p);
+  enum confg t = con (p)->fg;
+  return is_carpet_cs (t);
 }
 
 bool
@@ -169,7 +143,7 @@ first_confg (struct pos *p0, struct pos *p1, confg_set cs, struct pos *p)
 
   if (np0.room != np1.room
       || np0.floor != np1.floor) {
-    *p = (struct pos) {-1,-1,-1};
+    invalid_pos (p);
     return p;
   }
 
@@ -183,7 +157,7 @@ first_confg (struct pos *p0, struct pos *p1, confg_set cs, struct pos *p)
     return p;
   }
 
-  *p = (struct pos) {-1,-1,-1};
+  invalid_pos (p);
   return p;
 }
 
@@ -192,9 +166,9 @@ next_pos_by_pred (struct pos *p, int dir, pos_pred pred, void *data)
 {
   struct pos q = *p;
 
-  if (q.room < 0 || q.floor < 0 || q.place < 0) q = (struct pos) {0,0,-1};
+  if (q.room < 0 || q.floor < 0 || q.place < 0) new_pos (&q, q.l, 0, 0, -1);
   if (q.room > ROOMS - 1 || q.floor > FLOORS - 1 || q.place > PLACES - 1)
-    q = (struct pos) {ROOMS - 1,FLOORS - 1,PLACES};
+    new_pos (&q, q.l, ROOMS - 1, FLOORS - 1, PLACES);
 
   if (dir < 0) {
     goto loop_prev;
@@ -282,7 +256,7 @@ bool
 is_pos_at_event (int e, void *_p)
 {
   struct pos *p = (struct pos *) _p;
-  return peq (&level.event[e].p, p);
+  return peq (&p->l->event[e].p, p);
 }
 
 void
@@ -291,10 +265,10 @@ exchange_event_pos (struct pos *p0, struct pos *p1)
   if (peq (p0, p1)) return;
   int i;
   for (i = 0; i < EVENTS; i++)
-    if (peq (&level.event[i].p, p0))
-      level.event[i].p = *p1;
-    else if (peq (&level.event[i].p, p1))
-      level.event[i].p = *p0;
+    if (peq (&p0->l->event[i].p, p0))
+      p1->l->event[i].p = *p1;
+    else if (peq (&p1->l->event[i].p, p1))
+      p0->l->event[i].p = *p0;
 }
 
 void
@@ -303,14 +277,14 @@ exchange_guard_pos (struct pos *p0, struct pos *p1, bool invert_dir)
   if (peq (p0, p1)) return;
   int i;
   for (i = 0; i < GUARDS; i++)
-    if (peq (&level.guard[i].p, p0)) {
-      level.guard[i].p = *p1;
+    if (peq (&p0->l->guard[i].p, p0)) {
+      p1->l->guard[i].p = *p1;
       if (invert_dir)
-        level.guard[i].dir = level.guard[i].dir == LEFT ? RIGHT : LEFT;
-    } else if (peq (&level.event[i].p, p1)) {
-      level.guard[i].p = *p0;
+        p1->l->guard[i].dir = (p1->l->guard[i].dir == LEFT) ? RIGHT : LEFT;
+    } else if (peq (&p1->l->event[i].p, p1)) {
+      p0->l->guard[i].p = *p0;
       if (invert_dir)
-        level.guard[i].dir = level.guard[i].dir == LEFT ? RIGHT : LEFT;
+        p0->l->guard[i].dir = (p0->l->guard[i].dir == LEFT) ? RIGHT : LEFT;
     }
 }
 
@@ -318,14 +292,14 @@ void
 exchange_kid_start_pos (struct pos *p0, struct pos *p1, bool invert_dir)
 {
   if (peq (p0, p1)) return;
-  if (peq (&level.start_pos, p0)) {
-    level.start_pos = *p1;
+  if (peq (&p0->l->start_pos, p0)) {
+    p1->l->start_pos = *p1;
     if (invert_dir)
-      level.start_dir = level.start_dir == LEFT ? RIGHT : LEFT;
-  } else if (peq (&level.start_pos, p1)) {
-    level.start_pos = *p0;
+      p1->l->start_dir = p1->l->start_dir == LEFT ? RIGHT : LEFT;
+  } else if (peq (&p1->l->start_pos, p1)) {
+    p0->l->start_pos = *p0;
     if (invert_dir)
-      level.start_dir = level.start_dir == LEFT ? RIGHT : LEFT;
+      p0->l->start_dir = p0->l->start_dir == LEFT ? RIGHT : LEFT;
   }
 }
 
@@ -337,8 +311,8 @@ exchange_anim_pos (struct pos *p0, struct pos *p1, bool invert_dir)
   for (i = 0; i < anima_nmemb; i++) {
     struct anim *a = &anima[i];
 
-    struct coord m; struct pos np, p;
-    survey (_m, pos, &a->f, &m, &p, &np);
+    struct pos p;
+    survey (_m, pos, &a->f, NULL, &p, NULL);
 
     if (peq (&p, p0)) {
       place_at_pos (&a->f, _m, p1, &a->f.c);
@@ -486,6 +460,8 @@ int
 dist_next_place (struct frame *f, coord_f cf, pos_f pf,
                  int margin, bool reverse)
 {
+  if (cutscene) return PLACE_WIDTH + 1;
+
   struct frame _f = *f;
 
   _f.c.x += (_f.dir == LEFT) ? -margin : +margin;
@@ -494,16 +470,14 @@ dist_next_place (struct frame *f, coord_f cf, pos_f pf,
 
   int i = 0;
 
-  struct coord nc;
   struct pos np, _np;
-
-  survey (cf, pf, &_f, &nc, &np, &np);
+  survey (cf, pf, &_f, NULL, NULL, &np);
 
   do {
     i += inc;
     _f.c.x += inc;
     nframe (&_f, &_f.c);
-    survey (cf, pf, &_f, &nc, &_np, &_np);
+    survey (cf, pf, &_f, NULL, NULL, &_np);
   } while (np.place == _np.place
            && abs (i) < PLACE_WIDTH);
 
@@ -514,8 +488,9 @@ bool
 is_colliding (struct frame *f, struct frame_offset *fo, int dx,
               int reverse, struct collision_info *ci)
 {
-  return is_colliding_cf (f, fo, dx, reverse, ci, _bf)
-    || is_colliding_cf (f, fo, dx, reverse, ci, _tf);
+  return ! cutscene
+    && (is_colliding_cf (f, fo, dx, reverse, ci, _bf)
+        || is_colliding_cf (f, fo, dx, reverse, ci, _tf));
 }
 
 bool
@@ -523,7 +498,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
                  int reverse, struct collision_info *ci,
                  coord_f cf)
 {
-  struct coord nc, tf; struct pos np, pcf, _pcf, pocf, p, pl, pr;
+  struct coord tf; struct pos pcf, _pcf, pocf, p, pl, pr;
 
   struct frame _f = *f, nf;
 
@@ -540,10 +515,10 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
 
   coord_f ocf = opposite_cf (cf);
 
-  survey (cf, pos, &_f, &nc, &_pcf, &np);
-  survey (cf, pos, &nf, &nc, &pcf, &np);
-  survey (ocf, pos, &nf, &nc, &pocf, &np);
-  survey (_tf, pos, &nf, &tf, &np, &np);
+  survey (cf, pos, &_f, NULL, &_pcf, NULL);
+  survey (cf, pos, &nf, NULL, &pcf, NULL);
+  survey (ocf, pos, &nf, NULL, &pocf, NULL);
+  _tf (&nf, &tf);
 
   if (pcf.room != _pcf.room) pos2room (&pcf, _f.c.room, &pcf);
   if (pocf.room != pcf.room) pos2room (&pocf, pcf.room, &pocf);
@@ -560,7 +535,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
   /* wall */
 
   if (_f.dir == LEFT && pcf.place <= _pcf.place
-      && _f.c.room != roomd (_f.c.room, LEFT))
+      && _f.c.room != roomd (_f.c.l, _f.c.room, LEFT))
     for (p = _pcf; p.place >= pcf.place; prel (&p, &p, +0, -1))
       if (con (&p)->fg == WALL) {
         wall_collision = true;
@@ -569,7 +544,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
       }
 
   if (_f.dir == RIGHT && pcf.place >= _pcf.place
-      && _f.c.room != roomd (_f.c.room, RIGHT))
+      && _f.c.room != roomd (_f.c.l, _f.c.room, RIGHT))
     for (p = _pcf; p.place <= pcf.place; prel (&p, &p, +0, +1))
       if (con (&p)->fg == WALL) {
         wall_collision = true;
@@ -586,7 +561,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
   /* door */
 
   if (_f.dir == LEFT && pcf.place < _pcf.place
-      && _f.c.room != roomd (_f.c.room, LEFT))
+      && _f.c.room != roomd (_f.c.l, _f.c.room, LEFT))
     for (prel (&_pcf, &p, +0, -1); p.place >= pcf.place; prel (&p, &p, +0, -1))
       if (con (&p)->fg == DOOR
           && tf.y <= door_grid_tip_y (&p) - 10) {
@@ -596,7 +571,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
       }
 
   if (_f.dir == RIGHT && pcf.place > _pcf.place
-      && _f.c.room != roomd (_f.c.room, RIGHT))
+      && _f.c.room != roomd (_f.c.l, _f.c.room, RIGHT))
     for (prel (&_pcf, &p, +0, +1); p.place <= pcf.place; prel (&p, &p, +0, +1)) {
       prel (&p, &pl, +0, -1);
       if (con (&pl)->fg == DOOR
@@ -625,7 +600,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
   /* carpet */
 
   if (_f.dir == LEFT && pcf.place < _pcf.place
-      && _f.c.room != roomd (_f.c.room, LEFT))
+      && _f.c.room != roomd (_f.c.l, _f.c.room, LEFT))
     for (prel (&_pcf, &p, +0, -1); p.place >= pcf.place; prel (&p, &p, +0, -1))
       if (is_carpet (&p)) {
         carpet_collision = true;
@@ -634,7 +609,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
       }
 
   if (_f.dir == RIGHT && pcf.place > _pcf.place
-      && _f.c.room != roomd (_f.c.room, RIGHT))
+      && _f.c.room != roomd (_f.c.l, _f.c.room, RIGHT))
     for (prel (&_pcf, &p, +0, +1); p.place <= pcf.place; prel (&p, &p, +0, +1)) {
       prel (&p, &pl, +0, -1);
       if (is_carpet (&pl)) {
@@ -660,7 +635,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
   /* mirror */
 
   if (_f.dir == LEFT && pcf.place < _pcf.place
-      && _f.c.room != roomd (_f.c.room, LEFT))
+      && _f.c.room != roomd (_f.c.l, _f.c.room, LEFT))
     for (prel (&_pcf, &p, +0, -1); p.place >= pcf.place; prel (&p, &p, +0, -1)) {
       prel (&p, &pr, +0, +1);
       if (con (&pr)->fg == MIRROR) {
@@ -671,7 +646,7 @@ is_colliding_cf (struct frame *f, struct frame_offset *fo, int dx,
     }
 
   if (_f.dir == RIGHT && pcf.place > _pcf.place
-      && _f.c.room != roomd (_f.c.room, RIGHT))
+      && _f.c.room != roomd (_f.c.l, _f.c.room, RIGHT))
     for (prel (&_pcf, &p, +0, +1); p.place <= pcf.place; prel (&p, &p, +0, +1)) {
       if (con (&p)->fg == MIRROR) {
         mirror_collision = true;
@@ -741,8 +716,8 @@ is_on_con (struct frame *f, coord_f cf, pos_f pf,
   int r = reverse ? -1 : 1;
   int dir = (_f.dir == LEFT) ? r * -1: r * +1;
 
-  struct coord c; struct pos p, np;
-  survey (cf, pf, &_f, &c, &p, &np);
+  struct pos p;
+  survey (cf, pf, &_f, NULL, &p, NULL);
 
   return dn <= min_dist && crel (&p, 0, dir)->fg == t;
 }
@@ -751,6 +726,8 @@ int
 dist_collision (struct frame *f, int reverse,
                 struct collision_info *ci)
 {
+  if (cutscene) return PLACE_WIDTH + 1;
+
   int i = 0, dx = +1;
   struct frame _f = *f;
   struct frame_offset _fo;
@@ -782,6 +759,8 @@ int
 dist_con (struct frame *f, coord_f cf, pos_f pf,
           int margin, bool reverse, enum confg t)
 {
+  if (cutscene) return PLACE_WIDTH + 1;
+
   int dn = dist_next_place (f, cf, pf, margin, reverse);
   if (is_on_con (f, cf, pf, margin, reverse, dn, t)) return dn;
   else return PLACE_WIDTH + 1;
@@ -790,12 +769,14 @@ dist_con (struct frame *f, coord_f cf, pos_f pf,
 int
 dist_chopper (struct frame *f, bool reverse)
 {
-  struct coord nc; struct pos np, ptf, ptfr;
+  if (cutscene) return PLACE_WIDTH + 1;
+
+  struct pos ptf, ptfr;
 
   struct frame _f = *f;
   if (reverse) _f.dir = (_f.dir == LEFT) ? RIGHT : LEFT;
 
-  enum confg ctf = survey (_tf, pos, &_f, &nc, &ptf, &np)->fg;
+  enum confg ctf = survey (_tf, pos, &_f, NULL, &ptf, NULL)->fg;
   prel (&ptf, &ptfr, +0, +1);
   enum confg ctfr = con (&ptfr)->fg;
 
@@ -810,6 +791,8 @@ dist_chopper (struct frame *f, bool reverse)
 int
 dist_fall (struct frame *f, bool reverse)
 {
+  if (cutscene) return PLACE_WIDTH + 1;
+
   int dnf, dbpt, datm, dats, datl, datr, dtc;
 
   dnf = dist_con (f, _bf, pos, -4, reverse, NO_FLOOR);
@@ -859,27 +842,21 @@ is_hangable_cs (enum confg t, enum dir d)
 }
 
 bool
-xis_hangable_pos (struct level *l, struct pos *p, enum dir d)
+is_hangable_pos (struct pos *p, enum dir d)
 {
   int dir = (d == LEFT) ? -1 : +1;
   struct pos ph; prel (p, &ph, -1, dir);
-  struct con *ch = xcon (l, &ph);
+  struct con *ch = con (&ph);
   struct pos pa; prel (p, &pa, -1, 0);
   struct pos pr; prel (p, &pr, +0, +1);
-  struct con *cr = xcon (l, &pr);
+  struct con *cr = con (&pr);
 
   return is_hangable_cs (ch->fg, d)
-    && xis_strictly_traversable (l, &pa)
+    && is_strictly_traversable (&pa)
     && ! (d == RIGHT && cr->fg == CHOPPER)
     && ! (d == RIGHT && cr->fg == MIRROR)
-    && ! (d == RIGHT && xis_carpet (l, p))
-    && ! (d == RIGHT && xis_carpet (l, &pa));
-}
-
-bool
-is_hangable_pos (struct pos *p, enum dir d)
-{
-  return xis_hangable_pos (&level, p, d);
+    && ! (d == RIGHT && is_carpet (p))
+    && ! (d == RIGHT && is_carpet (&pa));
 }
 
 bool
@@ -893,11 +870,10 @@ can_hang (struct frame *f, bool reverse, struct pos *hang_pos)
 
   struct coord tb; _tb (&_f, &tb);
 
-  struct coord bf, mbo, bb;
-  struct pos pbf, npbf, pmbo, npmbo, pbb, npbb, pbbb;
-  survey (_bf, pos, &_f, &bf, &pbf, &npbf);
-  survey (_mbo, pos, &_f, &mbo, &pmbo, &npmbo);
-  survey (_bb, pos, &_f, &bb, &pbb, &npbb);
+  struct pos pbf, pmbo, pbb, pbbb;
+  survey (_bf, pos, &_f, NULL, &pbf, NULL);
+  survey (_mbo, pos, &_f, NULL, &pmbo, NULL);
+  survey (_bb, pos, &_f, NULL, &pbb, NULL);
   prel (&pbb, &pbbb, +0, (_f.dir == LEFT) ? +1 : -1);
 
   bool hbf = is_hangable_pos (&pbf, _f.dir);
@@ -966,6 +942,8 @@ is_hang_pos_free (struct pos *hang_pos, enum dir d)
 void
 update_depressible_floor (struct anim *a, int dx0, int dx1)
 {
+  if (cutscene) return;
+
   struct coord c0, c1;
   struct pos p0, p1;
 
@@ -979,9 +957,13 @@ update_depressible_floor (struct anim *a, int dx0, int dx1)
   c1.x += dir * dx1;
   pos (&c1, &p1);
 
+  if (a->current_lives <= 0 && con (&p0)->fg == CLOSER_FLOOR)
+    closer_floor_at_pos (&p0)->unresponsive = true;
   press_depressible_floor (&p0);
   a->df_pos[0] = p0;
 
+  if (a->current_lives <= 0 && con (&p1)->fg == CLOSER_FLOOR)
+    closer_floor_at_pos (&p1)->unresponsive = true;
   press_depressible_floor (&p1);
   a->df_pos[1] = p1;
 }
@@ -999,8 +981,8 @@ keep_depressible_floor (struct anim *a)
 void
 clear_depressible_floor (struct anim *a)
 {
-  a->df_pos[0].room = -1;
-  a->df_pos[1].room = -1;
+  invalid_pos (&a->df_pos[0]);
+  invalid_pos (&a->df_pos[1]);
 }
 
 void
@@ -1020,7 +1002,7 @@ restore_depressible_floor (struct anim *a)
 void
 press_depressible_floor (struct pos *p)
 {
-  if (p->room == -1) return;
+  if (cutscene || ! is_valid_pos (p)) return;
 
   switch (con (p)->fg) {
   case OPENER_FLOOR: press_opener_floor (p); break;

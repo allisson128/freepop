@@ -53,8 +53,7 @@ kid_sword_normal (struct anim *k)
 static bool
 flow (struct anim *k)
 {
-  struct coord nc;
-  struct pos np, pmt;
+  struct pos pmt;
 
   bool keep_sword = k->key.down;
   bool defense = k->key.up && ! k->key.shift
@@ -66,13 +65,16 @@ flow (struct anim *k)
   bool walkb = ((k->f.dir == RIGHT) && k->key.left)
     || ((k->f.dir == LEFT) && k->key.right);
 
-  k->keep_sword_fast = k->enemy_id != -1;
+  struct anim *ke = get_anim_by_id (k->enemy_id);
+  k->keep_sword_fast = (k->enemy_id != -1
+                        && ke->current_lives > 0
+                        && ! is_anim_fall (&ke->f));
 
   if (k->oaction != kid_sword_normal) k->i = -1;
 
   if (k->oaction == kid_sword_normal
       && k->current_lives <= 0) {
-    survey (_mt, pos, &k->f, &nc, &pmt, &np);
+    survey (_mt, pos, &k->f, NULL, &pmt, NULL);
     k->p = pmt;
     kid_die (k);
     return false;
@@ -122,19 +124,20 @@ flow (struct anim *k)
 static bool
 physics_in (struct anim *k)
 {
-  struct coord nc; struct pos np, pbf, pmbo, pbb;
+  struct pos pbf, pmbo, pbb;
 
   /* collision */
   uncollide (&k->f, &k->fo, &k->fo, +0, true, &k->ci);
   if (fight_door_split_collision (k)) return false;
 
   /* fall */
-  survey (_bf, pos, &k->f, &nc, &pbf, &np);
-  survey (_mbo, pos, &k->f, &nc, &pmbo, &np);
-  survey (_bb, pos, &k->f, &nc, &pbb, &np);
+  survey (_bf, pos, &k->f, NULL, &pbf, NULL);
+  survey (_mbo, pos, &k->f, NULL, &pmbo, NULL);
+  survey (_bb, pos, &k->f, NULL, &pbb, NULL);
   if (is_strictly_traversable (&pbf)
       || is_strictly_traversable (&pmbo)
-      || is_strictly_traversable (&pbb)) {
+      /* || is_strictly_traversable (&pbb) */
+      ) {
     k->xf.b = NULL;
     kid_fall (k);
     return false;

@@ -73,8 +73,9 @@ unload_kid_die (void)
 void
 kid_resurrect (struct anim *k)
 {
-  struct coord nc; struct pos np, pm;
-  survey (_m, pos, &k->f, &nc, &pm, &np);
+  if (k->current_lives > 0) return;
+  struct pos pm;
+  survey (_m, pos, &k->f, NULL, &pm, NULL);
   k->current_lives = k->total_lives;
   k->death_reason = NO_DEATH;
   k->action = kid_normal;
@@ -84,6 +85,7 @@ kid_resurrect (struct anim *k)
   stop_sample (death_sample, NULL, k->id);
   stop_sample (fight_death_sample, NULL, k->id);
   stop_sample (success_suspense_sample, NULL, k->id);
+  k->sword_immune = 16;
 }
 
 void
@@ -183,9 +185,8 @@ kid_die_suddenly (struct anim *k)
   uncollide (&k->f, &k->fo, &k->fo, +0, true, &k->ci);
 
   /* fall */
-  struct coord nc;
-  struct pos np, pm;
-  survey (_m, pos, &k->f, &nc, &pm, &np);
+  struct pos pm;
+  survey (_m, pos, &k->f, NULL, &pm, NULL);
   if (is_strictly_traversable (&pm)) {
     kid_fall (k);
     return;
@@ -248,9 +249,8 @@ physics_in (struct anim *k)
   uncollide (&k->f, &k->fo, &k->fo, +0, true, &k->ci);
 
   /* fall */
-  struct coord nc;
-  struct pos np, pm;
-  survey (_m, pos, &k->f, &nc, &pm, &np);
+  struct pos pm;
+  survey (_m, pos, &k->f, NULL, &pm, NULL);
   if (is_strictly_traversable (&pm)) {
     kid_fall (k);
     return false;
@@ -296,7 +296,7 @@ is_kid_chopped (struct frame *f)
 void
 kill_kid_shadows (struct anim *k)
 {
-  struct coord nc; struct pos np, pmt;
+  struct pos pmt;
 
   int i;
   for (i = 0; i < anima_nmemb; i++) {
@@ -306,7 +306,7 @@ kill_kid_shadows (struct anim *k)
         && ks->shadow_of == k->id
         && ks->controllable
         && ! is_kid_dead (&ks->f)) {
-      survey (_mt, pos, &ks->f, &nc, &pmt, &np);
+      survey (_mt, pos, &ks->f, NULL, &pmt, NULL);
       ks->p = pmt;
       kid_die (ks);
     }
