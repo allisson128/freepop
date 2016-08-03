@@ -5,7 +5,7 @@
 #include "mininim.h"
 
 /* begin defines */
-#define POPSIZE 10
+#define POPSIZE 20
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
@@ -16,8 +16,9 @@
 
 /* begin structs */
 struct solution {
+  int ind;
   struct level lv;
-
+  
   struct node ***dbsolutions;
   size_t nsolutions;
 
@@ -37,6 +38,10 @@ struct tuple {
   int ind;
   int nrep;
   int nota;
+
+  double alfa;
+  double beta;
+  int tamanho;
 };
 struct node {
   int x, y;
@@ -80,8 +85,8 @@ struct level generator_level;
 
 /* begin main Funtions */
 static void pop_generator (void);
-static bool aco (struct solution *sol);
-static double evaluate (struct solution *sol);
+static bool aco (struct solution *sol, double alfa, double beta);
+static void evaluate (struct solution *sol);
 static double fitness (int num_wall, int nmemb_path);
 static int calc_wall_num (struct level *lv);
 static int *ord_rate_index (struct solution *sol,
@@ -94,9 +99,13 @@ static struct level *mutation_wall_alg (struct level *lv,
 
 /* begin auxiliar Functions */
 static void squarify (int d, int *d1, int* d2);
-static void fix_level_generator (void);
+/* static void fix_level_generator (void); */
 static void put_floor_on_wall (struct level *lv);
-static void remove_floor_on_wall (struct level *lv);
+static void put_level_door (struct level *lv, 
+			    struct con *ci, struct con *cf);
+static void rm_floor_on_wall (struct level *lv);
+static void rm_level_door (struct level *lv, 
+			       struct con *ci, struct con *cf);
 static void end (struct pos *p);
 static bool is_pattern (struct level *lv, int i, int j, 
 			struct pattern *p);
@@ -117,13 +126,18 @@ static struct node ** acessos (struct node **g, struct level *lv,
 			       struct cell c, int lifes);
 int find_convergence (struct solution *sol);
 static bool is_equal (struct solution *sol, int p1, int p2);
-int cmpfunc (const void * a, const void * b);
+static int cmpfunc (const void * a, const void * b);
+static int cmpop (const void *a0, const void *b0);
 static void free_solution (void);
 static void free_db_index (int i);
 static void free_db (void);
+static void copy_sol (struct solution *s, struct solution *d);
+static void tratamento (struct tuple *t, int nmemb);		      
 /* end auxiliar Functions */
 
 /* begin output Functions */
+static void print_map_path (struct node **p, int nmemb, 
+			    struct level *lv);
 static void print_accessible (struct node **g, struct level *lv);
 static void print_nodes (struct level *lv, int **f);
 static void print_pheromones (struct node **g);
@@ -136,6 +150,7 @@ int HEIGHT;
 int WIDTH;
 struct solution pop[POPSIZE];
 struct solution sons[POPSIZE];
+struct solution popsons[POPSIZE*2];
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = {(struct cell *) &square_cells, 
@@ -175,22 +190,23 @@ mat (struct pos *p, struct level *lv, int dfloor, int dplace)
       || dplace < 0 || dplace >= PLACES * WIDTH)
     return NULL;
 
-  *p = (struct pos) {1, 0, 0};
+  new_pos (p, lv, 1, 0, 0);
 
-  p = prel (p, p, dfloor, dplace);
+  prel (p, p, dfloor, dplace);
 
-  return xnpos (lv, p, p); 
+  return npos (p, p); 
 }
 
 struct con *
 mat_con (struct level *lv, int dfloor, int dplace)
 {
-  struct pos p = (struct pos) {1, 0, 0};
+  struct pos p; 
+/* new_pos (p, lv, 1, 0, 0); */
 
-  if (!mat (&p, lv, dfloor, dplace))
+  if (! mat (&p, lv, dfloor, dplace))
     return NULL;
 
-  return xcon (lv, &p);
+  return con (&p);
 }
 
 
@@ -198,15 +214,13 @@ mat_con (struct level *lv, int dfloor, int dplace)
 void
 next_generator_level (int number)
 {
-  /* Framework */
-  /* int ndifficulty = 3; */
-  /* int difficulty = 0; */
-
   /* AG */
-  int num_sel = POPSIZE-2;
-  double mutation_rate = 0.0;
+  double mutation_rate_in = 0.1;
+  double mutation_rate_on = 0.5;
+  double alfa, beta;
+  struct con ci, cf;
 
-  int i, choice;
+  int i, j, k, choice = POPSIZE-1;
 
   random_seed = number;
 
@@ -216,38 +230,153 @@ next_generator_level (int number)
   /* Gerador da Populacao Inicial */
   pop_generator ();
 
-  /* Avalia populacao inicial */
-  for (i = 0; i < POPSIZE; ++i) {
-    put_floor_on_wall (&pop[i].lv);
-    aco (&pop[i]);
-    evaluate (&pop[i]);
-    /* insere ordenado (nota,indice) */
-    /* struct tuple *t malloc (sizeof (struct tuple)); */
-    /* struct tuple t; */
-    /* int n = 0; */
-    /* t.nota = pop[i].rate[conv_index]; */
-    /* t.ind  = pop[i].conv_index; */
-    /* struct tuple *vet = add_to_array (&t, 1, vet,  */
-    /* 				      &n, n, sizeof (*vet)); */
-  }    
+  /* PARADA */
+  for (k = 0; k < 4; ++k) {
+    /* Avalia populacao inicial */
+    for (i = 0; i < POPSIZE; ++i) {
+      put_level_door (&pop[i].lv, &ci, &cf);
+      put_floor_on_wall (&pop[i].lv);
+      struct tuple t[56];
+      int mark = 0;
 
-  /* Selecao */
+
+      memset (t, 0, 56*sizeof (struct tuple));
+      for (alfa = 0.5; alfa <= 4; alfa += 0.5) {
+	for (beta = 1; beta <= 4; beta += 0.5) {
+
+	  aco (&pop[i], alfa, beta);
+	  evaluate (&pop[i]);
+	  printf ("alfa = %lf, beta = %lf\n", alfa, beta);
+	  if (pop[i].nsolutions == 0) {
+	    printf ("%d Sem solução\n", i);
+	    /* getchar(); */
+	    /* alfa = 5; beta = 5; break; */
+	    t[mark].alfa = alfa;
+	    t[mark].beta = beta;
+	    t[mark++].tamanho = 1000;
+	  }
+	  else {
+	    t[mark].alfa = alfa;
+	    t[mark].beta = beta;
+	    t[mark++].tamanho = pop[i].nmembs[pop[i].conv_index];
+	  }
+	}
+      }
+      printf ("passa por tratamento\n");
+      tratamento (t, 56);
+      getchar();	
+      if (pop[i].nsolutions > 0) {
+      }
+      rm_level_door (&pop[i].lv, &ci, &cf);
+      rm_floor_on_wall (&pop[i].lv);
+      /* popsons[i] = pop[i]; */
+      copy_sol (&pop[i], &popsons[i]);
+    }    
+    alfa = 0.75; beta = 1;
+    qsort (pop, POPSIZE, sizeof (*pop), cmpop);
+
+    /* Selecao */
+    int nvs = 3;
+    int nv   = 2;	  /* 0, 1 ou 2 */
+    int nvpt = POPSIZE / nvs;
+    int resto=POPSIZE % nvs;
+    int ini  = nvpt * nv;
+    int fim  = (ini + nvpt)+resto-1;
+
+    int smemb;
+    /* Cruzamento */
+    for (i = ini, j = fim, smemb = -2; i < j ; ++i, --j) {
+      smemb += 2;
+      copy_sol (&pop[i], &sons[smemb]);
+      copy_sol (&pop[j], &sons[smemb]);
+      crossover (&pop[i].lv, &pop[j].lv,
+		 &sons[smemb].lv, &sons[smemb+1].lv);
+    }
   
+    /* Mutacao */
+    for (i = 0; i < smemb; ++i) {
+      if (prandom (100)  <= (mutation_rate_on * 100))
+	mutation_wall_alg (&sons[i].lv, mutation_rate_in);
+    }
 
-  choice = 0;//prandom (POPSIZE - 1);
+    /* Avalia os novos individuos */
+    for (i = 0; i < smemb; ++i) {
+      put_level_door (&sons[i].lv, &ci, &cf);
+      put_floor_on_wall (&sons[i].lv);
+      aco (&sons[i], alfa, beta);
+      evaluate (&sons[i]);
+      rm_level_door (&sons[i].lv, &ci, &cf);
+      rm_floor_on_wall (&sons[i].lv);
+      /* popsons[POPSIZE+i] = sons[i]; */
+      copy_sol (&sons[i], &popsons[POPSIZE+i]);
+    }
+    qsort (popsons, POPSIZE+smemb, sizeof (*popsons), cmpop);
 
-  crossover (&pop[0].lv, &pop[1].lv, &sons[0].lv, &sons[1].lv);
-  mutation_wall_alg (&pop[choice].lv, mutation_rate) ;
+    /* Selecao de tp individuos*/
+    /* nvs = 3; */
+    /* nv   = 2;	  /\* 0, 1 ou 2 *\/ */
+    int allmemb = (POPSIZE+smemb);
+    nvpt = allmemb / nvs;
+    resto= allmemb % nvs;
+    ini  = nvpt * nv;
+    fim  = (ini + nvpt)+resto-1;
 
+    j = 0;
+    for (i = ini; i <= fim ; ++i) 
+      copy_sol (&popsons[i], &pop[j++]);
+      /* pop[j++] = popsons[i]; */
 
-  generator_level = level = pop[choice].lv;
-  free_solution ();
+    if (j < POPSIZE) {
+      for (i = fim+1; (i < allmemb) && (j < POPSIZE); ++i) 
+	copy_sol (&popsons[i], &pop[j++]);
+	/* pop[j++] = popsons[i]; */
+      for (i = ini-1; (i >= 0) && (j < POPSIZE); ++i)
+	copy_sol (&popsons[i], &pop[j++]);
+	/* pop[j++] = popsons[i]; */
+    }
+    choice = POPSIZE-1;
+    printf ("choice = %d\nnsolutions = %d\nconv_index = %d\n",
+	    choice, (int)pop[choice].nsolutions, 
+	    (int)pop[choice].conv_index);
+
+    if (pop[choice].nsolutions > 0)
+      print_map_path (pop[choice].dbsolutions[pop[choice].conv_index],
+		      pop[choice].nmembs[pop[choice].conv_index], 
+		      &pop[choice].lv);
+    else
+      printf ("Sem solução\n");
+
+    /* getchar(); */
+  }
+
+  choice = POPSIZE-1;
+  put_level_door (&pop[choice].lv, &ci, &cf);
+  put_floor_on_wall (&pop[choice].lv);
+  generator_level = global_level = pop[choice].lv;
+  /* free_solution (); */
   generator_level.number = number;
   generator_level.nominal_number = number;
   generator_level.next_level = next_generator_level;
   generator_level.end = end;
-  generator_level.start_pos = (struct pos) {1,INIX,INIY};
+  new_pos (&generator_level.start_pos, &generator_level, 1, INIX, INIY);
 }
+  /* for (k = 0; k < POPSIZE; ++k) { */
+  /*   if (pop[k].nsolutions > 0) { */
+  /*     for (i = 0; i < pop[k].nsolutions; ++i){ */
+  /* 	printf ("\nSolução %d:\n", i); */
+  /* 	for (j = 0; j < pop[k].nmembs[i]; ++j) */
+  /* 	  printf ("x = %d, y = %d\n", pop[k].dbsolutions[i][j]->x, */
+  /* 		  pop[k].dbsolutions[i][j]->y); */
+  /*     } */
+  /*     printf ("Solução de pop[%d]\n", pop[k].ind); */
+  /*     getchar(); */
+  /*   } */
+  /*   else { */
+  /*     printf ("Sem solução\n"); */
+  /*     getchar(); */
+  /*   } */
+  /* } */
+
 
 bool
 is_pattern (struct level *lv, int i, int j, struct pattern *p)
@@ -264,17 +393,17 @@ is_pattern (struct level *lv, int i, int j, struct pattern *p)
   return true;
 }
 
-void
-fix_level_generator (void)
-{
-  struct pos p;
-
-  for (p.room = 0; p.room < ROOMS; p.room++)
-    for (p.floor = 0; p.floor < FLOORS; p.floor++)
-      for (p.place = 0; p.place < PLACES; p.place++) {
-	fix_rigid_con_no_floor_top(&p);
-      }
-}
+/* void */
+/* fix_level_generator (void) */
+/* { */
+/*   struct pos p; */
+/*   new_pos (p,  */
+/*   for (p.room = 0; p.room < ROOMS; p.room++) */
+/*     for (p.floor = 0; p.floor < FLOORS; p.floor++) */
+/*       for (p.place = 0; p.place < PLACES; p.place++) { */
+/* 	fix_rigid_con_no_floor_top(&p); */
+/*       } */
+/* } */
 
 
 void
@@ -295,13 +424,43 @@ put_floor_on_wall (struct level *lv)
 
 
 void
-remove_floor_on_wall (struct level *lv)
+put_level_door (struct level *lv, struct con *ci, struct con *cf)
+{
+  assert (ci); assert (cf);
+  /* Inicializa ponto de inicio e fim do cenario */
+  /* mat_con (lv, INIX, INIX)->fg = NO_FLOOR; */
+  ci->fg = mat_con (lv, INIX, INIY)->fg;
+  ci->bg = mat_con (lv, INIX, INIY)->bg;
+  mat_con (lv, INIX, INIY)->fg = LEVEL_DOOR;
+  mat_con (lv, INIX, INIY)->ext.step = LEVEL_DOOR_MAX_STEP;
+  /* mat_con (lv, INIX, INIY+1)->fg = NO_FLOOR; */
+
+  /* mat_con (lv, FIMX, FIMY+1)->fg = NO_FLOOR; */
+  cf->fg = mat_con (lv, FIMX, FIMY)->fg;
+  cf->bg = mat_con (lv, FIMX, FIMY)->bg;
+  mat_con (lv, FIMX, FIMY)->fg = LEVEL_DOOR;
+  /* mat_con (lv, FIMX, FIMY-1)->fg = NO_FLOOR; */
+}
+
+
+void
+rm_floor_on_wall (struct level *lv)
 {
   int i, j;
   for (i = 0; i < MH; ++i)
     for (j = 0; j < MW; ++j)
       if (mat_con (lv, i, j)->fg == FLOOR)
 	mat_con (lv, i, j)->fg = NO_FLOOR;
+}
+
+
+void
+rm_level_door (struct level *lv, struct con *ci, struct con *cf)
+{
+  mat_con (lv, INIX, INIY)->fg = ci->fg;
+  mat_con (lv, INIX, INIY)->bg = ci->bg;
+  mat_con (lv, FIMX, FIMY)->fg = cf->fg;
+  mat_con (lv, FIMX, FIMY)->bg = cf->bg;
 }
 
 
@@ -330,11 +489,13 @@ pop_generator (void)
 
   int i, j, it, room;
   struct pos p;
-  
+
   for (it = 0; it < POPSIZE; ++it) {
 
     struct level *lv = &pop[it].lv;
+    new_pos (&p, lv, 0, 0, 0);
 
+    pop[it].ind = it;
     /* gera sala 0 (delimiter room) */
     p.room = 0;
     for (p.floor = 0; p.floor < FLOORS; p.floor++)
@@ -395,35 +556,37 @@ pop_generator (void)
     	  mat_con (lv, i, j)->fg = WALL;
 
       }
-
     /* Inicializa ponto de inicio e fim do cenario */
-    mat_con (lv, 0, 0)->fg = NO_FLOOR;
-    mat_con (lv, 0, 1)->fg = LEVEL_DOOR;
-    mat_con (lv, 0, 1)->ext.step = LEVEL_DOOR_MAX_STEP;
-    mat_con (lv, 0, 2)->fg = NO_FLOOR;
+    /* mat_con (lv, INIX, INIY-1)->fg = NO_FLOOR; */
+    /* mat_con (lv, INIX, INIY)->fg = LEVEL_DOOR; */
+    /* mat_con (lv, INIX, INIY)->ext.step = LEVEL_DOOR_MAX_STEP; */
+    /* mat_con (lv, INIX, INIY+1)->fg = NO_FLOOR; */
 
-    mat_con (lv, MH - 1, MW - 3)->fg = NO_FLOOR;
-    mat_con (lv, MH - 1, MW - 2)->fg = LEVEL_DOOR;
-    mat_con (lv, MH - 1, MW - 1)->fg = NO_FLOOR;
+    /* mat_con (lv, FIMX, FIMY-1)->fg = NO_FLOOR; */
+    /* mat_con (lv, FIMX, FIMY  )->fg = LEVEL_DOOR; */
+    /* mat_con (lv, FIMX, FIMY+1)->fg = NO_FLOOR; */
+
   }
+  
 }
  
  
 bool
-aco (struct solution *sol)
+aco (struct solution *sol, double alfa, double beta)
 {
 
   int i, j, ii, jj, x, y;
   int ant;
   struct node **graph;
+  
   /* size_t nbest = 0, nworst = 0, nconv = 0, nmemb2 = 0; */
   /* struct node **path2 = NULL; */
   /* struct node **best = NULL; */
   /* struct node **worst = NULL; */ 
 
   double f = 1;
-  double alfa = .75;
-  double beta = 1;
+  /* double alfa = .5; */
+  /* double beta = 1; */
   double evap = 0.05;
   int ants  = 100;
   int steps = 1000;
@@ -450,7 +613,7 @@ aco (struct solution *sol)
       graph[i][j].accessible = false;
     }
 
-  struct cell inicio = {0, 1};
+  struct cell inicio = {INIX, INIY};
   graph = acessos (graph, &sol->lv, inicio, lifes);
 
   /* print_accessible (graph, &sol->lv); */
@@ -491,8 +654,6 @@ aco (struct solution *sol)
     for (ant = 0; ant < ants; ++ant) {
 
       /* ANT WALK */
-      /* INIT PATH */
-      
       i = formiga[ant].posi;
       j = formiga[ant].posj;
 
@@ -511,8 +672,6 @@ aco (struct solution *sol)
       memset (probaround, 0, 4*sizeof (*probaround));
       double prob_acc = 0, rand_max = 0;
       int intification = 100;
-      /* int ax = i-1, ay = j, rx = i, ry = j+1;  */
-      /* int bx = i+1, by = j, lx = i, ly = j-1; */
 	
       for (ii = 0; ii < 2; ++ii)
 	for (jj = 0; jj < 2; ++jj) {
@@ -534,47 +693,50 @@ aco (struct solution *sol)
 
 	    probaround[ii*2+jj].eval 
 	      = pow (eval (formiga[ant].frequency[x][y], x, y, 
-			   formiga[ant].path[formiga[ant].nmemb-1]->x,
-			   formiga[ant].path[formiga[ant].nmemb-1]->y),
+			  formiga[ant].path[formiga[ant].nmemb-1]->x,
+			  formiga[ant].path[formiga[ant].nmemb-1]->y),
 		     beta);
 	  }
-
+	  
 	  else 
 	    probaround[ii*2+jj].pher = probaround[ii*2+jj].eval = 0.;
 	  
 	  prob_acc += probaround[ii*2+jj].probability
 	    = probaround[ii*2+jj].eval * probaround[ii*2+jj].pher;
-
+	  
 	}
+      
+      if (prob_acc > 0.001){
 
-      for (rand_max = 0, ii = 0; ii < 4; ++ii)
-	rand_max 
-	  += probaround[ii].normprob 
-	  = probaround[ii].probability / (prob_acc/intification);
+	for (rand_max = 0, ii = 0; ii < 4; ++ii)
+	  rand_max 
+	    += probaround[ii].normprob 
+	    = probaround[ii].probability / (prob_acc/intification);
 
-      /* double rsum = rand_max; */
-      rand_max = prandom (ceil (rand_max));
-      rand_max = (rand_max == 0) ? 1 : rand_max;
+	/* double rsum = rand_max; */
+	rand_max = prandom (ceil (rand_max));
+	rand_max = (rand_max == 0) ? 1 : rand_max;
+	
+	for (ii = 0, prob_acc = probaround[0].normprob;
+	     rand_max > ceil (prob_acc); /* && ii < 4; */
+	     prob_acc += probaround[++ii].normprob);
+      }
 
-      for (ii = 0, prob_acc = probaround[0].normprob;
-	   rand_max > ceil (prob_acc); /* && ii < 4; */
-	   prob_acc += probaround[++ii].normprob);
+      else {
+	ii = 0;
+	probaround[ii].n = formiga[ant].path[formiga[ant].nmemb-1];
+      }      
+      
+      formiga[ant].path 
+	= add_to_array (&probaround[ii].n, 1, formiga[ant].path,
+			&formiga[ant].nmemb, formiga[ant].nmemb, 
+			sizeof (*formiga[ant].path));
 
-      /* if (ant == 0) { */
-	/* printf("\nstep = %d\n", steps); */
-	/* printdep (formiga[ant].frequency, probaround, */
-	/* 	  rsum, rand_max, ii, &sol->lv); */
-	/* getchar(); */
-      /* } */
 
-      formiga[ant].path = add_to_array (&probaround[ii].n, 1, 
-					formiga[ant].path,
-					&formiga[ant].nmemb, 
-					formiga[ant].nmemb, 
-					sizeof (*formiga[ant].path));
       i = formiga[ant].posi = probaround[ii].n->x;
       j = formiga[ant].posj = probaround[ii].n->y;
-
+      assert (i >= 0 && i < MH);
+      assert (j >= 0 && j < MW);
       formiga[ant].frequency[i][j]++;
 
       /* SE ACHOU SAÍDA */
@@ -739,43 +901,67 @@ aco (struct solution *sol)
   /* print_accessible (graph, &sol->lv); */
   /* printf ("step = %d, nmemb2 = %d\n", steps, (int)nmemb2); */
 
+  /* if (sol->nsolutions > 0) { */
+  /*   for (i = 0; i < sol->nsolutions; ++i){ */
+  /*     printf ("\nSolução %d:\n", i); */
+  /*     for (j = 0; j < sol->nmembs[i]; ++j) */
+  /* 	printf ("x = %d, y = %d\n", sol->dbsolutions[i][j]->x, */
+  /* 		sol->dbsolutions[i][j]->y); */
+  /*   } */
+  /*   printf ("Solução de pop[%d]\n", sol->ind); */
+  /*   getchar(); */
+  /* } */
+  /* else { */
+  /*   printf ("Sem solução\n"); */
+  /*   getchar(); */
+  /* } */
   /* Libera memoria */
-  for (i = 0; i < MH; ++i)
-    free (graph[i]);
-  free (graph);
 
-  for (i = 0; i < ants; ++i) {
+  /*qualquer coisa*/
+  /* for (i = 0; i < MH; ++i) */
+  /*   free (graph[i]); */
+  /* free (graph); */
 
-    for (j = 0; j < MH; ++j) 
-      free (formiga[i].frequency[j]);
+  /* for (i = 0; i < ants; ++i) { */
+
+  /*   for (j = 0; j < MH; ++j)  */
+  /*     free (formiga[i].frequency[j]); */
     
-    /* for (k = 0; k < formiga[i].nmemb; ++k) */
-    /*   free (formiga[i].path[k][0]); */
-    free (formiga[i].path);
-    free (formiga[i].frequency);
-  }
+  /*   /\* for (k = 0; k < formiga[i].nmemb; ++k) *\/ */
+  /*   /\*   free (formiga[i].path[k][0]); *\/ */
+  /*   free (formiga[i].path); */
+  /*   free (formiga[i].frequency); */
+  /* } */
 
   return true;
 }
  
  
-double
+void 
 evaluate (struct solution *sol)
 {
   int i;
   int wall_num = calc_wall_num (&sol->lv);
 
-  sol->rate = (double *) malloc ((int)sol->nsolutions
-				 * sizeof (*sol->rate));
+  if (sol->nsolutions > 0) {
+    sol->rate = (double *) malloc (sol->nsolutions
+				   * sizeof (*sol->rate));
 
-  for (i = 0; i < (int)sol->nsolutions; ++i) 
-    sol->rate[i] = fitness (wall_num, sol->nmembs[i]);
+    for (i = 0; i < sol->nsolutions; ++i) 
+      sol->rate[i] = fitness (wall_num, sol->nmembs[i]);
 
-  sol->best = ord_rate_index (sol, sol->nnmembs);
-  /* find_convergence (sol); */
-  sol->conv_index = sol->nsolutions-1;
-
-  return sol->rate[sol->conv_index];
+    /* sol->best = ord_rate_index (sol, sol->nnmembs); */
+    /* find_convergence (sol); */
+    sol->conv_index = sol->nsolutions-1;
+    assert (sol->conv_index > 0);
+    /* if (sol->conv_index < 0) */
+    /*   sol->conv_index = 0; */
+  }
+  else {
+    sol->rate = (double *) malloc (sizeof (*sol->rate));
+    sol->rate[0] = 0;
+    sol->conv_index = 0;
+  }
 }
 
 
@@ -889,6 +1075,16 @@ cmpfunc (const void * a, const void * b)
 }
 
 
+int
+cmpop (const void *a0, const void *b0)
+{
+  struct solution *a = (struct solution *) a0;
+  struct solution *b = (struct solution *) b0;
+  
+  return a->rate[a->conv_index] - b->rate[b->conv_index];
+}
+
+
 bool
 is_equal (struct solution *sol, int p1, int p2)
 {
@@ -965,18 +1161,18 @@ mutation_wall_alg (struct level *lv, double max_mut_rate)
   assert (max_mut_rate >= 0);
   int i, j, num = round (MW * MH * max_mut_rate);
 
-  printf ("mutation at %d positions\n", num);
+  /* printf ("mutation at %d positions\n", num); */
   
   while (num--) {
     i = prandom (MH - 1);
     j = prandom (MW - 1);
 
+    /* printf ("position %d: i = %d, j = %d\n", num, i, j); */
 
-    printf ("position %d: i = %d, j = %d\n", num, i, j);
-
-    mat_con (lv, i, j)->fg = (mat_con (lv, i, j)->fg == WALL) ? NO_FLOOR : WALL;
+    mat_con (lv, i, j)->fg 
+      = (mat_con (lv, i, j)->fg == WALL) ? NO_FLOOR : WALL;
   }
-
+  
   return lv;
 }
 
@@ -986,7 +1182,7 @@ is_dead_end (int WIDTH, int HEIGHT; struct level *lv,
 	     int visited[MH][MW], int WIDTH, 
 	     int HEIGHT, int i, int j)
 {
-
+  
   return !((mat_con (lv, i, j-1) != NULL 
 	    && mat_con (lv, i, j-1)->fg != WALL 
 	    && !visited [i][j-1])
@@ -1108,7 +1304,7 @@ acessos (struct node **g, struct level *lv,
   for (di = 0, d = RIGHT; di < 2; ++di, d = LEFT) {
     int inc = (d == RIGHT) ? 1 : -1;
  
-    if (xis_hangable_pos (lv, p, d)) {
+    if (is_hangable_pos (p, d)) {
 
       if (g[pa][y].accessible == false) {
 	g[pa][y].accessible = true;
@@ -1135,7 +1331,7 @@ acessos (struct node **g, struct level *lv,
       veloc = 0;
     }
 
-    if (!xis_strictly_traversable (lv, p)) {
+    if (!is_strictly_traversable (p)) {
 
       int j;
       int cut = x-1;
@@ -1202,6 +1398,35 @@ print_accessible (struct node **g, struct level *lv)
 }
 
 
+void
+print_map_path (struct node **p, int nmemb, struct level *lv)
+{
+  int i, j;
+  /* struct node **graph; */
+  /* graph = (struct node**) malloc (MH * sizeof (struct node *)); */
+  /* for (ii = 0; ii < MH; ++ii) */
+  /*graph[ii] = (struct node*) malloc (MW * sizeof (struct node)); */
+
+  struct node graph[MH][MW];
+  for (i = 0; i < MH; ++i) 
+    for (j = 0; j < MW; ++j) 
+      graph[i][j].frequency = 0;
+
+  for (i = 0; i < nmemb; ++i)
+    graph[p[i]->x][p[i]->y].frequency++;
+
+  for (i = 0; i < MH; ++i) {
+    for (j = 0; j < MW; ++j) 
+
+      if (mat_con (lv, i, j)->fg == WALL)
+	printf ("%2c ", 'W');
+      else 
+	printf ("%2d ", graph[i][j].frequency);
+    putchar ('\n');
+  }
+}
+
+    
 void
 print_nodes (struct level *lv, int **f)
 {
@@ -1302,3 +1527,40 @@ free_db (void)
 
 }
 
+void
+copy_sol (struct solution *s, struct solution *d)
+{
+  d->ind = s->ind;
+  d->lv  = s->lv;
+  d->dbsolutions = s->dbsolutions;
+  d->nsolutions  = s->nsolutions;
+  d->nmembs      = s->nmembs;
+  d->rate = s->rate;
+  d->best  = s->best;
+  d->nmembs_ord = s->nmembs_ord;
+  d->conv_index = s->conv_index;
+  d->conv_rate  = s->conv_rate;
+}
+
+void 
+tratamento (struct tuple *t, int nmemb)
+{
+  int i;
+  int maior = 0;
+  printf("Tratamento");
+  FILE *f = fopen ("par.dat","w");
+  if (f == NULL){
+    printf ("Erro ao abrir arquivo\n");
+    assert (f != NULL);
+  }
+
+  for (i = 0; i < nmemb; ++i)
+    if (t[i].tamanho > maior)
+      maior = t[i].tamanho;
+
+  for (i = 0; i < nmemb; ++i) {
+    t[i].nota = maior - t[i].tamanho;
+    fprintf (f,"%lf %lf %d\n", t[i].alfa, t[i].beta, t[i].nota);
+  }
+  fclose(f);
+}
