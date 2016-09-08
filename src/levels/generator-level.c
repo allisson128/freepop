@@ -242,7 +242,7 @@ next_generator_level (int number)
     
   /* PARADA */
 
-  for (k = 0; k < 1; ++k) {
+  for (k = 0; k < 4; ++k) {
     /* Avalia populacao inicial */
     for (i = 0; i < POPSIZE; ++i) {
       put_level_door (&pop[i].lv, &ci, &cf);
@@ -251,11 +251,11 @@ next_generator_level (int number)
       int mark = 0;
 
       memset (t, 0, 56*sizeof (struct tuple));
-      /* for (alfa = 0.5; alfa <= 4; alfa += 0.5) { */
-      /* 	for (beta = 1; beta <= 4; beta += 0.5) { */
+      for (alfa = 0.5; alfa <= 4; alfa += 0.5) {
+      	for (beta = 1; beta <= 4; beta += 0.5) {
       
-      alfa = 0.75; 
-      beta = 1;
+      /* alfa = 0.75; */
+      /* beta = 1; */
   	  aco (&pop[i], alfa, beta);
   	  evaluate (&pop[i]);
   	  printf ("alfa = %lf, beta = %lf\n", alfa, beta);
@@ -272,22 +272,22 @@ next_generator_level (int number)
   	    t[mark].beta = beta;
   	    t[mark++].tamanho = pop[i].nmembs[pop[i].conv_index];
   	  }
-      /* 	} */
-      /* } */
+      	}
+      }
 
-      /* printf ("passa por tratamento\n"); */
-      /* tratamento (t, 56); */
+      printf ("passa por tratamento\n");
+      tratamento (t, 56);
       /* getchar(); */
 
       if (pop[i].nsolutions > 0) {
 	printf ("Tem alguma solução\n");
-	getchar ();
+	/* getchar (); */
       }
       rm_level_door (&pop[i].lv, &ci, &cf);
       rm_floor_on_wall (&pop[i].lv);
       /* popsons[i] = pop[i]; */
       copy_sol (&pop[i], &popsons[i]);
-    }
+    } 
     alfa = 0.75; beta = 1;
     qsort (pop, POPSIZE, sizeof (*pop), cmpop);
 
