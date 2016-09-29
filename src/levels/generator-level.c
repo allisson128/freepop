@@ -5,7 +5,7 @@
 #include "mininim.h"
 
 /* begin defines */
-/* #define POPSIZE 512 //20 */
+/* #define POPSIZE 512 //20 //65536 //14815 */
 #define POPSIZE 50
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
@@ -229,20 +229,34 @@ next_generator_level (int number)
   double mutation_rate_on = 0.5;
   double alfa, beta;
 
-  int geracao, geracoes  = 200;
-  int execucao, execucoes = 20;
+  int geracao, geracoes  = 100; //60 100 200
+  int execucao, execucoes = 20; //5 10 20
   double media = 0, desvio = 0;
   int vet_geracoes[execucoes];
 
-  bool use_ag = false;
+  bool use_ag = true; 		/* AG ou Random */
+  bool all_levels = false;
   
-  srand(time(NULL));
-  /* random_seed = number; */
-  random_seed = rand ();
+  srand (time(NULL));
   
   squarify (ROOMS-1, &HEIGHT, &WIDTH); /* Define dimensoes cenario */
 
+  if (all_levels) {
+    
+    random_seed = number;
+    
+    pop_gen_reduced ();
+    path_find_evaluate (pop); 
+    qsort (pop, POPSIZE, sizeof (*pop), cmpop);
+    
+    printf ("\nPOPULACAO INICIAL ORDENADA\n");
+    print_pop_reduced (pop, POPSIZE);
+    getchar ();
+  }
+  
   for (execucao = 0; execucao < execucoes; ++execucao) {
+
+    random_seed = rand ();
 
     if (use_ag == false) {
       random_pop_generator ();
@@ -254,7 +268,6 @@ next_generator_level (int number)
 
     else {
       initial_pop_generator ();
-      /* pop_gen_reduced (); */
       path_find_evaluate (pop); 
       qsort (pop, POPSIZE, sizeof (*pop), cmpop);
 
@@ -268,8 +281,8 @@ next_generator_level (int number)
 	/* SELECAO */
 	printf ("\nSELECAO\n");
 	/* getchar (); */
-	int nro_niveis   = 3;
-	int nivel    = 2;	  /* 0, 1 ou 2 */
+	int nro_niveis   = 2;
+	int nivel    = 1;	  /* 0, 1 ou 2 */
 	int nvpt  = POPSIZE / nro_niveis;
 	int resto = POPSIZE % nro_niveis;
 	int ini   = nvpt * nivel;
@@ -2005,10 +2018,12 @@ path_find_evaluate (struct solution pop[])
   	printf ("%d, %d\t", sol->solucao[i].x, sol->solucao[i].y);
       putchar ('\n');
       putchar ('\n');
-  /*   } */
+      /* if (sol->ind == 14812 || sol->ind == 3823) */
+      /* 	getchar(); */
   }
-  /* getchar(); */
 }
+
+
 
 
 
