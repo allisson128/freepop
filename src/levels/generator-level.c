@@ -5,13 +5,14 @@
 #include "mininim.h"
 
 /* begin defines */
-#define POPSIZE 20
+/* #define POPSIZE 512 //20 */
+#define POPSIZE 50
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
-#define INIY 1
+#define INIY 0 //1
 #define FIMX (MH-1)
-#define FIMY (MW-2)
+#define FIMY (MW-1) //(MW-2)
 /* end defines */
 
 /* begin structs */
@@ -25,6 +26,9 @@ struct solution {
   int *nmembs;
   size_t nnmembs;
 
+  struct node *solucao;
+  int tamanho;
+  
   double *rate;
   int *best;
 
@@ -84,8 +88,11 @@ struct level generator_level;
 /* end structs */
 
 /* begin main Funtions */
-static void pop_generator (void);
+static void initial_pop_generator (void);
+static void pop_gen_reduced (void);
+static void random_pop_generator (void);
 static bool aco (struct solution *sol, double alfa, double beta);
+static void path_find_evaluate (struct solution pop[]);
 static void evaluate (struct solution *sol);
 static double fitness (int num_wall, int nmemb_path);
 static int calc_wall_num (struct level *lv);
@@ -143,6 +150,7 @@ static void print_nodes (struct level *lv, int **f);
 static void print_pheromones (struct node **g);
 static void printdep (int ** f, struct prob *pba, double rsum, 
 		      double r, int ii, struct level *lv);
+static void print_pop_reduced (struct solution pop[], int size);
 /* end output Functions */
 
 /* begin global vars */
@@ -214,35 +222,175 @@ mat_con (struct level *lv, int dfloor, int dplace)
 void
 next_generator_level (int number)
 {
+  int i, j, k, choice = POPSIZE-1;
+  struct con ci, cf;
   /* AG */
   double mutation_rate_in = 0.1;
   double mutation_rate_on = 0.5;
   double alfa, beta;
-  struct con ci, cf;
 
-  int i, j, k, choice = POPSIZE-1;
+  int geracao, geracoes  = 200;
+  int execucao, execucoes = 20;
+  double media = 0, desvio = 0;
+  int vet_geracoes[execucoes];
 
-  random_seed = number;
+  bool use_ag = false;
+  
+  srand(time(NULL));
+  /* random_seed = number; */
+  random_seed = rand ();
+  
+  squarify (ROOMS-1, &HEIGHT, &WIDTH); /* Define dimensoes cenario */
 
-  /* Define as dimensoes */
-  squarify (ROOMS-1, &HEIGHT, &WIDTH);
+  for (execucao = 0; execucao < execucoes; ++execucao) {
 
-  /* Gerador da Populacao Inicial */
-  pop_generator ();
+    if (use_ag == false) {
+      random_pop_generator ();
+      path_find_evaluate (pop);
+      qsort (pop, POPSIZE, sizeof (*pop), cmpop);
+      if (pop[POPSIZE-1].rate[0] > 3.9)
+	media++;
+    }
 
-  /* alfa = 0.5; */
-  /* beta = 1.0; */
+    else {
+      initial_pop_generator ();
+      /* pop_gen_reduced (); */
+      path_find_evaluate (pop); 
+      qsort (pop, POPSIZE, sizeof (*pop), cmpop);
+
+      /* printf ("\nPOPULACAO INICIAL ORDENADA\n"); */
+      /* print_pop_reduced (pop, POPSIZE); */
+      /* getchar (); */
+
+      for (geracao = 0; (geracao < geracoes)  
+	     && (pop[POPSIZE-1].rate[0] < 4); ++geracao) {
+
+	/* SELECAO */
+	printf ("\nSELECAO\n");
+	/* getchar (); */
+	int nro_niveis   = 3;
+	int nivel    = 2;	  /* 0, 1 ou 2 */
+	int nvpt  = POPSIZE / nro_niveis;
+	int resto = POPSIZE % nro_niveis;
+	int ini   = nvpt * nivel;
+	int fim   = (ini + nvpt)+resto-1;
+
+	int smemb;
+
+	/* CRUZAMENTO */
+	for (i = ini, j = fim, smemb = -2; i < j ; ++i, --j) {
+	  smemb += 2;
+	  copy_sol (&pop[i], &sons[smemb]);
+	  copy_sol (&pop[j], &sons[smemb+1]);
+	  crossover (&pop[i].lv, &pop[j].lv,
+		     &sons[smemb].lv, &sons[smemb+1].lv);
+	}
+	smemb += 2;
+	/* ARRUMA OS INDICES DOS FILHOS */
+	for (i = 0; i < smemb; ++i)
+	  sons[i].ind = POPSIZE+i;
+	/* MUTACAO */
+	for (i = 0; i < smemb; ++i) {
+	  if (prandom (100)  <= (mutation_rate_on * 100))
+	    mutation_wall_alg (&sons[i].lv, mutation_rate_in);
+	}
+	printf ("\nMUTACAO\n");
+
+	/* Avalia os novatos */
+	path_find_evaluate (sons);
+	for (i = 0; i < POPSIZE; ++i) {
+	  copy_sol (&pop[i], &popsons[i]);
+	}
+
+	/* printf ("\nPOPSONS, apenas com POP\n"); */
+	/* print_pop_reduced (popsons, POPSIZE); */
+	/* getchar (); */
+  
+	for (i = 0; i < smemb; ++i) {
+	  copy_sol (&sons[i], &popsons[POPSIZE+i]);
+	}
+
+	/* printf ("\nPOPSONS, sem ordenar\n"); */
+	/* print_pop_reduced (popsons, POPSIZE+smemb); */
+	/* getchar (); */
+  
+	qsort (popsons, POPSIZE+smemb, sizeof (*popsons), cmpop);
+	/* printf ("\nSONS\n"); */
+	/* print_pop_reduced (sons, smemb); */
+	/* getchar (); */
+
+	/* printf ("\nPOPSONS, apos ordenar\n"); */
+	/* print_pop_reduced (popsons, POPSIZE+smemb); */
+	/* getchar (); */
+
+	/* SELECAO DOS MAIS ADAPTADOS - REINSERCAO tp*/
+	int allmemb = (POPSIZE+smemb);
+	nvpt = allmemb / nro_niveis;
+	resto= allmemb % nro_niveis;
+	ini  = nvpt * nivel;
+	fim  = (ini + nvpt)+resto-1;
+
+	j = 0;
+	for (i = ini; i <= fim ; ++i) 
+	  copy_sol (&popsons[i], &pop[j++]);
+	/* pop[j++] = popsons[i]; */
+
+	if (j < POPSIZE) {
+
+	  for (i = fim+1; (i < allmemb) && (j < POPSIZE); ++i) 
+	    copy_sol (&popsons[i], &pop[j++]);
+
+	  for (i = ini-1; (i >= 0) && (j < POPSIZE); --i)
+	    copy_sol (&popsons[i], &pop[j++]);
+
+	}
+	/* printf ("\nNOVA POP\n"); */
+	/* print_pop_reduced (pop, POPSIZE); */
+	/* getchar (); */
+
+	/* qsort (pop, POPSIZE, sizeof (*pop), cmpop);     */
+	/* printf ("\nNOVA POP ORDENADA\n"); */
+	/* print_pop_reduced (pop, POPSIZE); */
+	/* getchar (); */
+
+      }
+
+      vet_geracoes[execucao] = geracao;
+    }
+  } /* EXEC */
+
+  if (use_ag) {
+    printf ("\nNro de geracoes para convergencia em cada execucao:\n");
+    media = 0;
+    for (i = 0; i < execucoes; ++i) {
+      printf ("%d ", vet_geracoes[i]);
+      media += vet_geracoes[i];
+    }
+    media /= execucoes;
+  
+    desvio = 0;
+    for (i = 0; i < execucoes; ++i) {
+      desvio += pow((vet_geracoes[i] - media),2);
+    }
+    desvio = sqrt (desvio/execucoes);
+  
+    printf ("\nMedia = %lf", media);
+    printf ("\nDesvio padrao = %lf\n", desvio);
+    getchar ();
+  }
+  else {
+    printf ("\nGeracao Aleatoria\nSucesso em = %.0lf vezes, das %d execucoes\n", media, execucoes);
+  }
   /* for (i = 0; i < POPSIZE; ++i) { */
   /*   put_level_door (&pop[i].lv, &ci, &cf); */
   /*   put_floor_on_wall (&pop[i].lv); */
   /*   aco (&pop[i], alfa, beta); */
   /*   evaluate (&pop[i]); */
-  /*   printf ("individuo %d\nnsolutions = %d\n",  */
-  /* 	    i, pop[i].nsolutions); */
-    
-  /* PARADA */
+  /* } */
+  
 
-  for (k = 0; k < 4; ++k) {
+  if (false) {
+  for (k = 0; k < 1; ++k) {
     /* Avalia populacao inicial */
     for (i = 0; i < POPSIZE; ++i) {
       put_level_door (&pop[i].lv, &ci, &cf);
@@ -251,11 +399,11 @@ next_generator_level (int number)
       int mark = 0;
 
       memset (t, 0, 56*sizeof (struct tuple));
-      for (alfa = 0.5; alfa <= 4; alfa += 0.5) {
-      	for (beta = 1; beta <= 4; beta += 0.5) {
+      /* for (alfa = 0.5; alfa <= 4; alfa += 0.5) { */
+      /* 	for (beta = 1; beta <= 4; beta += 0.5) { */
       
-      /* alfa = 0.75; */
-      /* beta = 1; */
+      alfa = 0.75;
+      beta = 1;
   	  aco (&pop[i], alfa, beta);
   	  evaluate (&pop[i]);
   	  printf ("alfa = %lf, beta = %lf\n", alfa, beta);
@@ -272,8 +420,8 @@ next_generator_level (int number)
   	    t[mark].beta = beta;
   	    t[mark++].tamanho = pop[i].nmembs[pop[i].conv_index];
   	  }
-      	}
-      }
+      /* 	} */
+      /* } */
 
       printf ("passa por tratamento\n");
       tratamento (t, 56);
@@ -287,16 +435,16 @@ next_generator_level (int number)
       rm_floor_on_wall (&pop[i].lv);
       /* popsons[i] = pop[i]; */
       copy_sol (&pop[i], &popsons[i]);
-    } 
+    }
     alfa = 0.75; beta = 1;
     qsort (pop, POPSIZE, sizeof (*pop), cmpop);
 
     /* Selecao */
-    int nvs = 3;
-    int nv   = 2;	  /* 0, 1 ou 2 */
-    int nvpt = POPSIZE / nvs;
-    int resto=POPSIZE % nvs;
-    int ini  = nvpt * nv;
+    int nro_niveis = 3;
+    int nivel   = 2;	  /* 0, 1 ou 2 */
+    int nvpt = POPSIZE / nro_niveis;
+    int resto=POPSIZE % nro_niveis;
+    int ini  = nvpt * nivel;
     int fim  = (ini + nvpt)+resto-1;
 
     int smemb;
@@ -315,7 +463,7 @@ next_generator_level (int number)
 	mutation_wall_alg (&sons[i].lv, mutation_rate_in);
     }
 
-    /* Avalia os novos individuos */
+    /* Avalia os novos duos */
     for (i = 0; i < smemb; ++i) {
       put_level_door (&sons[i].lv, &ci, &cf);
       put_floor_on_wall (&sons[i].lv);
@@ -329,12 +477,12 @@ next_generator_level (int number)
     qsort (popsons, POPSIZE+smemb, sizeof (*popsons), cmpop);
 
     /* Selecao de tp individuos*/
-    /* nvs = 3; */
-    /* nv   = 2;	  /\* 0, 1 ou 2 *\/ */
+    /* nro_niveis = 3; */
+    /* nivel   = 2;	  /\* 0, 1 ou 2 *\/ */
     int allmemb = (POPSIZE+smemb);
-    nvpt = allmemb / nvs;
-    resto= allmemb % nvs;
-    ini  = nvpt * nv;
+    nvpt = allmemb / nro_niveis;
+    resto= allmemb % nro_niveis;
+    ini  = nvpt * nivel;
     fim  = (ini + nvpt)+resto-1;
 
     j = 0;
@@ -343,12 +491,13 @@ next_generator_level (int number)
       /* pop[j++] = popsons[i]; */
 
     if (j < POPSIZE) {
+
       for (i = fim+1; (i < allmemb) && (j < POPSIZE); ++i) 
 	copy_sol (&popsons[i], &pop[j++]);
-	/* pop[j++] = popsons[i]; */
-      for (i = ini-1; (i >= 0) && (j < POPSIZE); ++i)
+
+      for (i = ini-1; (i >= 0) && (j < POPSIZE); --i)
 	copy_sol (&popsons[i], &pop[j++]);
-	/* pop[j++] = popsons[i]; */
+
     }
     choice = POPSIZE-1;
     printf ("choice = %d\nnsolutions = %d\nconv_index = %d\n",
@@ -362,7 +511,8 @@ next_generator_level (int number)
     else
       printf ("Sem solução\n");
 
-    /* getchar(); */
+
+  }
   }
 
   choice = POPSIZE-1;
@@ -491,9 +641,63 @@ squarify (int d, int *d1, int* d2)
 }
 
 
-/* Gerador da populacao inicial */
+/* Gerador da populacao reduzida de testes */
 void
-pop_generator (void) 
+pop_gen_reduced (void)
+{
+  int i, j, it, room, n;
+  struct pos p;
+  struct con ci, cf;
+    
+  for (it = 0; it < POPSIZE; ++it) {
+
+    struct level *lv = &pop[it].lv;
+    new_pos (&p, lv, 0, 0, 0);
+
+    pop[it].ind = it;
+    /* gera sala 0 (delimiter room) */
+    p.room = 0;
+    for (p.floor = 0; p.floor < FLOORS; p.floor++)
+      for (p.place = 0; p.place < PLACES; p.place++) {
+    	struct con *c = &lv->con[p.room][p.floor][p.place];
+    	c->fg = WALL;
+    	c->bg = NO_BG;
+      }
+
+    /* Liga as salas do cenario */
+    for (i = 0; i < HEIGHT; ++i)
+      for (j = 0; j < WIDTH; ++j) {
+    	room = i*WIDTH+j+1;
+    	lv->link[room].r = (j != (WIDTH-1))  ? room + 1 : 0;
+    	lv->link[room].l = (j != 0)          ? room - 1 : 0;
+    	lv->link[room].a = (i != 0)          ? room - WIDTH : 0;
+    	lv->link[room].b = (i != (HEIGHT-1)) ? room + WIDTH : 0;
+      }
+
+    /* cenario sem paredes */
+    for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
+      for (j = 0; mat_con (lv, i, j); ++j) {
+    	mat_con (lv, i, j)->fg = NO_FLOOR;
+    	mat_con (lv, i, j)->bg = NO_BRICKS;
+      }
+
+    /* gera todos os cenarios possiveis, com a logica binaria */
+    n = it;
+    for (i = 0, j = 0; mat_con (lv, i, j) && n != 0; ++i, j = 0)
+      for (j = 0; mat_con (lv, i, j) && n != 0; ++j) {
+	
+	if (n % 2)
+	  mat_con (lv, i, j)->fg = WALL;
+	n = n / 2;
+      }
+
+    put_level_door (lv, &ci, &cf);
+    put_floor_on_wall (lv);
+  }
+}
+
+void
+initial_pop_generator (void) 
 {
   /* Parametros para Alg. Geracao de Paredes */
   int r, prob;
@@ -584,6 +788,68 @@ pop_generator (void)
 
   }
   
+}
+
+
+
+
+void
+random_pop_generator (void)
+{
+  int r, prob;
+  int i, j, it, room;
+  struct pos p;
+
+  for (it = 0; it < POPSIZE; ++it) {
+
+    struct level *lv = &pop[it].lv;
+    new_pos (&p, lv, 0, 0, 0);
+
+    pop[it].ind = it;
+    /* gera sala 0 (delimiter room) */
+    p.room = 0;
+    for (p.floor = 0; p.floor < FLOORS; p.floor++)
+      for (p.place = 0; p.place < PLACES; p.place++) {
+    	struct con *c = &lv->con[p.room][p.floor][p.place];
+    	c->fg = WALL;
+    	c->bg = NO_BG;
+
+	/* sons[it].lv.con[p.room][p.floor][p.place].fg = WALL; */
+	/* sons[it].lv.con[p.room][p.floor][p.place].fg = NO_BG; */
+      }
+
+    /* Liga as salas do cenario */
+    for (i = 0; i < HEIGHT; ++i)
+      for (j = 0; j < WIDTH; ++j) {
+    	room = i*WIDTH+j+1;
+    	lv->link[room].r = (j != (WIDTH-1))  ? room + 1 : 0;
+    	lv->link[room].l = (j != 0)          ? room - 1 : 0;
+    	lv->link[room].a = (i != 0)          ? room - WIDTH : 0;
+    	lv->link[room].b = (i != (HEIGHT-1)) ? room + WIDTH : 0;
+      }
+
+    /* cenario sem paredes */
+    for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
+      for (j = 0; mat_con (lv, i, j); ++j) {
+    	mat_con (lv, i, j)->fg = NO_FLOOR;
+    	mat_con (lv, i, j)->bg = NO_BRICKS;
+      }
+
+    /* mini-roleta para decidir onde tera parede segundo os parametros */
+    int default_prob = 50;
+
+    for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
+      for (j = 0; mat_con (lv, i, j); ++j) {
+	
+	prob = default_prob;
+    	r = prandom(100);
+
+    	if (r > 0 && r <= prob)
+    	  mat_con (lv, i, j)->fg = WALL;
+
+      }
+
+  }
 }
  
  
@@ -959,23 +1225,25 @@ evaluate (struct solution *sol)
   int i;
   int wall_num = calc_wall_num (&sol->lv);
 
-  if (sol->nsolutions > 0) {
-    sol->rate = (double *) malloc (sol->nsolutions
-				   * sizeof (*sol->rate));
+  if (sol->tamanho > 0) {
+
+    sol->rate = (double *) malloc (sol->nsolutions * sizeof (*sol->rate));
 
     for (i = 0; i < sol->nsolutions; ++i) 
+
       sol->rate[i] = fitness (wall_num, sol->nmembs[i]);
 
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
     sol->conv_index = sol->nsolutions-1;
-    assert (sol->conv_index > 0);
+    assert (sol->conv_index >= 0);
     /* if (sol->conv_index < 0) */
     /*   sol->conv_index = 0; */
   }
+
   else {
     sol->rate = (double *) malloc (sizeof (*sol->rate));
-    sol->rate[0] = 0;
+    sol->rate[0] = -1;
     sol->conv_index = 0;
   }
 }
@@ -987,9 +1255,9 @@ evaluate (struct solution *sol)
 double
 fitness (int num_wall, int nmemb_path)
 {
-
   double num_others = MW * MH - num_wall;
-
+  printf ("* wall = %d / others = %d => nota = %lf", num_wall,
+  	  (int)num_others, (nmemb_path * num_wall / num_others));
   return nmemb_path * num_wall / num_others;
 }
 
@@ -1097,7 +1365,8 @@ cmpop (const void *a0, const void *b0)
   struct solution *a = (struct solution *) a0;
   struct solution *b = (struct solution *) b0;
   
-  return a->rate[a->conv_index] - b->rate[b->conv_index];
+  return (1000 * a->rate[0]) - (1000 * b->rate[0]);
+  /* return a->rate[a->conv_index] - b->rate[b->conv_index]; */
 }
 
 
@@ -1556,6 +1825,9 @@ copy_sol (struct solution *s, struct solution *d)
   d->nmembs_ord = s->nmembs_ord;
   d->conv_index = s->conv_index;
   d->conv_rate  = s->conv_rate;
+
+  d->solucao = s->solucao;
+  d->tamanho = s->tamanho;
 }
 
 void 
@@ -1580,3 +1852,163 @@ tratamento (struct tuple *t, int nmemb)
   }
   fclose(f);
 }
+
+/* mostra a populacao teste */
+void
+print_pop_reduced (struct solution pop[], int size)
+{
+
+  int it, i, j;
+  for (it = 0; it < size; ++it) {
+    struct solution *sol = &pop[it];
+    struct level *lv = &sol->lv;
+    /* printf ("\nLevel %d\n", it +1); */
+    /* for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0) { */
+    /*   for (j = 0; mat_con (lv, i, j); ++j) { */
+
+    /* 	if (mat_con (lv, i, j)->fg == WALL) */
+    /* 	  printf ("%c ", 'w'); */
+    /* 	else */
+    /* 	  printf ("%c ", '0'); */
+    /*   } */
+    /*   putchar ('\n'); */
+    /* } */
+
+    printf ("\n%3d - lv %3d - Nota = %.3lf - path: ", it, sol->ind, 
+	    sol->rate[0]);
+    for (i = 0; i < sol->tamanho; ++i)
+      printf ("(%d,%d) ", sol->solucao[i].x, sol->solucao[i].y);
+  }
+  putchar('\n');
+}
+
+/* acha caminho por força bruta */
+void
+path_find_evaluate (struct solution pop[])
+{
+  int it, i, j, x, y, count;
+  struct node **graph;
+  size_t len;
+
+  for (it = 0; it < POPSIZE; ++it) {
+    
+    struct level *lv = &pop[it].lv;
+    
+    /* INIT GRAPH */
+    graph = (struct node**) malloc (MH * sizeof (struct node *));
+    for (i = 0; i < MH; ++i)
+      graph[i] = (struct node*) malloc (MW * sizeof (struct node));
+    
+    for (i = 0; i < MH; ++i) 
+      for (j = 0; j < MW; ++j) {
+
+	graph[i][j].x = i;
+	graph[i][j].y = j;
+	graph[i][j].frequency = 0;
+	if (mat_con (lv, i, j)->fg == WALL) 
+	  graph[i][j].accessible = false;
+	else
+	  graph[i][j].accessible = true;
+      }
+
+    struct node *no = &graph[INIX][INIY];
+    struct node *path = NULL;//, *best_path = NULL;
+    len = 0;//, best_len = 0;
+    bool aborte = true, saida = false;
+
+    if (mat_con (lv, no->x, no->y) && graph[no->x][no->y].accessible) { 
+      path = add_to_array (no, 1, path, &len, len, sizeof (*path));
+      no = &path[len-1]; x = no->x; y = no->y;
+  
+      graph[x][y].frequency = 1;
+      no->frequency = 1;
+      
+      aborte = false, saida = false;
+      int incx, incy;
+      do {
+	
+	incx = incy = 0;
+	no = &path[len-1]; x = no->x; y = no->y;
+	
+	if (x == FIMX &&  y == FIMY) {
+	  saida = true;
+	  continue;
+	}
+	
+	if (mat_con (lv, x, y+1) && graph[x][y+1].accessible
+	    && graph[x][y+1].frequency == 0) {  //abaixo x, y+1
+	  incx = 0; incy = 1;
+	}
+	
+	else if (mat_con (lv, x+1, y) && graph[x+1][y].accessible
+		 && graph[x+1][y].frequency == 0) { //direita x+1, y
+	  incx = 1; incy = 0;
+	}
+	
+	else if (mat_con (lv, x, y-1) && graph[x][y-1].accessible
+		 && graph[x][y-1].frequency == 0) {  //acima x, y-1
+	  incx = 0; incy = -1;
+	}
+            
+	else if (mat_con (lv, x-1, y) && graph[x-1][y].accessible
+		 && graph[x-1][y].frequency == 0) { //esquerda x-1, y
+	  incx = -1; incy = 0;
+	}
+	
+	else {
+	  
+	  if (x == INIX && y == INIY) //sem solucao
+	    aborte = true;
+	  path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
+	  continue;
+	}
+	no = &graph[x+incx][y+incy];
+	path = add_to_array (no, 1, path, &len, len, sizeof (*path));
+	graph[x+incx][y+incy].frequency = 1;    
+	
+      } while (aborte == false && saida == false);
+    }
+    struct solution *sol = &pop[it];
+    sol->dbsolutions = NULL; sol->nsolutions = 0;
+    sol->nmembs      = NULL; sol->nnmembs    = 0;
+    if (aborte == false){
+      sol->dbsolutions = add_to_array (&path, 1, sol->dbsolutions,
+				       &sol->nsolutions, sol->nsolutions,
+				       sizeof (*sol->dbsolutions));
+    }
+    sol->solucao = path;
+    sol->tamanho = len;
+    
+    sol->nmembs = add_to_array (&len, 1, sol->nmembs, &sol->nnmembs, 
+				sol->nnmembs, sizeof (*sol->nmembs));
+    printf ("\nLV %d: len = %d ", it, (int)len);
+    evaluate (sol);
+  /*   if (saida == true) { */
+      /* PRINTS - Validacao */
+
+      /* printf ("\naborte = %d\tsaida = %d\tlen = %d", */
+      /* 	      aborte, saida, (int)len); */
+      putchar ('\n');
+      for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0) {
+  	for (j = 0; mat_con (lv, i, j); ++j) {
+
+  	  if (mat_con (lv, i, j)->fg == WALL)
+  	    printf ("%c ", 'w');
+  	  else
+  	    printf ("%c ", '0');
+  	}
+  	putchar ('\n');
+      }
+      for (i = 0; i < sol->tamanho; ++i)
+  	/* printf ("%d, %d\t", sol->dbsolutions[0][i]->x, */
+	/* 	sol->dbsolutions[0][i]->y); */
+  	printf ("%d, %d\t", sol->solucao[i].x, sol->solucao[i].y);
+      putchar ('\n');
+      putchar ('\n');
+  /*   } */
+  }
+  /* getchar(); */
+}
+
+
+

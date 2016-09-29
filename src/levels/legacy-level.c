@@ -35,12 +35,17 @@ static bool played_vizier_death_sample;
 static int life_table[] = {4, 3, 3, 3, 3, 4, 5, 4, 4, 5, 5, 5, 4, 6, 0, 0};
 
 static struct con room_0[FLOORS][PLACES] =
-  {{{WALL}, {WALL}, {WALL}, {WALL}, {WALL},
-    {WALL}, {WALL}, {WALL}, {WALL}, {WALL}},
-   {{WALL}, {WALL}, {WALL}, {WALL}, {WALL},
-    {WALL}, {WALL}, {WALL}, {WALL}, {WALL}},
-   {{WALL}, {WALL}, {WALL}, {WALL}, {WALL},
-    {WALL}, {WALL}, {WALL}, {WALL}, {WALL}}};
+  {{{WALL}, {WALL}, {WALL}},
+   {{WALL}, {WALL}, {WALL}},
+   {{WALL}, {WALL}, {WALL}}};
+
+/* static struct con room_0[FLOORS][PLACES] = */
+/*   {{{WALL}, {WALL}, {WALL}, {WALL}, {WALL}, */
+/*     {WALL}, {WALL}, {WALL}, {WALL}, {WALL}}, */
+/*    {{WALL}, {WALL}, {WALL}, {WALL}, {WALL}, */
+/*     {WALL}, {WALL}, {WALL}, {WALL}, {WALL}}, */
+/*    {{WALL}, {WALL}, {WALL}, {WALL}, {WALL}, */
+/*     {WALL}, {WALL}, {WALL}, {WALL}, {WALL}}}; */
 
 struct legacy_level lv;
 
