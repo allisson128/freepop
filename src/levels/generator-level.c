@@ -17,7 +17,10 @@
 
 /* begin structs */
 struct solution {
-  int ind;
+
+  int id;
+  int cenario_code;
+
   struct level lv;
   
   struct node ***dbsolutions;
@@ -91,11 +94,12 @@ struct level generator_level;
 /* begin main Funtions */
 static void initial_pop_generator (void);
 static void pop_gen_reduced (void);
+static void pop_gen_reduced_ind (struct solution *sol);
 static void random_pop_generator (void);
 static bool aco (struct solution *sol, double alfa, double beta);
 static void path_find_evaluate (struct solution pop[]);
 static void evaluate (struct solution *sol);
-static double fitness (int id, double hcap, int vlr_nivel);
+static double fitness (double hcap, int vlr_nivel);
 static double handicap (int num_wall, int nmemb_path);
 static int max_handicap (int height, int length);
 static int calc_wall_num (struct level *lv);
@@ -274,10 +278,11 @@ next_generator_level (int number)
     /* getchar (); */
 
     // ### BANCO DE DADOS ###
-    for (i = 0; i < POPSIZE; ++i) {
 
-      sprintf (paramValues[0], "%d", cont_id++);
-      sprintf (paramValues[1], "%d", pop[i].ind);
+    for (i = 0; i < POPSIZE; ++i) {
+      pop[i].id = cont_id++;
+      sprintf (paramValues[0], "%d", pop[i].id);
+      sprintf (paramValues[1], "%d", pop[i].cenario_code);
       sprintf (paramValues[2], "%d", (int)MH);  
       sprintf (paramValues[3], "%d", (int)MW);
       sprintf (paramValues[4], "2");
@@ -410,7 +415,7 @@ next_generator_level (int number)
 	smemb += 2;
 	/* ARRUMA OS INDICES DOS FILHOS */
 	for (i = 0; i < smemb; ++i)
-	  sons[i].ind = POPSIZE+i;
+	  sons[i].id = POPSIZE+i;
 	/* MUTACAO */
 	for (i = 0; i < smemb; ++i) {
 	  if (prandom (100)  <= (mutation_rate_on * 100))
@@ -776,7 +781,7 @@ pop_gen_reduced ()
     struct level *lv = &pop[it].lv;
     new_pos (&p, lv, 0, 0, 0);
 
-    pop[it].ind = it;
+    pop[it].cenario_code = it;
 
     /* gera sala 0 (delimiter room) */
     p.room = 0;
@@ -821,6 +826,63 @@ pop_gen_reduced ()
 }
 
 void
+pop_gen_reduced_ind (struct solution *sol)
+{
+  int i, j, it, room, n;
+  struct pos p;
+  struct con ci, cf;
+    
+  for (it = 0; it < POPSIZE; ++it) {
+
+    struct level *lv = &sol->lv;
+    new_pos (&p, lv, 0, 0, 0);
+
+    /* pop[it].ind = it; */
+
+    /* gera sala 0 (delimiter room) */
+    p.room = 0;
+    for (p.floor = 0; p.floor < FLOORS; p.floor++)
+      for (p.place = 0; p.place < PLACES; p.place++) {
+    	struct con *c = &lv->con[p.room][p.floor][p.place];
+    	c->fg = WALL;
+    	c->bg = NO_BG;
+      }
+
+    /* Liga as salas do cenario */
+    for (i = 0; i < HEIGHT; ++i)
+      for (j = 0; j < WIDTH; ++j) {
+    	room = i*WIDTH+j+1;
+    	lv->link[room].r = (j != (WIDTH-1))  ? room + 1 : 0;
+    	lv->link[room].l = (j != 0)          ? room - 1 : 0;
+    	lv->link[room].a = (i != 0)          ? room - WIDTH : 0;
+    	lv->link[room].b = (i != (HEIGHT-1)) ? room + WIDTH : 0;
+      }
+
+    /* cenario sem paredes */
+    for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
+      for (j = 0; mat_con (lv, i, j); ++j) {
+    	mat_con (lv, i, j)->fg = NO_FLOOR;
+    	mat_con (lv, i, j)->bg = NO_BRICKS;
+      }
+
+    /* gera todos os cenarios possiveis, com a logica binaria */
+    n = sol->cenario_code;
+    for (i = 0, j = 0; mat_con (lv, i, j) && n != 0; ++i, j = 0)
+      for (j = 0; mat_con (lv, i, j) && n != 0; ++j) {
+	
+	if (n % 2)
+	  mat_con (lv, i, j)->fg = WALL;
+	n = n / 2;
+      }
+
+    put_level_door (lv, &ci, &cf);
+    put_floor_on_wall (lv);
+
+  }
+}
+
+
+void
 initial_pop_generator (void) 
 {
   /* Parametros para Alg. Geracao de Paredes */
@@ -839,7 +901,7 @@ initial_pop_generator (void)
     struct level *lv = &pop[it].lv;
     new_pos (&p, lv, 0, 0, 0);
 
-    pop[it].ind = it;
+    pop[it].id = it;
     /* gera sala 0 (delimiter room) */
     p.room = 0;
     for (p.floor = 0; p.floor < FLOORS; p.floor++)
@@ -929,7 +991,7 @@ random_pop_generator (void)
     struct level *lv = &pop[it].lv;
     new_pos (&p, lv, 0, 0, 0);
 
-    pop[it].ind = it;
+    pop[it].id = it;
     /* gera sala 0 (delimiter room) */
     p.room = 0;
     for (p.floor = 0; p.floor < FLOORS; p.floor++)
@@ -1357,7 +1419,7 @@ evaluate (struct solution *sol)
     
     for (i = 0; i < sol->nsolutions; ++i) {
       sol->handicap[i] = handicap (wall_num, sol->nmembs[i]);
-      sol->rate[i] = fitness (sol->ind, sol->handicap[i], 2);
+      sol->rate[i] = fitness (sol->handicap[i], 2);
     }
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
@@ -1372,12 +1434,12 @@ evaluate (struct solution *sol)
     sol->rate     = (double *) malloc (sizeof (*sol->rate));
     sol->conv_index = 0;
     sol->handicap[0] = INT_MIN;
-    sol->rate[0] = fitness (sol->ind, sol->handicap[0], 2);
+    sol->rate[0] = fitness (sol->handicap[0], 2);
   }
 }
 
 double
-fitness (int id, double hcap, int vlr_nivel)
+fitness (double hcap, int vlr_nivel)
 {
   double distance;
   int max = max_handicap ((int)MH, (int)MW);
@@ -1998,7 +2060,8 @@ free_db (void)
 void
 copy_sol (struct solution *s, struct solution *d)
 {
-  d->ind = s->ind;
+  d->id = s->id;
+  d->cenario_code = s->cenario_code;
   d->lv  = s->lv;
   d->dbsolutions = s->dbsolutions;
   d->nsolutions  = s->nsolutions;
@@ -2057,7 +2120,7 @@ print_pop_reduced (struct solution pop[], int size)
     /*   putchar ('\n'); */
     /* } */
 
-    printf ("\n%3d - lv %3d - Nota = %.3lf - path: ", it, sol->ind, 
+    printf ("\n%3d - lv %3d - Nota = %.3lf - path: ", it, sol->id, 
 	    sol->rate[0]);
     for (i = 0; i < sol->tamanho; ++i)
       printf ("(%d,%d) ", sol->solucao[i].x, sol->solucao[i].y);
