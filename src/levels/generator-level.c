@@ -6,7 +6,7 @@
 
 /* begin defines */
 /* #define POPSIZE 512 //20 //65536 //14815 */
-#define POPSIZE 50
+#define POPSIZE 512
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
@@ -29,6 +29,7 @@ struct solution {
   struct node *solucao;
   int tamanho;
   
+  double *handicap;
   double *rate;
   int *best;
 
@@ -94,7 +95,9 @@ static void random_pop_generator (void);
 static bool aco (struct solution *sol, double alfa, double beta);
 static void path_find_evaluate (struct solution pop[]);
 static void evaluate (struct solution *sol);
-static double fitness (int num_wall, int nmemb_path);
+static double fitness (int id, double hcap, int vlr_nivel);
+static double handicap (int num_wall, int nmemb_path);
+static int max_handicap (int height, int length);
 static int calc_wall_num (struct level *lv);
 static int *ord_rate_index (struct solution *sol,
 				   int nmemb);
@@ -140,6 +143,8 @@ static void free_db_index (int i);
 static void free_db (void);
 static void copy_sol (struct solution *s, struct solution *d);
 static void tratamento (struct tuple *t, int nmemb);		      
+
+void exitdb (PGconn *conn);
 /* end auxiliar Functions */
 
 /* begin output Functions */
@@ -222,7 +227,7 @@ mat_con (struct level *lv, int dfloor, int dplace)
 void
 next_generator_level (int number)
 {
-  int i, j, k, choice = POPSIZE-1;
+  int i, j, k, len, choice = POPSIZE-1;
   struct con ci, cf;
   /* AG */
   double mutation_rate_in = 0.1;
@@ -234,24 +239,128 @@ next_generator_level (int number)
   double media = 0, desvio = 0;
   int vet_geracoes[execucoes];
 
-  bool use_ag = true; 		/* AG ou Random */
-  bool all_levels = false;
-  
+  bool use_ag = false; 		/* AG ou Random */
+  bool all_levels = true;
+
   srand (time(NULL));
+  random_seed = number;
+
+  /* setlocale(LC_ALL, "pt_BR_utf8"); */
+  /* setlocale(LC_NUMERIC, ".OCP"); */
+  // BANCO
+  int cont_id = 0;
+  int nparam = 8;
+  const char *paramValues[nparam]; 	
+
+  for (i = 0; i < nparam-1; ++i) 
+
+    paramValues[i] = (char*) malloc (nparam*sizeof (char));
+
+  paramValues[nparam-1] = (char*) malloc (240 * sizeof (char));
+
   
   squarify (ROOMS-1, &HEIGHT, &WIDTH); /* Define dimensoes cenario */
 
+  bool bd =true;
+
   if (all_levels) {
-    
-    random_seed = number;
     
     pop_gen_reduced ();
     path_find_evaluate (pop); 
-    qsort (pop, POPSIZE, sizeof (*pop), cmpop);
+    /* qsort (pop, POPSIZE, sizeof (*pop), cmpop); */
     
-    printf ("\nPOPULACAO INICIAL ORDENADA\n");
-    print_pop_reduced (pop, POPSIZE);
-    getchar ();
+    /* printf ("\nPOPULACAO INICIAL ORDENADA\n"); */
+    /* print_pop_reduced (pop, POPSIZE); */
+    /* getchar (); */
+
+    // ### BANCO DE DADOS ###
+    for (i = 0; i < POPSIZE; ++i) {
+
+      sprintf (paramValues[0], "%d", cont_id++);
+      sprintf (paramValues[1], "%d", pop[i].ind);
+      sprintf (paramValues[2], "%d", (int)MH);  
+      sprintf (paramValues[3], "%d", (int)MW);
+      sprintf (paramValues[4], "2");
+
+      char strg[240] = "";        //, strg2[240] = "";
+      char minor_strg[9] = "";    //, minor_strg2[9] = "";
+
+      len = 240; //strlen(strg);
+      sprintf (strg, "%lf",  pop[i].rate[pop[i].conv_index]);
+      for (j = 0; j < len; j++) {
+      	if (strg[j] == ',') {
+      	  strg[j] = '.';
+      	  j = len; // or `break;`
+      	}
+      }
+      sprintf (paramValues[6], "%s", strg);
+
+      strg[0] = '\0';
+      len = 240;
+      sprintf (strg, "%lf", pop[i].handicap[pop[i].conv_index]);
+      for (j = 0; j < len; j++) {
+      	if (strg[j] == ',') {
+      	  strg[j] = '.';
+      	  j = len; // or `break;`
+      	}
+      }
+      sprintf (paramValues[5], "%s", strg);
+      
+      strg[0] = '\0';
+      minor_strg[0] = '\0';
+      
+      for (j = 0; j < pop[i].tamanho; ++j) {
+    	sprintf (minor_strg, "(%d,%d) ",
+		 pop[i].solucao[j].x, pop[i].solucao[j].y);
+    	strcat (strg, minor_strg);
+      }
+      sprintf (paramValues[7], "%s", strg);
+
+    PGconn *conn = PQconnectdb ("user=allisson dbname=generator");
+    if (PQstatus (conn) == CONNECTION_BAD) {
+      fprintf (stderr, "Connection to database failed: %s\n",
+	       PQerrorMessage (conn));
+      exitdb (conn);
+    }
+
+    PGresult *res = PQexec (conn, "BEGIN");
+
+    if (PQresultStatus (res) != PGRES_COMMAND_OK) {
+
+      printf("BEGIN command failed\n");        
+      PQclear(res);
+      exitdb(conn);
+    }
+    PQclear(res); 
+
+    char *stm = "INSERT INTO Solutions VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
+    res = PQexecParams (conn,stm,nparam,NULL,paramValues,NULL,NULL,0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+
+        printf("INSERT command failed\n");
+	fprintf(stderr, "%s\n", PQerrorMessage(conn)); 
+        PQclear(res);
+        exitdb(conn);
+    }
+    
+    res = PQexec(conn, "COMMIT"); 
+    
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+
+        printf("COMMIT command failed\n");        
+        PQclear(res);
+        exitdb(conn);
+    }       
+    
+    PQclear(res);      
+    PQfinish(conn);
+
+    /* printf ("Fim DB\n"); */
+    /* getchar(); */
+
+    }
+
   }
   
   for (execucao = 0; execucao < execucoes; ++execucao) {
@@ -281,8 +390,8 @@ next_generator_level (int number)
 	/* SELECAO */
 	printf ("\nSELECAO\n");
 	/* getchar (); */
-	int nro_niveis   = 2;
-	int nivel    = 1;	  /* 0, 1 ou 2 */
+	int nro_niveis   = 3;
+	int nivel = 2;	  /* 0, 1 ou 2 */
 	int nvpt  = POPSIZE / nro_niveis;
 	int resto = POPSIZE % nro_niveis;
 	int ini   = nvpt * nivel;
@@ -656,7 +765,7 @@ squarify (int d, int *d1, int* d2)
 
 /* Gerador da populacao reduzida de testes */
 void
-pop_gen_reduced (void)
+pop_gen_reduced ()
 {
   int i, j, it, room, n;
   struct pos p;
@@ -668,6 +777,7 @@ pop_gen_reduced (void)
     new_pos (&p, lv, 0, 0, 0);
 
     pop[it].ind = it;
+
     /* gera sala 0 (delimiter room) */
     p.room = 0;
     for (p.floor = 0; p.floor < FLOORS; p.floor++)
@@ -706,6 +816,7 @@ pop_gen_reduced (void)
 
     put_level_door (lv, &ci, &cf);
     put_floor_on_wall (lv);
+
   }
 }
 
@@ -1241,11 +1352,13 @@ evaluate (struct solution *sol)
   if (sol->tamanho > 0) {
 
     sol->rate = (double *) malloc (sol->nsolutions * sizeof (*sol->rate));
-
-    for (i = 0; i < sol->nsolutions; ++i) 
-
-      sol->rate[i] = fitness (wall_num, sol->nmembs[i]);
-
+    sol->handicap 
+      = (double *) malloc (sol->nsolutions * sizeof (*sol->handicap));
+    
+    for (i = 0; i < sol->nsolutions; ++i) {
+      sol->handicap[i] = handicap (wall_num, sol->nmembs[i]);
+      sol->rate[i] = fitness (sol->ind, sol->handicap[i], 2);
+    }
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
     sol->conv_index = sol->nsolutions-1;
@@ -1255,25 +1368,82 @@ evaluate (struct solution *sol)
   }
 
   else {
-    sol->rate = (double *) malloc (sizeof (*sol->rate));
-    sol->rate[0] = -1;
+    sol->handicap = (double *) malloc (sizeof (*sol->handicap));
+    sol->rate     = (double *) malloc (sizeof (*sol->rate));
     sol->conv_index = 0;
+    sol->handicap[0] = INT_MIN;
+    sol->rate[0] = fitness (sol->ind, sol->handicap[0], 2);
   }
 }
 
+double
+fitness (int id, double hcap, int vlr_nivel)
+{
+  double distance;
+  int max = max_handicap ((int)MH, (int)MW);
+  double limite_inf, limite_sup;
 
+  switch (vlr_nivel) {
 
+  case 0:
+    limite_inf = 0;
+    limite_sup = .4 * max;
+    break;
+
+  case 1:
+    limite_inf = .4 * max;
+    limite_sup = .7 * max;
+    break;
+
+  case 2:
+    limite_inf = .7 * max;
+    limite_sup = max;
+    break;
+
+  defatult:
+    printf ("VLR NIVEL must be 0 (easy), 1 (medium) or 2 (hard)\n");
+    exit (1);
+  }
+
+  if (hcap < limite_inf) 
+    distance = limite_inf - hcap;    
+
+  else if (hcap > limite_sup)
+    distance = hcap - limite_sup;
+
+  else
+    distance = 0;
+
+  /* if (id == 54) { */
+  /*   printf ("vlr_nivel = %d\n", vlr_nivel); */
+  /*   printf ("max = %d\n", max); */
+  /*   printf ("hcap = %lf\n", hcap); */
+  /*   printf ("limite_inf = %lf\n", limite_inf); */
+  /*   printf ("limite_sup = %lf\n", limite_sup); */
+  /*   printf ("distance = %lf\n", distance); */
+  /*   getchar(); */
+  /* } */
+  return distance;
+}
 
 
 double
-fitness (int num_wall, int nmemb_path)
+handicap (int num_wall, int nmemb_path)
 {
   double num_others = MW * MH - num_wall;
-  printf ("* wall = %d / others = %d => nota = %lf", num_wall,
-  	  (int)num_others, (nmemb_path * num_wall / num_others));
+  /* printf ("* wall = %d / others = %d => nota = %lf", num_wall, */
+  /* 	  (int)num_others, (nmemb_path * num_wall / num_others)); */
   return nmemb_path * num_wall / num_others;
 }
 
+
+int 
+max_handicap (int height, int length)
+{
+  int biggest_path = (height + length)-1;
+  int max_walls = (height * length) - biggest_path;
+  return max_walls;
+}
 
 
 int
@@ -1994,36 +2164,42 @@ path_find_evaluate (struct solution pop[])
     
     sol->nmembs = add_to_array (&len, 1, sol->nmembs, &sol->nnmembs, 
 				sol->nnmembs, sizeof (*sol->nmembs));
-    printf ("\nLV %d: len = %d ", it, (int)len);
+    /* printf ("\nLV %d: len = %d ", it, (int)len); */
     evaluate (sol);
   /*   if (saida == true) { */
       /* PRINTS - Validacao */
 
       /* printf ("\naborte = %d\tsaida = %d\tlen = %d", */
       /* 	      aborte, saida, (int)len); */
-      putchar ('\n');
-      for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0) {
-  	for (j = 0; mat_con (lv, i, j); ++j) {
+    //BEGIN###
+      /* putchar ('\n'); */
+      /* for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0) { */
+      /* 	for (j = 0; mat_con (lv, i, j); ++j) { */
 
-  	  if (mat_con (lv, i, j)->fg == WALL)
-  	    printf ("%c ", 'w');
-  	  else
-  	    printf ("%c ", '0');
-  	}
-  	putchar ('\n');
-      }
-      for (i = 0; i < sol->tamanho; ++i)
+      /* 	  if (mat_con (lv, i, j)->fg == WALL) */
+      /* 	    printf ("%c ", 'w'); */
+      /* 	  else */
+      /* 	    printf ("%c ", '0'); */
+      /* 	} */
+      /* 	putchar ('\n'); */
+      /* } */
+      /* for (i = 0; i < sol->tamanho; ++i) */
+	//END###
   	/* printf ("%d, %d\t", sol->dbsolutions[0][i]->x, */
 	/* 	sol->dbsolutions[0][i]->y); */
-  	printf ("%d, %d\t", sol->solucao[i].x, sol->solucao[i].y);
-      putchar ('\n');
-      putchar ('\n');
+	//BEGIN###
+      /* 	printf ("%d, %d\t", sol->solucao[i].x, sol->solucao[i].y); */
+      /* putchar ('\n'); */
+      /* putchar ('\n'); */
+      	//END###
       /* if (sol->ind == 14812 || sol->ind == 3823) */
       /* 	getchar(); */
   }
 }
 
-
-
-
-
+void
+exitdb (PGconn *conn)
+{
+  PQfinish (conn);
+  exit (1);
+}

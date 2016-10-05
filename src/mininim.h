@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
+#include <limits.h>
 #include <math.h>
 #include <time.h>
 #include "error.h"
@@ -41,6 +42,8 @@
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_native_dialog.h>
+
+#include <libpq-fe.h>
 
 #include "constants.h"
 #include "types.h"

@@ -138,7 +138,7 @@ AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\"												\
 -DPKGDATADIR=\"$(pkgdatadir)\" -I$(top_builddir)/gnulib						\
 -I$(top_srcdir)/gnulib -I${builddir}/src -I${srcdir}/src					\
 -I${srcdir}/src/kernel -I${srcdir}/src/guard -I${srcdir}/src/kid	\
--I${srcdir}/src/levels -I${srcdir}/src/wall
+-I${srcdir}/src/levels -I${srcdir}/src/wall -I/usr/include/postgresql 
 
 AM_CFLAGS = ${ALLEGRO_CFLAGS} ${ALLEGRO_IMAGE_CFLAGS}	\
 	${ALLEGRO_AUDIO_CFLAGS} ${ALLEGRO_ACODEC_CFLAGS}		\
@@ -162,7 +162,7 @@ endif
 
 LIBS = -lm ${ALLEGRO_LIBS} ${ALLEGRO_IMAGE_LIBS}										\
   ${ALLEGRO_AUDIO_LIBS} ${ALLEGRO_ACODEC_LIBS} ${ALLEGRO_FONT_LIBS}	\
-  ${ALLEGRO_PRIMITIVES_LIBS} ${ALLEGRO_DIALOG_LIBS} ${mingw_ldadd}
+  ${ALLEGRO_PRIMITIVES_LIBS} ${ALLEGRO_DIALOG_LIBS} ${mingw_ldadd} -lpq 
 LDADD = gnulib/libgnu.a
 
 gnulib/libgnu.a:
