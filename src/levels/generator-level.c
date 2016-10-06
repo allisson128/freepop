@@ -5,8 +5,8 @@
 #include "mininim.h"
 
 /* begin defines */
-/* #define POPSIZE 512 //20 //65536 //14815 */
-#define POPSIZE 512
+/* #define POPSIZE 512 //20 //65536 //49500 16036*/
+#define POPSIZE 16036
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
@@ -98,6 +98,7 @@ static void pop_gen_reduced_ind (struct solution *sol);
 static void random_pop_generator (void);
 static bool aco (struct solution *sol, double alfa, double beta);
 static void path_find_evaluate (struct solution pop[]);
+static void path_find_eval_ind (struct solution *sol);
 static void evaluate (struct solution *sol);
 static double fitness (double hcap, int vlr_nivel);
 static double handicap (int num_wall, int nmemb_path);
@@ -252,15 +253,21 @@ next_generator_level (int number)
   /* setlocale(LC_ALL, "pt_BR_utf8"); */
   /* setlocale(LC_NUMERIC, ".OCP"); */
   // BANCO
-  int cont_id = 0;
+
   int nparam = 8;
+  int size_string_path; //= 6*40
+  int deslocamento = 49500; //0 //49500
+  int cont_id = 512+deslocamento;
+  
   const char *paramValues[nparam]; 	
+
+  size_string_path = 240; //= 6*40
 
   for (i = 0; i < nparam-1; ++i) 
 
     paramValues[i] = (char*) malloc (nparam*sizeof (char));
 
-  paramValues[nparam-1] = (char*) malloc (240 * sizeof (char));
+  paramValues[nparam-1] = (char*) malloc (size_string_path * sizeof (char));
 
   
   squarify (ROOMS-1, &HEIGHT, &WIDTH); /* Define dimensoes cenario */
@@ -269,8 +276,16 @@ next_generator_level (int number)
 
   if (all_levels) {
     
-    pop_gen_reduced ();
-    path_find_evaluate (pop); 
+    for (i = 0; i < POPSIZE; ++i) {
+      /* printf ("deslocamento = %d\n", i); */
+      /* printf ("cont_id = %d\n", cont_id); */
+      pop[i].id = cont_id++;
+
+      pop[i].cenario_code = i + deslocamento;
+
+      pop_gen_reduced_ind (&pop[i]);
+      path_find_eval_ind (&pop[i]);
+
     /* qsort (pop, POPSIZE, sizeof (*pop), cmpop); */
     
     /* printf ("\nPOPULACAO INICIAL ORDENADA\n"); */
@@ -278,19 +293,16 @@ next_generator_level (int number)
     /* getchar (); */
 
     // ### BANCO DE DADOS ###
-
-    for (i = 0; i < POPSIZE; ++i) {
-      pop[i].id = cont_id++;
       sprintf (paramValues[0], "%d", pop[i].id);
       sprintf (paramValues[1], "%d", pop[i].cenario_code);
       sprintf (paramValues[2], "%d", (int)MH);  
       sprintf (paramValues[3], "%d", (int)MW);
       sprintf (paramValues[4], "2");
 
-      char strg[240] = "";        //, strg2[240] = "";
-      char minor_strg[9] = "";    //, minor_strg2[9] = "";
+      char strg[240] = "";
+      char minor_strg[9] = "";
 
-      len = 240; //strlen(strg);
+      len = size_string_path; //strlen(strg);
       sprintf (strg, "%lf",  pop[i].rate[pop[i].conv_index]);
       for (j = 0; j < len; j++) {
       	if (strg[j] == ',') {
@@ -301,7 +313,7 @@ next_generator_level (int number)
       sprintf (paramValues[6], "%s", strg);
 
       strg[0] = '\0';
-      len = 240;
+      len = size_string_path;
       sprintf (strg, "%lf", pop[i].handicap[pop[i].conv_index]);
       for (j = 0; j < len; j++) {
       	if (strg[j] == ',') {
@@ -828,57 +840,54 @@ pop_gen_reduced ()
 void
 pop_gen_reduced_ind (struct solution *sol)
 {
-  int i, j, it, room, n;
+  int i, j, room, n;
   struct pos p;
   struct con ci, cf;
     
-  for (it = 0; it < POPSIZE; ++it) {
+  struct level *lv = &sol->lv;
+  new_pos (&p, lv, 0, 0, 0);
 
-    struct level *lv = &sol->lv;
-    new_pos (&p, lv, 0, 0, 0);
+  /* pop[it].ind = it; */
 
-    /* pop[it].ind = it; */
+  /* gera sala 0 (delimiter room) */
+  p.room = 0;
+  for (p.floor = 0; p.floor < FLOORS; p.floor++)
+    for (p.place = 0; p.place < PLACES; p.place++) {
+      struct con *c = &lv->con[p.room][p.floor][p.place];
+      c->fg = WALL;
+      c->bg = NO_BG;
+    }
 
-    /* gera sala 0 (delimiter room) */
-    p.room = 0;
-    for (p.floor = 0; p.floor < FLOORS; p.floor++)
-      for (p.place = 0; p.place < PLACES; p.place++) {
-    	struct con *c = &lv->con[p.room][p.floor][p.place];
-    	c->fg = WALL;
-    	c->bg = NO_BG;
-      }
+  /* Liga as salas do cenario */
+  for (i = 0; i < HEIGHT; ++i)
+    for (j = 0; j < WIDTH; ++j) {
+      room = i*WIDTH+j+1;
+      lv->link[room].r = (j != (WIDTH-1))  ? room + 1 : 0;
+      lv->link[room].l = (j != 0)          ? room - 1 : 0;
+      lv->link[room].a = (i != 0)          ? room - WIDTH : 0;
+      lv->link[room].b = (i != (HEIGHT-1)) ? room + WIDTH : 0;
+    }
 
-    /* Liga as salas do cenario */
-    for (i = 0; i < HEIGHT; ++i)
-      for (j = 0; j < WIDTH; ++j) {
-    	room = i*WIDTH+j+1;
-    	lv->link[room].r = (j != (WIDTH-1))  ? room + 1 : 0;
-    	lv->link[room].l = (j != 0)          ? room - 1 : 0;
-    	lv->link[room].a = (i != 0)          ? room - WIDTH : 0;
-    	lv->link[room].b = (i != (HEIGHT-1)) ? room + WIDTH : 0;
-      }
+  /* cenario sem paredes */
+  for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
+    for (j = 0; mat_con (lv, i, j); ++j) {
+      mat_con (lv, i, j)->fg = NO_FLOOR;
+      mat_con (lv, i, j)->bg = NO_BRICKS;
+    }
 
-    /* cenario sem paredes */
-    for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0)
-      for (j = 0; mat_con (lv, i, j); ++j) {
-    	mat_con (lv, i, j)->fg = NO_FLOOR;
-    	mat_con (lv, i, j)->bg = NO_BRICKS;
-      }
-
-    /* gera todos os cenarios possiveis, com a logica binaria */
-    n = sol->cenario_code;
-    for (i = 0, j = 0; mat_con (lv, i, j) && n != 0; ++i, j = 0)
-      for (j = 0; mat_con (lv, i, j) && n != 0; ++j) {
+  /* gera todos os cenarios possiveis, com a logica binaria */
+  n = sol->cenario_code;
+  for (i = 0, j = 0; mat_con (lv, i, j) && n != 0; ++i, j = 0)
+    for (j = 0; mat_con (lv, i, j) && n != 0; ++j) {
 	
-	if (n % 2)
-	  mat_con (lv, i, j)->fg = WALL;
-	n = n / 2;
-      }
+      if (n % 2)
+	mat_con (lv, i, j)->fg = WALL;
+      n = n / 2;
+    }
 
-    put_level_door (lv, &ci, &cf);
-    put_floor_on_wall (lv);
+  put_level_door (lv, &ci, &cf);
+  put_floor_on_wall (lv);
 
-  }
 }
 
 
@@ -2258,6 +2267,135 @@ path_find_evaluate (struct solution pop[])
       /* if (sol->ind == 14812 || sol->ind == 3823) */
       /* 	getchar(); */
   }
+}
+
+void
+path_find_eval_ind (struct solution *sol)
+{
+  int i, j, x, y, count;
+  struct node **graph;
+  size_t len;
+
+  struct level *lv = &sol->lv;
+    
+  /* INIT GRAPH */
+  graph = (struct node**) malloc (MH * sizeof (struct node *));
+  for (i = 0; i < MH; ++i)
+    graph[i] = (struct node*) malloc (MW * sizeof (struct node));
+    
+  for (i = 0; i < MH; ++i) 
+    for (j = 0; j < MW; ++j) {
+
+      graph[i][j].x = i;
+      graph[i][j].y = j;
+      graph[i][j].frequency = 0;
+      if (mat_con (lv, i, j)->fg == WALL) 
+	graph[i][j].accessible = false;
+      else
+	graph[i][j].accessible = true;
+    }
+
+  struct node *no = &graph[INIX][INIY];
+  struct node *path = NULL;//, *best_path = NULL;
+  len = 0;//, best_len = 0;
+  bool aborte = true, saida = false;
+
+  if (mat_con (lv, no->x, no->y) && graph[no->x][no->y].accessible) { 
+    path = add_to_array (no, 1, path, &len, len, sizeof (*path));
+    no = &path[len-1]; x = no->x; y = no->y;
+  
+    graph[x][y].frequency = 1;
+    no->frequency = 1;
+      
+    aborte = false, saida = false;
+    int incx, incy;
+    do {
+	
+      incx = incy = 0;
+      no = &path[len-1]; x = no->x; y = no->y;
+	
+      if (x == FIMX &&  y == FIMY) {
+	saida = true;
+	continue;
+      }
+	
+      if (mat_con (lv, x, y+1) && graph[x][y+1].accessible
+	  && graph[x][y+1].frequency == 0) {  //abaixo x, y+1
+	incx = 0; incy = 1;
+      }
+	
+      else if (mat_con (lv, x+1, y) && graph[x+1][y].accessible
+	       && graph[x+1][y].frequency == 0) { //direita x+1, y
+	incx = 1; incy = 0;
+      }
+	
+      else if (mat_con (lv, x, y-1) && graph[x][y-1].accessible
+	       && graph[x][y-1].frequency == 0) {  //acima x, y-1
+	incx = 0; incy = -1;
+      }
+            
+      else if (mat_con (lv, x-1, y) && graph[x-1][y].accessible
+	       && graph[x-1][y].frequency == 0) { //esquerda x-1, y
+	incx = -1; incy = 0;
+      }
+	
+      else {
+	  
+	if (x == INIX && y == INIY) //sem solucao
+	  aborte = true;
+	path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
+	continue;
+      }
+      no = &graph[x+incx][y+incy];
+      path = add_to_array (no, 1, path, &len, len, sizeof (*path));
+      graph[x+incx][y+incy].frequency = 1;    
+	
+    } while (aborte == false && saida == false);
+  }
+  /* struct solution *sol = &pop[it]; */
+  sol->dbsolutions = NULL; sol->nsolutions = 0;
+  sol->nmembs      = NULL; sol->nnmembs    = 0;
+  if (aborte == false){
+    sol->dbsolutions = add_to_array (&path, 1, sol->dbsolutions,
+				     &sol->nsolutions, sol->nsolutions,
+				     sizeof (*sol->dbsolutions));
+  }
+  sol->solucao = path;
+  sol->tamanho = len;
+    
+  sol->nmembs = add_to_array (&len, 1, sol->nmembs, &sol->nnmembs, 
+			      sol->nnmembs, sizeof (*sol->nmembs));
+  /* printf ("\nLV %d: len = %d ", it, (int)len); */
+  evaluate (sol);
+  /*   if (saida == true) { */
+  /* PRINTS - Validacao */
+
+  /* printf ("\naborte = %d\tsaida = %d\tlen = %d", */
+  /* 	      aborte, saida, (int)len); */
+  //BEGIN###
+  /* putchar ('\n'); */
+  /* for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0) { */
+  /* 	for (j = 0; mat_con (lv, i, j); ++j) { */
+
+  /* 	  if (mat_con (lv, i, j)->fg == WALL) */
+  /* 	    printf ("%c ", 'w'); */
+  /* 	  else */
+  /* 	    printf ("%c ", '0'); */
+  /* 	} */
+  /* 	putchar ('\n'); */
+  /* } */
+  /* for (i = 0; i < sol->tamanho; ++i) */
+  //END###
+  /* printf ("%d, %d\t", sol->dbsolutions[0][i]->x, */
+  /* 	sol->dbsolutions[0][i]->y); */
+  //BEGIN###
+  /* 	printf ("%d, %d\t", sol->solucao[i].x, sol->solucao[i].y); */
+  /* putchar ('\n'); */
+  /* putchar ('\n'); */
+  //END###
+  /* if (sol->ind == 14812 || sol->ind == 3823) */
+  /* 	getchar(); */
+
 }
 
 void
