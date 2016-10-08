@@ -6,7 +6,7 @@
 
 /* begin defines */
 /* #define POPSIZE 512 //20 //65536 //49500 16036*/
-#define POPSIZE 16036
+#define POPSIZE 20
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
@@ -239,40 +239,37 @@ next_generator_level (int number)
   double mutation_rate_on = 0.5;
   double alfa, beta;
 
+  // Dificuldade desejada (vlr_nivel)
+  int nivel = 2; //0, 1, 2
+  
   int geracao, geracoes  = 100; //60 100 200
   int execucao, execucoes = 20; //5 10 20
   double media = 0, desvio = 0;
   int vet_geracoes[execucoes];
 
-  bool use_ag = false; 		/* AG ou Random */
-  bool all_levels = true;
+  bool use_ag = true; 		/* AG ou Random */
+  bool all_levels = false;
 
   srand (time(NULL));
-  random_seed = number;
+  random_seed = rand ();
+  /* random_seed = number; */
 
   /* setlocale(LC_ALL, "pt_BR_utf8"); */
   /* setlocale(LC_NUMERIC, ".OCP"); */
-  // BANCO
 
-  int nparam = 8;
-  int size_string_path; //= 6*40
-  int deslocamento = 49500; //0 //49500
-  int cont_id = 512+deslocamento;
+  // BANCO
+  int nparam           = 12;  // 8, 12
+  int deslocamento     = 0;   // 0, 49500
+  int cont_id          = 0;   // 512 + deslocamento;
+  int size_string_path = 240; // = 6 * 40
   
   const char *paramValues[nparam]; 	
 
-  size_string_path = 240; //= 6*40
-
   for (i = 0; i < nparam-1; ++i) 
-
     paramValues[i] = (char*) malloc (nparam*sizeof (char));
+  paramValues[nparam-1] = (char*)malloc(size_string_path*sizeof(char));
 
-  paramValues[nparam-1] = (char*) malloc (size_string_path * sizeof (char));
-
-  
   squarify (ROOMS-1, &HEIGHT, &WIDTH); /* Define dimensoes cenario */
-
-  bool bd =true;
 
   if (all_levels) {
     
@@ -373,16 +370,11 @@ next_generator_level (int number)
     PQclear(res);      
     PQfinish(conn);
 
-    /* printf ("Fim DB\n"); */
-    /* getchar(); */
-
     }
 
   }
   
   for (execucao = 0; execucao < execucoes; ++execucao) {
-
-    random_seed = rand ();
 
     if (use_ag == false) {
       random_pop_generator ();
@@ -393,6 +385,9 @@ next_generator_level (int number)
     }
 
     else {
+
+      clock_t start = clock(), diff;
+      
       initial_pop_generator ();
       path_find_evaluate (pop); 
       qsort (pop, POPSIZE, sizeof (*pop), cmpop);
@@ -401,35 +396,33 @@ next_generator_level (int number)
       /* print_pop_reduced (pop, POPSIZE); */
       /* getchar (); */
 
-      for (geracao = 0; (geracao < geracoes)  
-	     && (pop[POPSIZE-1].rate[0] < 4); ++geracao) {
+      for (geracao = 0; (geracao < geracoes); ++geracao) {  
+	     /* && (pop[POPSIZE-1].rate[0] < 4) */
 
 	/* SELECAO */
 	printf ("\nSELECAO\n");
-	/* getchar (); */
 	int nro_niveis   = 3;
-	int nivel = 2;	  /* 0, 1 ou 2 */
 	int nvpt  = POPSIZE / nro_niveis;
 	int resto = POPSIZE % nro_niveis;
-	int ini   = nvpt * nivel;
-	int fim   = (ini + nvpt)+resto-1;
+	int son_pos;
 
-	int smemb;
+	double crossover_rate = 0.40;
+	int ini = 0; // nvpt * nivel;
+	int fim = (int) crossover_rate * POPSIZE;//(ini + nvpt)+resto-1;
 
 	/* CRUZAMENTO */
-	for (i = ini, j = fim, smemb = -2; i < j ; ++i, --j) {
-	  smemb += 2;
-	  copy_sol (&pop[i], &sons[smemb]);
-	  copy_sol (&pop[j], &sons[smemb+1]);
+	for (i=ini, j=fim, son_pos=0; i < j; ++i, --j, son_pos+=2) {
+	  copy_sol (&pop[i], &sons[son_pos]);
+	  copy_sol (&pop[j], &sons[son_pos+1]);
 	  crossover (&pop[i].lv, &pop[j].lv,
-		     &sons[smemb].lv, &sons[smemb+1].lv);
+		     &sons[son_pos].lv, &sons[son_pos+1].lv);
 	}
-	smemb += 2;
+
 	/* ARRUMA OS INDICES DOS FILHOS */
-	for (i = 0; i < smemb; ++i)
+	for (i = 0; i < son_pos; ++i)
 	  sons[i].id = POPSIZE+i;
 	/* MUTACAO */
-	for (i = 0; i < smemb; ++i) {
+	for (i = 0; i < son_pos; ++i) {
 	  if (prandom (100)  <= (mutation_rate_on * 100))
 	    mutation_wall_alg (&sons[i].lv, mutation_rate_in);
 	}
@@ -445,25 +438,25 @@ next_generator_level (int number)
 	/* print_pop_reduced (popsons, POPSIZE); */
 	/* getchar (); */
   
-	for (i = 0; i < smemb; ++i) {
+	for (i = 0; i < son_pos; ++i) {
 	  copy_sol (&sons[i], &popsons[POPSIZE+i]);
 	}
 
 	/* printf ("\nPOPSONS, sem ordenar\n"); */
-	/* print_pop_reduced (popsons, POPSIZE+smemb); */
+	/* print_pop_reduced (popsons, POPSIZE+son_pos); */
 	/* getchar (); */
   
-	qsort (popsons, POPSIZE+smemb, sizeof (*popsons), cmpop);
+	qsort (popsons, POPSIZE+son_pos, sizeof (*popsons), cmpop);
 	/* printf ("\nSONS\n"); */
-	/* print_pop_reduced (sons, smemb); */
+	/* print_pop_reduced (sons, son_pos); */
 	/* getchar (); */
 
 	/* printf ("\nPOPSONS, apos ordenar\n"); */
-	/* print_pop_reduced (popsons, POPSIZE+smemb); */
+	/* print_pop_reduced (popsons, POPSIZE+son_pos); */
 	/* getchar (); */
 
 	/* SELECAO DOS MAIS ADAPTADOS - REINSERCAO tp*/
-	int allmemb = (POPSIZE+smemb);
+	int allmemb = (POPSIZE+son_pos);
 	nvpt = allmemb / nro_niveis;
 	resto= allmemb % nro_niveis;
 	ini  = nvpt * nivel;
@@ -492,6 +485,8 @@ next_generator_level (int number)
 	/* print_pop_reduced (pop, POPSIZE); */
 	/* getchar (); */
 
+	diff = clock() - start;
+	int msec = diff * 1000 / CLOCKS_PER_SEC;
       }
 
       vet_geracoes[execucao] = geracao;
@@ -586,24 +581,24 @@ next_generator_level (int number)
     int ini  = nvpt * nivel;
     int fim  = (ini + nvpt)+resto-1;
 
-    int smemb;
+    int son_pos;
     /* Cruzamento */
-    for (i = ini, j = fim, smemb = -2; i < j ; ++i, --j) {
-      smemb += 2;
-      copy_sol (&pop[i], &sons[smemb]);
-      copy_sol (&pop[j], &sons[smemb]);
+    for (i = ini, j = fim, son_pos = -2; i < j ; ++i, --j) {
+      son_pos += 2;
+      copy_sol (&pop[i], &sons[son_pos]);
+      copy_sol (&pop[j], &sons[son_pos]);
       crossover (&pop[i].lv, &pop[j].lv,
-		 &sons[smemb].lv, &sons[smemb+1].lv);
+		 &sons[son_pos].lv, &sons[son_pos+1].lv);
     }
   
     /* Mutacao */
-    for (i = 0; i < smemb; ++i) {
+    for (i = 0; i < son_pos; ++i) {
       if (prandom (100)  <= (mutation_rate_on * 100))
 	mutation_wall_alg (&sons[i].lv, mutation_rate_in);
     }
 
     /* Avalia os novos duos */
-    for (i = 0; i < smemb; ++i) {
+    for (i = 0; i < son_pos; ++i) {
       put_level_door (&sons[i].lv, &ci, &cf);
       put_floor_on_wall (&sons[i].lv);
       aco (&sons[i], alfa, beta);
@@ -613,12 +608,12 @@ next_generator_level (int number)
       /* popsons[POPSIZE+i] = sons[i]; */
       copy_sol (&sons[i], &popsons[POPSIZE+i]);
     }
-    qsort (popsons, POPSIZE+smemb, sizeof (*popsons), cmpop);
+    qsort (popsons, POPSIZE+son_pos, sizeof (*popsons), cmpop);
 
     /* Selecao de tp individuos*/
     /* nro_niveis = 3; */
     /* nivel   = 2;	  /\* 0, 1 ou 2 *\/ */
-    int allmemb = (POPSIZE+smemb);
+    int allmemb = (POPSIZE+son_pos);
     nvpt = allmemb / nro_niveis;
     resto= allmemb % nro_niveis;
     ini  = nvpt * nivel;
@@ -1619,7 +1614,7 @@ cmpop (const void *a0, const void *b0)
   struct solution *a = (struct solution *) a0;
   struct solution *b = (struct solution *) b0;
   
-  return (1000 * a->rate[0]) - (1000 * b->rate[0]);
+  return (1000*a->rate[a->conv_index]) - (1000*b->rate[b->conv_index]);
   /* return a->rate[a->conv_index] - b->rate[b->conv_index]; */
 }
 
