@@ -259,6 +259,7 @@ next_generator_level (int number)
   /* setlocale(LC_NUMERIC, ".OCP"); */
 
   // BANCO
+  char *dbname = "generator";
   int nparam = 8; int nparamag = 14;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   // 512 + deslocamento;
@@ -304,76 +305,20 @@ next_generator_level (int number)
       sprintf (paramValues[2], "%d", (int)MH);  
       sprintf (paramValues[3], "%d", (int)MW);
       sprintf (paramValues[4], "%d", (int)VLR_NIVEL);
+      sprintf (paramValues[5], "%lf", pop[i].handicap[pop[i].conv_index]);
+      sprintf (paramValues[6], "%lf", pop[i].rate[pop[i].conv_index]);
 
-      strg[0] = '\0'; len = size_string_path;
-      sprintf (strg, "%lf",  pop[i].rate[pop[i].conv_index]);
-      for (j = 0; j < len; j++) {
-      	if (strg[j] == ',') {
-      	  strg[j] = '.';
-      	  j = len; // or `break;`
-      	}
-      }
-      sprintf (paramValues[6], "%s", strg);
-
-      strg[0] = '\0'; len = size_string_path;
-      sprintf (strg, "%lf", pop[i].handicap[pop[i].conv_index]);
-      for (j = 0; j < len; j++) 
-      	if (strg[j] == ',') {
-      	  strg[j] = '.';
-      	  j = len; // or `break;`
-      	}
-      sprintf (paramValues[5], "%s", strg);
-      
       strg[0] = '\0';
       minor_strg[0] = '\0';
       
       for (j = 0; j < pop[i].tamanho; ++j) {
-    	sprintf (minor_strg, "(%d,%d) ",
-		 pop[i].solut[j].x, pop[i].solut[j].y);
-    	strcat (strg, minor_strg);
+       sprintf(minor_strg,"(%d,%d) ",pop[i].solut[j].x,pop[i].solut[j].y);
+       strcat (strg, minor_strg);
       }
       sprintf (paramValues[7], "%s", strg);
 
-      PGconn *conn = PQconnectdb ("user=allisson dbname=generator");
-      if (PQstatus (conn) == CONNECTION_BAD) {
-	fprintf (stderr, "Connection to database failed: %s\n",
-		 PQerrorMessage (conn));
-	exitdb (conn);
-      }
-
-      PGresult *res = PQexec (conn, "BEGIN");
-
-      if (PQresultStatus (res) != PGRES_COMMAND_OK) {
-
-	printf("BEGIN command failed\n");        
-	PQclear(res);
-	exitdb(conn);
-      }
-      PQclear(res); 
-
-      char *stm = "INSERT INTO Solutions VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
-      res = PQexecParams (conn,stm,nparam,NULL,paramValues,NULL,NULL,0);
-
-      if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-
-        printf("INSERT command failed\n");
-	fprintf(stderr, "%s\n", PQerrorMessage(conn)); 
-        PQclear(res);
-        exitdb(conn);
-      }
-    
-      res = PQexec(conn, "COMMIT"); 
-    
-      if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-
-        printf("COMMIT command failed\n");        
-        PQclear(res);
-        exitdb(conn);
-      }       
-    
-      PQclear(res);      
-      PQfinish(conn);
-    
+      char *query1 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
+      call_DB (dbname, query1, paramValues, nparam);
     }
 
   }
@@ -393,15 +338,13 @@ next_generator_level (int number)
       clock_t start = clock(), diff;
       double msec = 0;
       geracao = 0;
-      /* printf ("exec = %d\n", execucao); */
 
       initial_pop_generator ();
 
       for (i = 0; i < POPSIZE; ++i) {
-	/* printf ("pop ini %d\n",i); */
+
 	pop[i].id = i;
 	pop[i].cenario_code = cenario2number (&pop[i].lv);
-	/* pop_gen_all_ind (&pop[i]); */
 	path_find_eval_ind (&pop[i]);
 	sprintf (paramAgDB[0], "%d", execucao);
 	sprintf (paramAgDB[1], "%d", geracao);
@@ -413,23 +356,10 @@ next_generator_level (int number)
 	sprintf (paramAgDB[7], "%lf",mutation_rate_on);
 	sprintf (paramAgDB[8], "%lf",mutation_rate_in);
 	sprintf (paramAgDB[9], "%d", (int)VLR_NIVEL);
-	strg[0] = '\0'; len = size_string_path;
-	sprintf (strg, "%lf", pop[i].handicap[pop[i].conv_index]);
-	for (j = 0; j < len; j++)
-	  if (strg[j] == ',') {
-	    strg[j] = '.';
-	    break;
-	  }
-	sprintf (paramAgDB[10], "%s", strg);
-	strg[0] = '\0'; len = size_string_path;
-	sprintf (strg, "%lf",  pop[i].rate[pop[i].conv_index]);
-	for (j = 0; j < len; j++)
-	  if (strg[j] == ',') {
-	    strg[j] = '.';
-	    break;
-	  }
-	sprintf (paramAgDB[11], "%s", strg);
-	sprintf (paramAgDB[12]," %lf", msec);
+	sprintf (paramAgDB[10],"%lf",pop[i].handicap[pop[i].conv_index]);
+	sprintf (paramAgDB[11],"%lf", pop[i].rate[pop[i].conv_index]);
+	sprintf (paramAgDB[12],"%lf", msec);
+
 	strg[0] = '\0'; minor_strg[0] = '\0';
 	for (j = 0; j < pop[i].tamanho; ++j) {
 	  sprintf (minor_strg, "(%d,%d) ", pop[i].solut[j].x,
@@ -438,15 +368,14 @@ next_generator_level (int number)
 	}
 	sprintf (paramAgDB[13], "%s", strg);
 
-	char *dbname = "generator";
-	char *query = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)";
-	call_DB (dbname, query, paramAgDB, nparamag);
+	char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)";
+	call_DB (dbname, query2, paramAgDB, nparamag);
       }
 
       qsort (pop, POPSIZE, sizeof (*pop), cmpop);
 
-      for (geracao = 1; (geracao <= geracoes) //; ++geracao) {  
-	     && (pop[0].rate[0] > 0); ++geracao) {
+      for (geracao = 1; (geracao <= geracoes); ++geracao) {  
+	     /* && (pop[0].rate[0] > 0); ++geracao) { */
 
 	/* printf ("geracao %d\n", geracao); */
 
@@ -475,13 +404,13 @@ next_generator_level (int number)
 	}
 
 	/* ARRUMA OS INDICES DOS FILHOS */
-	for (i = 0; i < son_pos; ++i)
-	  sons[i].cenario_code= sons[i].id = cenario2number(&sons[i].lv);
+	/* for (i = 0; i < son_pos; ++i) */
+	/*  sons[i].cenario_code=sons[i].id=cenario2number(&sons[i].lv);*/
 	
 	/* Avalia os novatos */
 	path_find_evaluate (sons);
 	
-	qsort (sons, son_pos, sizeof (*sons), cmpop);
+	/* qsort (sons, son_pos, sizeof (*sons), cmpop); */
 	
 	for (i = 0; i < POPSIZE; ++i) 
 	  copy_sol (&pop[i], &popsons[i]);
@@ -491,12 +420,40 @@ next_generator_level (int number)
 
 	qsort (popsons, POPSIZE+son_pos, sizeof (*popsons), cmpop);
 
-	// ### SELECAO DOS MAIS ADAPTADOS - REINSERCAO tp ###
-	for (i = 0; i < POPSIZE ; ++i) 
-	  copy_sol (&popsons[i], &pop[i]);
-
 	diff = clock() - start;
 	msec = diff * 1000 / CLOCKS_PER_SEC;
+
+	// ### SELECAO DOS MAIS ADAPTADOS - REINSERCAO tp ###
+	// ### GRAVA RESULTADO NO BANCO ###
+	for (i = 0; i < POPSIZE ; ++i) {
+	  copy_sol (&popsons[i], &pop[i]);
+	  pop[i].id = i; 
+	  pop[i].cenario_code = cenario2number(&pop[i].lv);
+	  sprintf (paramAgDB[0], "%d", execucao);
+	  sprintf (paramAgDB[1], "%d", geracao);
+	  sprintf (paramAgDB[2], "%d", pop[i].id);
+	  sprintf (paramAgDB[3], "%d", pop[i].cenario_code);
+	  sprintf (paramAgDB[4], "%d", (int)MH);
+	  sprintf (paramAgDB[5], "%d", (int)MW);
+	  sprintf (paramAgDB[6], "%d", (int)POPSIZE);
+	  sprintf (paramAgDB[7], "%lf",mutation_rate_on);
+	  sprintf (paramAgDB[8], "%lf",mutation_rate_in);
+	  sprintf (paramAgDB[9], "%d", (int)VLR_NIVEL);
+	  sprintf(paramAgDB[10],"%lf",pop[i].handicap[pop[i].conv_index]);
+	  sprintf (paramAgDB[11],"%lf", pop[i].rate[pop[i].conv_index]);
+	  sprintf (paramAgDB[12],"%lf", msec/1000.);
+
+	  strg[0] = '\0'; minor_strg[0] = '\0';
+	  for (j = 0; j < pop[i].tamanho; ++j) {
+	    sprintf (minor_strg, "(%d,%d) ", pop[i].solut[j].x,
+		     pop[i].solut[j].y);
+	    strcat (strg, minor_strg);
+	  }
+	  sprintf (paramAgDB[13], "%s", strg);
+
+	  char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)";
+	  call_DB (dbname, query2, paramAgDB, nparamag);
+	}
 
       }
 
