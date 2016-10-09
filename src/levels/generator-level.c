@@ -13,6 +13,7 @@
 #define INIY 0 //1
 #define FIMX (MH-1)
 #define FIMY (MW-1) //(MW-2)
+#define VLR_NIVEL 2 //0 1 2
 /* end defines */
 
 /* begin structs */
@@ -93,8 +94,8 @@ struct level generator_level;
 
 /* begin main Funtions */
 static void initial_pop_generator (void);
-static void pop_gen_reduced (void);
-static void pop_gen_reduced_ind (struct solution *sol);
+static void pop_gen_all (void);
+static void pop_gen_all_ind (struct solution *sol);
 static void random_pop_generator (void);
 static bool aco (struct solution *sol, double alfa, double beta);
 static void path_find_evaluate (struct solution pop[]);
@@ -150,7 +151,8 @@ static void free_db (void);
 static void copy_sol (struct solution *s, struct solution *d);
 static void tratamento (struct tuple *t, int nmemb);		      
 
-void exitdb (PGconn *conn);
+static void call_DB (char *dbname, char *query, char *param, int nparam);
+static void exitdb (PGconn *conn);
 /* end auxiliar Functions */
 
 /* begin output Functions */
@@ -236,8 +238,8 @@ next_generator_level (int number)
   int i, j, k, len, choice = POPSIZE-1;
   struct con ci, cf;
   /* AG */
-  double mutation_rate_in = 0.1;
   double mutation_rate_on = 0.5;
+  double mutation_rate_in = 0.1;
   double alfa, beta;
   
   int geracao, geracoes  = 100; //60 100 200
@@ -248,6 +250,7 @@ next_generator_level (int number)
   bool use_ag = true; 		/* AG ou Random */
   bool all_levels = false;
 
+  /* setlocale (LC_ALL, "C"); */
   srand (time(NULL));
   random_seed = rand ();
   /* random_seed = number; */
@@ -256,12 +259,10 @@ next_generator_level (int number)
   /* setlocale(LC_NUMERIC, ".OCP"); */
 
   // BANCO
-  int nparam           = 8;  
-  int nparamag         = 13;  // 8, 12
+  int nparam = 8; int nparamag = 14;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   // 512 + deslocamento;
   int size_string_path = 240; // = 6 * 40
-  int vlr_nivel = 2; //0, 1, 2  
   char strg[240];
   char minor_strg[9];
 
@@ -288,21 +289,21 @@ next_generator_level (int number)
 
       pop[i].cenario_code = i + deslocamento;
 
-      pop_gen_reduced_ind (&pop[i]);
+      pop_gen_all_ind (&pop[i]);
       path_find_eval_ind (&pop[i]);
 
-    /* qsort (pop, POPSIZE, sizeof (*pop), cmpop); */
-    
-    /* printf ("\nPOPULACAO INICIAL ORDENADA\n"); */
-    /* print_pop_reduced (pop, POPSIZE); */
-    /* getchar (); */
+      /* qsort (pop, POPSIZE, sizeof (*pop), cmpop); */
+      
+      /* printf ("\nPOPULACAO INICIAL ORDENADA\n"); */
+      /* print_pop_reduced (pop, POPSIZE); */
+      /* getchar (); */
 
-    // ### BANCO DE DADOS ###
+      // ### BANCO DE DADOS ###
       sprintf (paramValues[0], "%d", pop[i].id);
       sprintf (paramValues[1], "%d", pop[i].cenario_code);
       sprintf (paramValues[2], "%d", (int)MH);  
       sprintf (paramValues[3], "%d", (int)MW);
-      sprintf (paramValues[4], "%d", vlr_nivel);
+      sprintf (paramValues[4], "%d", (int)VLR_NIVEL);
 
       strg[0] = '\0'; len = size_string_path;
       sprintf (strg, "%lf",  pop[i].rate[pop[i].conv_index]);
@@ -333,46 +334,46 @@ next_generator_level (int number)
       }
       sprintf (paramValues[7], "%s", strg);
 
-    PGconn *conn = PQconnectdb ("user=allisson dbname=generator");
-    if (PQstatus (conn) == CONNECTION_BAD) {
-      fprintf (stderr, "Connection to database failed: %s\n",
-	       PQerrorMessage (conn));
-      exitdb (conn);
-    }
+      PGconn *conn = PQconnectdb ("user=allisson dbname=generator");
+      if (PQstatus (conn) == CONNECTION_BAD) {
+	fprintf (stderr, "Connection to database failed: %s\n",
+		 PQerrorMessage (conn));
+	exitdb (conn);
+      }
 
-    PGresult *res = PQexec (conn, "BEGIN");
+      PGresult *res = PQexec (conn, "BEGIN");
 
-    if (PQresultStatus (res) != PGRES_COMMAND_OK) {
+      if (PQresultStatus (res) != PGRES_COMMAND_OK) {
 
-      printf("BEGIN command failed\n");        
-      PQclear(res);
-      exitdb(conn);
-    }
-    PQclear(res); 
+	printf("BEGIN command failed\n");        
+	PQclear(res);
+	exitdb(conn);
+      }
+      PQclear(res); 
 
-    char *stm = "INSERT INTO Solutions VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
-    res = PQexecParams (conn,stm,nparam,NULL,paramValues,NULL,NULL,0);
+      char *stm = "INSERT INTO Solutions VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
+      res = PQexecParams (conn,stm,nparam,NULL,paramValues,NULL,NULL,0);
 
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+      if (PQresultStatus(res) != PGRES_COMMAND_OK) {
 
         printf("INSERT command failed\n");
 	fprintf(stderr, "%s\n", PQerrorMessage(conn)); 
         PQclear(res);
         exitdb(conn);
-    }
+      }
     
-    res = PQexec(conn, "COMMIT"); 
+      res = PQexec(conn, "COMMIT"); 
     
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+      if (PQresultStatus(res) != PGRES_COMMAND_OK) {
 
         printf("COMMIT command failed\n");        
         PQclear(res);
         exitdb(conn);
-    }       
+      }       
     
-    PQclear(res);      
-    PQfinish(conn);
-
+      PQclear(res);      
+      PQfinish(conn);
+    
     }
 
   }
@@ -392,21 +393,26 @@ next_generator_level (int number)
       clock_t start = clock(), diff;
       double msec = 0;
       geracao = 0;
-      printf ("exec = %d\n", execucao);
+      /* printf ("exec = %d\n", execucao); */
+
+      initial_pop_generator ();
+
       for (i = 0; i < POPSIZE; ++i) {
-	printf ("pop ini %d\n",i);
-	pop[i].id = pop[i].cenario_code = cenario2number (&pop[i].lv);
-	pop_gen_reduced_ind (&pop[i]);
+	/* printf ("pop ini %d\n",i); */
+	pop[i].id = i;
+	pop[i].cenario_code = cenario2number (&pop[i].lv);
+	/* pop_gen_all_ind (&pop[i]); */
 	path_find_eval_ind (&pop[i]);
 	sprintf (paramAgDB[0], "%d", execucao);
 	sprintf (paramAgDB[1], "%d", geracao);
-	sprintf (paramAgDB[2], "%d", pop[i].cenario_code);
-	sprintf (paramAgDB[3], "%d", (int)MH);
-	sprintf (paramAgDB[4], "%d", (int)MW);
-	sprintf (paramAgDB[5], "%d", (int)POPSIZE);
-	sprintf (paramAgDB[6], "%lf",mutation_rate_on);
-	sprintf (paramAgDB[7], "%lf",mutation_rate_in);
-	sprintf (paramAgDB[8], "%d", vlr_nivel);
+	sprintf (paramAgDB[2], "%d", pop[i].id);
+	sprintf (paramAgDB[3], "%d", pop[i].cenario_code);
+	sprintf (paramAgDB[4], "%d", (int)MH);
+	sprintf (paramAgDB[5], "%d", (int)MW);
+	sprintf (paramAgDB[6], "%d", (int)POPSIZE);
+	sprintf (paramAgDB[7], "%lf",mutation_rate_on);
+	sprintf (paramAgDB[8], "%lf",mutation_rate_in);
+	sprintf (paramAgDB[9], "%d", (int)VLR_NIVEL);
 	strg[0] = '\0'; len = size_string_path;
 	sprintf (strg, "%lf", pop[i].handicap[pop[i].conv_index]);
 	for (j = 0; j < len; j++)
@@ -414,7 +420,7 @@ next_generator_level (int number)
 	    strg[j] = '.';
 	    break;
 	  }
-	sprintf (paramAgDB[9], "%s", strg);
+	sprintf (paramAgDB[10], "%s", strg);
 	strg[0] = '\0'; len = size_string_path;
 	sprintf (strg, "%lf",  pop[i].rate[pop[i].conv_index]);
 	for (j = 0; j < len; j++)
@@ -422,28 +428,29 @@ next_generator_level (int number)
 	    strg[j] = '.';
 	    break;
 	  }
-	sprintf (paramAgDB[10], "%s", strg);
-	sprintf (paramAgDB[11]," %lf", msec);
+	sprintf (paramAgDB[11], "%s", strg);
+	sprintf (paramAgDB[12]," %lf", msec);
 	strg[0] = '\0'; minor_strg[0] = '\0';
 	for (j = 0; j < pop[i].tamanho; ++j) {
 	  sprintf (minor_strg, "(%d,%d) ", pop[i].solut[j].x,
 		   pop[i].solut[j].y);
 	  strcat (strg, minor_strg);
 	}
-	sprintf (paramAgDB[12], "%s", strg);
+	sprintf (paramAgDB[13], "%s", strg);
+
+	char *dbname = "generator";
+	char *query = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)";
+	call_DB (dbname, query, paramAgDB, nparamag);
       }
+
       qsort (pop, POPSIZE, sizeof (*pop), cmpop);
 
-      /* printf ("\nPOPULACAO INICIAL ORDENADA\n"); */
-      /* print_pop_reduced (pop, POPSIZE); */
-      /* getchar (); */
-
       for (geracao = 1; (geracao <= geracoes) //; ++geracao) {  
-	     && (pop[0].rate[0] = 0); ++geracao) {
+	     && (pop[0].rate[0] > 0); ++geracao) {
 
-	printf ("geracao %d\n", geracao);
-	/* SELECAO */
-	printf ("\nSELECAO\n");
+	/* printf ("geracao %d\n", geracao); */
+
+	/* printf ("\nSELECAO\n"); */
 	/* int nro_niveis   = 3; */
 	/* int nvpt  = POPSIZE / nro_niveis; */
 	/* int resto = POPSIZE % nro_niveis; */
@@ -451,9 +458,9 @@ next_generator_level (int number)
 
 	double crossover_rate = 0.40;
 	int ini = 0; // nvpt * nivel;
-	int fim = (int) crossover_rate * POPSIZE;//(ini + nvpt)+resto-1;
+	int fim = crossover_rate * ((int)POPSIZE);//(ini + nvpt)+resto-1;
 
-	/* printf ("CRUZAMENTO\n"); */
+	/* printf ("CRUZAMENTO, ini = %d, fim = %d\n", ini, fim); */
 	for (i=ini, j=fim, son_pos=0; i < j; ++i, --j, son_pos+=2) {
 	  copy_sol (&pop[i], &sons[son_pos]);
 	  copy_sol (&pop[j], &sons[son_pos+1]);
@@ -461,25 +468,26 @@ next_generator_level (int number)
 		     &sons[son_pos].lv, &sons[son_pos+1].lv);
 	}
 
-	/* ARRUMA OS INDICES DOS FILHOS */
-	for (i = 0; i < son_pos; ++i)
-	  sons[i].cenario_code= sons[i].id= cenario2number(&sons[i].lv);
-
 	/* printf ("MUTACAO\n"); */
 	for (i = 0; i < son_pos; ++i) {
 	  if (prandom (100)  <= (mutation_rate_on * 100))
 	    mutation_wall_alg (&sons[i].lv, mutation_rate_in);
 	}
 
-
+	/* ARRUMA OS INDICES DOS FILHOS */
+	for (i = 0; i < son_pos; ++i)
+	  sons[i].cenario_code= sons[i].id = cenario2number(&sons[i].lv);
+	
 	/* Avalia os novatos */
 	path_find_evaluate (sons);
+	
+	qsort (sons, son_pos, sizeof (*sons), cmpop);
+	
 	for (i = 0; i < POPSIZE; ++i) 
 	  copy_sol (&pop[i], &popsons[i]);
 
 	for (i = 0; i < son_pos; ++i) 
 	  copy_sol (&sons[i], &popsons[POPSIZE+i]);
-
 
 	qsort (popsons, POPSIZE+son_pos, sizeof (*popsons), cmpop);
 
@@ -487,10 +495,9 @@ next_generator_level (int number)
 	for (i = 0; i < POPSIZE ; ++i) 
 	  copy_sol (&popsons[i], &pop[i]);
 
-	/* print_pop_reduced (pop, POPSIZE); */
-
 	diff = clock() - start;
 	msec = diff * 1000 / CLOCKS_PER_SEC;
+
       }
 
       vet_geracoes[execucao] = geracao;
@@ -498,6 +505,7 @@ next_generator_level (int number)
   } /* EXEC */
 
   if (use_ag) {
+
     printf ("\nNro de geracoes para convergencia em cada execucao:\n");
     media = 0;
     for (i = 0; i < execucoes; ++i) {
@@ -781,7 +789,7 @@ squarify (int d, int *d1, int* d2)
 
 /* Gerador da populacao reduzida de testes */
 void
-pop_gen_reduced ()
+pop_gen_all ()
 {
   int i, j, it, room, n;
   struct pos p;
@@ -837,7 +845,7 @@ pop_gen_reduced ()
 }
 
 void
-pop_gen_reduced_ind (struct solution *sol)
+pop_gen_all_ind (struct solution *sol)
 {
   int i, j, room, n;
   struct pos p;
@@ -979,7 +987,6 @@ initial_pop_generator (void)
     /* mat_con (lv, FIMX, FIMY-1)->fg = NO_FLOOR; */
     /* mat_con (lv, FIMX, FIMY  )->fg = LEVEL_DOOR; */
     /* mat_con (lv, FIMX, FIMY+1)->fg = NO_FLOOR; */
-
   }
   
 }
@@ -1427,7 +1434,7 @@ evaluate (struct solution *sol)
     
     for (i = 0; i < sol->nsolutions; ++i) {
       sol->handicap[i] = handicap (wall_num, sol->nmembs[i]);
-      sol->rate[i] = fitness (sol->handicap[i], 2);
+      sol->rate[i] = fitness (sol->handicap[i], (int)VLR_NIVEL);
     }
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
@@ -1441,8 +1448,8 @@ evaluate (struct solution *sol)
     sol->handicap = (double *) malloc (sizeof (*sol->handicap));
     sol->rate     = (double *) malloc (sizeof (*sol->rate));
     sol->conv_index = 0;
-    sol->handicap[0] = INT_MIN;
-    sol->rate[0] = fitness (sol->handicap[0], 2);
+    sol->handicap[0] = INT_MIN/1000.;
+    sol->rate[0] = fitness (sol->handicap[0], (int)VLR_NIVEL);
   }
 }
 
@@ -1485,7 +1492,7 @@ fitness (double hcap, int vlr_nivel)
     distance = 0;
 
   /* if (id == 54) { */
-  /*   printf ("vlr_nivel = %d\n", vlr_nivel); */
+  /*   printf ("(int)VLR_NIVEL = %d\n", vlr_nivel); */
   /*   printf ("max = %d\n", max); */
   /*   printf ("hcap = %lf\n", hcap); */
   /*   printf ("limite_inf = %lf\n", limite_inf); */
@@ -1618,7 +1625,8 @@ cmpop (const void *a0, const void *b0)
   struct solution *a = (struct solution *) a0;
   struct solution *b = (struct solution *) b0;
   
-  return (1000*a->rate[a->conv_index]) - (1000*b->rate[b->conv_index]);
+  /* return (int)((a->rate[0]) - (b->rate[0])); */
+  return (100.*a->rate[a->conv_index]) - (100.*b->rate[b->conv_index]);
   /* return a->rate[a->conv_index] - b->rate[b->conv_index]; */
 }
 
@@ -2397,12 +2405,6 @@ path_find_eval_ind (struct solution *sol)
 
 }
 
-void
-exitdb (PGconn *conn)
-{
-  PQfinish (conn);
-  exit (1);
-}
 
 int
 cenario2number (struct level *lv)
@@ -2414,4 +2416,61 @@ cenario2number (struct level *lv)
       number += pow (2, pos++) * (mat_con (lv, i, j)->fg == WALL?1:0);
 
   return number;
+}
+
+void
+call_DB (char *dbname, char *query, char *param, int nparam)
+{
+  char str[80];
+  strcpy (str, "user=allisson dbname=");
+  strcat (str,dbname);
+  
+  PGconn *conn = PQconnectdb (str);
+
+  if (PQstatus (conn) == CONNECTION_BAD) {
+    fprintf (stderr, "Connection to database failed: %s\n",
+	     PQerrorMessage (conn));
+    exitdb (conn);
+  }
+
+
+  PGresult *res = PQexec (conn, "BEGIN");
+
+  if (PQresultStatus (res) != PGRES_COMMAND_OK) {
+
+    printf("BEGIN command failed\n");        
+    PQclear(res);
+    exitdb(conn);
+  }
+  PQclear(res); 
+
+  char *stm = query;
+  res = PQexecParams (conn,stm,nparam,NULL,param,NULL,NULL,0);
+
+  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+
+    printf("QUERY command failed\n");
+    fprintf(stderr, "%s\n", PQerrorMessage(conn)); 
+    PQclear(res);
+    exitdb(conn);
+  }
+    
+  res = PQexec(conn, "COMMIT"); 
+    
+  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+
+    printf("COMMIT command failed\n");        
+    PQclear(res);
+    exitdb(conn);
+  }       
+    
+  PQclear(res);      
+  PQfinish(conn);
+}
+
+void
+exitdb (PGconn *conn)
+{
+  PQfinish (conn);
+  exit (1);
 }

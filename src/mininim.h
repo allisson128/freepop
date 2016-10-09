@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <limits.h>
+#include <locale.h>
 #include <math.h>
 #include <time.h>
 #include "error.h"
