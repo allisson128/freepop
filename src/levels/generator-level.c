@@ -29,7 +29,7 @@ struct solution {
   int *nmembs;
   size_t nnmembs;
 
-  struct node *solucao;
+  struct node *solut;
   int tamanho;
   
   double *handicap;
@@ -114,6 +114,7 @@ static struct level *mutation_wall_alg (struct level *lv,
 
 /* begin auxiliar Functions */
 static void squarify (int d, int *d1, int* d2);
+static int cenario2number (struct level *lv);
 /* static void fix_level_generator (void); */
 static void put_floor_on_wall (struct level *lv);
 static void put_level_door (struct level *lv, 
@@ -238,9 +239,6 @@ next_generator_level (int number)
   double mutation_rate_in = 0.1;
   double mutation_rate_on = 0.5;
   double alfa, beta;
-
-  // Dificuldade desejada (vlr_nivel)
-  int nivel = 2; //0, 1, 2
   
   int geracao, geracoes  = 100; //60 100 200
   int execucao, execucoes = 20; //5 10 20
@@ -258,16 +256,26 @@ next_generator_level (int number)
   /* setlocale(LC_NUMERIC, ".OCP"); */
 
   // BANCO
-  int nparam           = 12;  // 8, 12
+  int nparam           = 8;  
+  int nparamag         = 13;  // 8, 12
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   // 512 + deslocamento;
   int size_string_path = 240; // = 6 * 40
-  
-  const char *paramValues[nparam]; 	
+  int vlr_nivel = 2; //0, 1, 2  
+  char strg[240];
+  char minor_strg[9];
 
+  const char *paramValues[nparam];
+  const char *paramAgDB[nparamag];
+
+  
   for (i = 0; i < nparam-1; ++i) 
     paramValues[i] = (char*) malloc (nparam*sizeof (char));
   paramValues[nparam-1] = (char*)malloc(size_string_path*sizeof(char));
+
+  for (i = 0; i < nparamag-1; ++i) 
+    paramAgDB[i] = (char*) malloc (nparamag*sizeof (char));
+  paramAgDB[nparamag-1] = (char*)malloc(size_string_path*sizeof(char));
 
   squarify (ROOMS-1, &HEIGHT, &WIDTH); /* Define dimensoes cenario */
 
@@ -294,12 +302,9 @@ next_generator_level (int number)
       sprintf (paramValues[1], "%d", pop[i].cenario_code);
       sprintf (paramValues[2], "%d", (int)MH);  
       sprintf (paramValues[3], "%d", (int)MW);
-      sprintf (paramValues[4], "2");
+      sprintf (paramValues[4], "%d", vlr_nivel);
 
-      char strg[240] = "";
-      char minor_strg[9] = "";
-
-      len = size_string_path; //strlen(strg);
+      strg[0] = '\0'; len = size_string_path;
       sprintf (strg, "%lf",  pop[i].rate[pop[i].conv_index]);
       for (j = 0; j < len; j++) {
       	if (strg[j] == ',') {
@@ -309,15 +314,13 @@ next_generator_level (int number)
       }
       sprintf (paramValues[6], "%s", strg);
 
-      strg[0] = '\0';
-      len = size_string_path;
+      strg[0] = '\0'; len = size_string_path;
       sprintf (strg, "%lf", pop[i].handicap[pop[i].conv_index]);
-      for (j = 0; j < len; j++) {
+      for (j = 0; j < len; j++) 
       	if (strg[j] == ',') {
       	  strg[j] = '.';
       	  j = len; // or `break;`
       	}
-      }
       sprintf (paramValues[5], "%s", strg);
       
       strg[0] = '\0';
@@ -325,7 +328,7 @@ next_generator_level (int number)
       
       for (j = 0; j < pop[i].tamanho; ++j) {
     	sprintf (minor_strg, "(%d,%d) ",
-		 pop[i].solucao[j].x, pop[i].solucao[j].y);
+		 pop[i].solut[j].x, pop[i].solut[j].y);
     	strcat (strg, minor_strg);
       }
       sprintf (paramValues[7], "%s", strg);
@@ -387,30 +390,70 @@ next_generator_level (int number)
     else {
 
       clock_t start = clock(), diff;
-      
-      initial_pop_generator ();
-      path_find_evaluate (pop); 
+      double msec = 0;
+      geracao = 0;
+      printf ("exec = %d\n", execucao);
+      for (i = 0; i < POPSIZE; ++i) {
+	printf ("pop ini %d\n",i);
+	pop[i].id = pop[i].cenario_code = cenario2number (&pop[i].lv);
+	pop_gen_reduced_ind (&pop[i]);
+	path_find_eval_ind (&pop[i]);
+	sprintf (paramAgDB[0], "%d", execucao);
+	sprintf (paramAgDB[1], "%d", geracao);
+	sprintf (paramAgDB[2], "%d", pop[i].cenario_code);
+	sprintf (paramAgDB[3], "%d", (int)MH);
+	sprintf (paramAgDB[4], "%d", (int)MW);
+	sprintf (paramAgDB[5], "%d", (int)POPSIZE);
+	sprintf (paramAgDB[6], "%lf",mutation_rate_on);
+	sprintf (paramAgDB[7], "%lf",mutation_rate_in);
+	sprintf (paramAgDB[8], "%d", vlr_nivel);
+	strg[0] = '\0'; len = size_string_path;
+	sprintf (strg, "%lf", pop[i].handicap[pop[i].conv_index]);
+	for (j = 0; j < len; j++)
+	  if (strg[j] == ',') {
+	    strg[j] = '.';
+	    break;
+	  }
+	sprintf (paramAgDB[9], "%s", strg);
+	strg[0] = '\0'; len = size_string_path;
+	sprintf (strg, "%lf",  pop[i].rate[pop[i].conv_index]);
+	for (j = 0; j < len; j++)
+	  if (strg[j] == ',') {
+	    strg[j] = '.';
+	    break;
+	  }
+	sprintf (paramAgDB[10], "%s", strg);
+	sprintf (paramAgDB[11]," %lf", msec);
+	strg[0] = '\0'; minor_strg[0] = '\0';
+	for (j = 0; j < pop[i].tamanho; ++j) {
+	  sprintf (minor_strg, "(%d,%d) ", pop[i].solut[j].x,
+		   pop[i].solut[j].y);
+	  strcat (strg, minor_strg);
+	}
+	sprintf (paramAgDB[12], "%s", strg);
+      }
       qsort (pop, POPSIZE, sizeof (*pop), cmpop);
 
       /* printf ("\nPOPULACAO INICIAL ORDENADA\n"); */
       /* print_pop_reduced (pop, POPSIZE); */
       /* getchar (); */
 
-      for (geracao = 0; (geracao < geracoes); ++geracao) {  
-	     /* && (pop[POPSIZE-1].rate[0] < 4) */
+      for (geracao = 1; (geracao <= geracoes) //; ++geracao) {  
+	     && (pop[0].rate[0] = 0); ++geracao) {
 
+	printf ("geracao %d\n", geracao);
 	/* SELECAO */
 	printf ("\nSELECAO\n");
-	int nro_niveis   = 3;
-	int nvpt  = POPSIZE / nro_niveis;
-	int resto = POPSIZE % nro_niveis;
+	/* int nro_niveis   = 3; */
+	/* int nvpt  = POPSIZE / nro_niveis; */
+	/* int resto = POPSIZE % nro_niveis; */
 	int son_pos;
 
 	double crossover_rate = 0.40;
 	int ini = 0; // nvpt * nivel;
 	int fim = (int) crossover_rate * POPSIZE;//(ini + nvpt)+resto-1;
 
-	/* CRUZAMENTO */
+	/* printf ("CRUZAMENTO\n"); */
 	for (i=ini, j=fim, son_pos=0; i < j; ++i, --j, son_pos+=2) {
 	  copy_sol (&pop[i], &sons[son_pos]);
 	  copy_sol (&pop[j], &sons[son_pos+1]);
@@ -420,73 +463,34 @@ next_generator_level (int number)
 
 	/* ARRUMA OS INDICES DOS FILHOS */
 	for (i = 0; i < son_pos; ++i)
-	  sons[i].id = POPSIZE+i;
-	/* MUTACAO */
+	  sons[i].cenario_code= sons[i].id= cenario2number(&sons[i].lv);
+
+	/* printf ("MUTACAO\n"); */
 	for (i = 0; i < son_pos; ++i) {
 	  if (prandom (100)  <= (mutation_rate_on * 100))
 	    mutation_wall_alg (&sons[i].lv, mutation_rate_in);
 	}
-	printf ("\nMUTACAO\n");
+
 
 	/* Avalia os novatos */
 	path_find_evaluate (sons);
-	for (i = 0; i < POPSIZE; ++i) {
+	for (i = 0; i < POPSIZE; ++i) 
 	  copy_sol (&pop[i], &popsons[i]);
-	}
 
-	/* printf ("\nPOPSONS, apenas com POP\n"); */
-	/* print_pop_reduced (popsons, POPSIZE); */
-	/* getchar (); */
-  
-	for (i = 0; i < son_pos; ++i) {
+	for (i = 0; i < son_pos; ++i) 
 	  copy_sol (&sons[i], &popsons[POPSIZE+i]);
-	}
 
-	/* printf ("\nPOPSONS, sem ordenar\n"); */
-	/* print_pop_reduced (popsons, POPSIZE+son_pos); */
-	/* getchar (); */
-  
+
 	qsort (popsons, POPSIZE+son_pos, sizeof (*popsons), cmpop);
-	/* printf ("\nSONS\n"); */
-	/* print_pop_reduced (sons, son_pos); */
-	/* getchar (); */
 
-	/* printf ("\nPOPSONS, apos ordenar\n"); */
-	/* print_pop_reduced (popsons, POPSIZE+son_pos); */
-	/* getchar (); */
+	// ### SELECAO DOS MAIS ADAPTADOS - REINSERCAO tp ###
+	for (i = 0; i < POPSIZE ; ++i) 
+	  copy_sol (&popsons[i], &pop[i]);
 
-	/* SELECAO DOS MAIS ADAPTADOS - REINSERCAO tp*/
-	int allmemb = (POPSIZE+son_pos);
-	nvpt = allmemb / nro_niveis;
-	resto= allmemb % nro_niveis;
-	ini  = nvpt * nivel;
-	fim  = (ini + nvpt)+resto-1;
-
-	j = 0;
-	for (i = ini; i <= fim ; ++i) 
-	  copy_sol (&popsons[i], &pop[j++]);
-	/* pop[j++] = popsons[i]; */
-
-	if (j < POPSIZE) {
-
-	  for (i = fim+1; (i < allmemb) && (j < POPSIZE); ++i) 
-	    copy_sol (&popsons[i], &pop[j++]);
-
-	  for (i = ini-1; (i >= 0) && (j < POPSIZE); --i)
-	    copy_sol (&popsons[i], &pop[j++]);
-
-	}
-	/* printf ("\nNOVA POP\n"); */
 	/* print_pop_reduced (pop, POPSIZE); */
-	/* getchar (); */
-
-	/* qsort (pop, POPSIZE, sizeof (*pop), cmpop);     */
-	/* printf ("\nNOVA POP ORDENADA\n"); */
-	/* print_pop_reduced (pop, POPSIZE); */
-	/* getchar (); */
 
 	diff = clock() - start;
-	int msec = diff * 1000 / CLOCKS_PER_SEC;
+	msec = diff * 1000 / CLOCKS_PER_SEC;
       }
 
       vet_geracoes[execucao] = geracao;
@@ -2076,7 +2080,7 @@ copy_sol (struct solution *s, struct solution *d)
   d->conv_index = s->conv_index;
   d->conv_rate  = s->conv_rate;
 
-  d->solucao = s->solucao;
+  d->solut = s->solut;
   d->tamanho = s->tamanho;
 }
 
@@ -2127,7 +2131,7 @@ print_pop_reduced (struct solution pop[], int size)
     printf ("\n%3d - lv %3d - Nota = %.3lf - path: ", it, sol->id, 
 	    sol->rate[0]);
     for (i = 0; i < sol->tamanho; ++i)
-      printf ("(%d,%d) ", sol->solucao[i].x, sol->solucao[i].y);
+      printf ("(%d,%d) ", sol->solut[i].x, sol->solut[i].y);
   }
   putchar('\n');
 }
@@ -2207,7 +2211,7 @@ path_find_evaluate (struct solution pop[])
 	
 	else {
 	  
-	  if (x == INIX && y == INIY) //sem solucao
+	  if (x == INIX && y == INIY) //sem solut
 	    aborte = true;
 	  path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
 	  continue;
@@ -2226,7 +2230,7 @@ path_find_evaluate (struct solution pop[])
 				       &sol->nsolutions, sol->nsolutions,
 				       sizeof (*sol->dbsolutions));
     }
-    sol->solucao = path;
+    sol->solut = path;
     sol->tamanho = len;
     
     sol->nmembs = add_to_array (&len, 1, sol->nmembs, &sol->nnmembs, 
@@ -2255,7 +2259,7 @@ path_find_evaluate (struct solution pop[])
   	/* printf ("%d, %d\t", sol->dbsolutions[0][i]->x, */
 	/* 	sol->dbsolutions[0][i]->y); */
 	//BEGIN###
-      /* 	printf ("%d, %d\t", sol->solucao[i].x, sol->solucao[i].y); */
+      /* 	printf ("%d, %d\t", sol->solut[i].x, sol->solut[i].y); */
       /* putchar ('\n'); */
       /* putchar ('\n'); */
       	//END###
@@ -2336,7 +2340,7 @@ path_find_eval_ind (struct solution *sol)
 	
       else {
 	  
-	if (x == INIX && y == INIY) //sem solucao
+	if (x == INIX && y == INIY) //sem solut
 	  aborte = true;
 	path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
 	continue;
@@ -2355,7 +2359,7 @@ path_find_eval_ind (struct solution *sol)
 				     &sol->nsolutions, sol->nsolutions,
 				     sizeof (*sol->dbsolutions));
   }
-  sol->solucao = path;
+  sol->solut = path;
   sol->tamanho = len;
     
   sol->nmembs = add_to_array (&len, 1, sol->nmembs, &sol->nnmembs, 
@@ -2384,7 +2388,7 @@ path_find_eval_ind (struct solution *sol)
   /* printf ("%d, %d\t", sol->dbsolutions[0][i]->x, */
   /* 	sol->dbsolutions[0][i]->y); */
   //BEGIN###
-  /* 	printf ("%d, %d\t", sol->solucao[i].x, sol->solucao[i].y); */
+  /* 	printf ("%d, %d\t", sol->solut[i].x, sol->solut[i].y); */
   /* putchar ('\n'); */
   /* putchar ('\n'); */
   //END###
@@ -2398,4 +2402,16 @@ exitdb (PGconn *conn)
 {
   PQfinish (conn);
   exit (1);
+}
+
+int
+cenario2number (struct level *lv)
+{
+  int i, j, number = 0, exp = 0, pos = 0;
+
+  for (i = 0; i < MH; ++i) 
+    for (j = 0; j < MW; ++j) 
+      number += pow (2, pos++) * (mat_con (lv, i, j)->fg == WALL?1:0);
+
+  return number;
 }
