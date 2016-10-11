@@ -6,7 +6,7 @@
 
 /* begin defines */
 /* #define POPSIZE 512 //20 //65536 //49500 16036*/
-#define POPSIZE 20
+#define POPSIZE 512
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
@@ -53,7 +53,7 @@ struct tuple {
   int tamanho;
 };
 struct node {
-  struct node *edges;
+  struct node **edges;
   size_t nedges;
   int x, y;
   int frequency;
@@ -61,6 +61,12 @@ struct node {
   bool accessible;
   bool visited;
   bool pherdep;
+};
+
+struct branch {
+  struct node n;
+  size_t len;
+  struct node *adj;
 };
 
 struct ant {
@@ -120,7 +126,7 @@ static struct level *mutation_wall_alg (struct level *lv,
 static void squarify (int d, int *d1, int* d2);
 static int cenario2number (struct level *lv);
 static bool contain (struct node *array, size_t nmemb, 
-		     struct node element);
+		     struct node *element);
 /* static void fix_level_generator (void); */
 static void put_floor_on_wall (struct level *lv);
 static void put_level_door (struct level *lv, 
@@ -252,8 +258,8 @@ next_generator_level (int number)
   double media = 0, desvio = 0;
   int vet_geracoes[execucoes];
 
-  bool use_ag = true; 		/* AG ou Random */
-  bool all_levels = false;
+  bool use_ag = false; 		/* AG ou Random */
+  bool all_levels = true;
 
   /* setlocale (LC_ALL, "C"); */
   srand (time(NULL));
@@ -264,7 +270,7 @@ next_generator_level (int number)
   /* setlocale(LC_NUMERIC, ".OCP"); */
 
   // BANCO
-  char *dbname = "generator";
+  char *dbname = "base";//"generator";
   int nparam = 8; int nparamag = 14;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   // 512 + deslocamento;
@@ -296,7 +302,8 @@ next_generator_level (int number)
       pop[i].cenario_code = i + deslocamento;
 
       pop_gen_all_ind (&pop[i]);
-      path_find_eval_ind (&pop[i]);
+      /* path_find_eval_ind (&pop[i]); */
+      depthfst (&pop[i]);
 
       /* qsort (pop, POPSIZE, sizeof (*pop), cmpop); */
       
@@ -322,7 +329,7 @@ next_generator_level (int number)
       }
       sprintf (paramValues[7], "%s", strg);
 
-      char *query1 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
+      char*query1="INSERT INTO solutions VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
       call_DB (dbname, query1, paramValues, nparam);
     }
 
@@ -331,6 +338,8 @@ next_generator_level (int number)
   for (execucao = 0; execucao < execucoes; ++execucao) {
 
     if (use_ag == false) {
+      printf ("Random\n");
+      getchar();
       random_pop_generator ();
       path_find_evaluate (pop);
       qsort (pop, POPSIZE, sizeof (*pop), cmpop);
@@ -2402,66 +2411,95 @@ depthfst (struct solution *sol)
       
       if (mat_con (lv, x, y+1) && graph[x][y+1].accessible) {
 	add = &graph[x][y+1];
-	no->edges = add_to_array (add, 1, no->edges, &add->nedges,
+	no->edges = add_to_array (&add, 1, no->edges, &no->nedges,
 				  add->nedges, sizeof (*no->edges));
       }
-	
+
       if (mat_con (lv, x+1, y) && graph[x+1][y].accessible) {
 	add = &graph[x+1][y];
-	no->edges = add_to_array (add, 1, no->edges, &add->nedges,
-				  add->nedges, sizeof (*no->edges));
+	no->edges = add_to_array (&add, 1, no->edges, &no->nedges,
+				  no->nedges, sizeof (*no->edges));
       }
-	
+
       if (mat_con (lv, x, y-1) && graph[x][y-1].accessible) {
 	add = &graph[x][y-1];
-	no->edges = add_to_array (add, 1, no->edges, &add->nedges,
-				  add->nedges, sizeof (*no->edges));
+	no->edges = add_to_array (&add, 1, no->edges, &no->nedges,
+				  no->nedges, sizeof (*no->edges));
       }
             
       if (mat_con (lv, x-1, y) && graph[x-1][y].accessible) {
 	add = &graph[x-1][y];
-	no->edges = add_to_array (add, 1, no->edges, &add->nedges,
-				  add->nedges, sizeof (*no->edges));
+	no->edges = add_to_array (&add, 1, no->edges, &no->nedges,
+				  no->nedges, sizeof (*no->edges));
       }//if
+      
+      
+      /* int k; printf ("\nNo (%d,%d)\n",x, y); */
+      /* for (k = 0; k < no->nedges; ++k)  */
+      /* printf ("x:%d y:%d n_adj:%d accss:%d - ",no->edges[k]->x,  */
+      /* 	no->edges[k]->y, no->edges[k]->nedges, no->accessible);*/
+      
     }//for
+    /* putchar ('\n'); */
   }//for
-
+  /* getchar(); */
   
   /* INICIO */
   no = &graph[INIX][INIY];
   struct node *path = NULL, *b_path = NULL;
   size_t len = 0, blen = 0;
 
+  struct branch *pile = NULL;
+  size_t npile = 0;
+
   /* NO INICIAL É VÁLIDO? */
   if (mat_con (lv, no->x, no->y) && graph[no->x][no->y].accessible) 
     /* ADICIONE-O */
     path = add_to_array (no, 1, path, &len, len, sizeof (*path));
-  else
-    path = NULL; len = 0;
 
+  else {
+    path = NULL; 
+    len = 0;
+  }
+
+  int cont = 0;
   while (len > 0) {
-
+    printf ("\n\ncont = %d\nlen = %d\n", cont++, (int)len);
     no = &path[len-1];
+    printf ("NO ATUAL = (%d, %d)\n", no->x, no->y);
 
     /* IF HAS ADJ */
+    /* printf ("Arestas = %d\n", no->nedges); */
     if (no->nedges > 0) {
-
       /* TEST WITCH EDGE IS VALID */
       int edge;
       for (edge = (no->nedges-1); edge >= 0 ; --edge) {
+	/* printf ("edge = %d\n", edge); */
+	next = no->edges[edge];
+	/* printf ("NEXT = (%d, %d)\n", next->x, next->y); */
+	/* printf ("Next Arestas antes = %d\n", next->nedges); */
 
-	next = &no->edges[edge];
-
-	if (!contain (path, len, *next)) {
-
+	if (!contain (path, len, next)) {
+	  printf ("path nao contem next\n");
+	  printf ("NEXT = (%d, %d)\n", next->x, next->y);
+	  /* printf ("Next Arestas antes = %d\n", next->nedges); */
 	  path = add_to_array (next, 1, path, &len, len, sizeof (*path));
+
 	  no->edges 
-	    = remove_from_array (no->edges, &no->nedges, no->nedges-1, 
+	    = remove_from_array (no->edges, &no->nedges, edge, 
 				 1, sizeof (*no->edges));
+
+	  printf ("ADD NEXT TO PATH -> Tamanho path = %d\n", len);
+	  for (i = 0; i < len; ++i)
+	    printf ("(%d, %d) ", path[i].x, path[i].y);
+
 	  /* VERIFICA SE ACHOU O OBJETIVO */
 	  if (path[len-1].x == FIMX && path[len-1].y == FIMY) {
+	    printf ("***** ACHOU O OBJETIVO ******\n");
+	    getchar();
 	    /* VERIFICA SE A SOL É MELHOR QUE A BEST */
 	    if (len < blen) {
+	      printf ("NOVA BEST É MELHOR\n");
 	      /* LIMPA A BEST ANTIGA */
 	      for (i = blen; i > 0; --i)
 		b_path = remove_from_array (b_path, &blen, blen-1,  
@@ -2481,6 +2519,7 @@ depthfst (struct solution *sol)
       }//for TEST EDGES
 
       if (edge < 0) {
+	printf ("edge < 0 and = %d\n", edge);
 	path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
       }
     }//if
@@ -2490,19 +2529,34 @@ depthfst (struct solution *sol)
       path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
     }
   }//while len > 0
+
+  printf ("FIMMMMMMMMMMMMMMMM\n");
   sol->solut = b_path;
   sol->tamanho = blen;
+
+  printf ("Tamanho = %d\n", sol->tamanho);
+  for (i = 0; i < sol->tamanho; ++i)
+    printf ("(%d, %d) ", sol->solut[i].x, sol->solut[i].y);
+  getchar();
+
+  sol->dbsolutions = NULL; sol->nsolutions = 0;
+  sol->nmembs      = NULL; sol->nnmembs    = 0;
+  sol->dbsolutions = add_to_array (&b_path, 1, sol->dbsolutions,
+				   &sol->nsolutions, sol->nsolutions,
+				   sizeof (*sol->dbsolutions));
+  sol->nmembs = add_to_array (&blen, 1, sol->nmembs, &sol->nnmembs, 
+			      sol->nnmembs, sizeof (*sol->nmembs));  
   evaluate (sol);
 }
 	   
 
 
 bool
-contain (struct node *array, size_t nmemb, struct node element)
+contain (struct node *array, size_t nmemb, struct node *element)
 {
   int i;
-  for (i = 0; i < (int)nmemb; ++i)
-    if ((array[i].x == element.x) && (array[i].y == element.y))
+  for (i = 0; i < nmemb; ++i)
+    if ((array[i].x == element->x) && (array[i].y == element->y))
       return true;
 
   return false;
