@@ -53,6 +53,8 @@ struct tuple {
   int tamanho;
 };
 struct node {
+  struct node *edges;
+  size_t nedges;
   int x, y;
   int frequency;
   double pheromone;
@@ -100,6 +102,7 @@ static void random_pop_generator (void);
 static bool aco (struct solution *sol, double alfa, double beta);
 static void path_find_evaluate (struct solution pop[]);
 static void path_find_eval_ind (struct solution *sol);
+static void depthfst (struct solution *sol);
 static void evaluate (struct solution *sol);
 static double fitness (double hcap, int vlr_nivel);
 static double handicap (int num_wall, int nmemb_path);
@@ -116,6 +119,8 @@ static struct level *mutation_wall_alg (struct level *lv,
 /* begin auxiliar Functions */
 static void squarify (int d, int *d1, int* d2);
 static int cenario2number (struct level *lv);
+static bool contain (struct node *array, size_t nmemb, 
+		     struct node element);
 /* static void fix_level_generator (void); */
 static void put_floor_on_wall (struct level *lv);
 static void put_level_door (struct level *lv, 
@@ -380,9 +385,6 @@ next_generator_level (int number)
 	/* printf ("geracao %d\n", geracao); */
 
 	/* printf ("\nSELECAO\n"); */
-	/* int nro_niveis   = 3; */
-	/* int nvpt  = POPSIZE / nro_niveis; */
-	/* int resto = POPSIZE % nro_niveis; */
 	int son_pos;
 
 	double crossover_rate = 0.40;
@@ -552,7 +554,7 @@ next_generator_level (int number)
 
     int son_pos;
     /* Cruzamento */
-    for (i = ini, j = fim, son_pos = -2; i < j ; ++i, --j) {
+    for (i = ini, j = fim, son_pos = -2; i < j; ++i, --j) {
       son_pos += 2;
       copy_sol (&pop[i], &sons[son_pos]);
       copy_sol (&pop[j], &sons[son_pos]);
@@ -794,10 +796,8 @@ pop_gen_all ()
 	  mat_con (lv, i, j)->fg = WALL;
 	n = n / 2;
       }
-
-    put_level_door (lv, &ci, &cf);
-    put_floor_on_wall (lv);
-
+    /* put_level_door (lv, &ci, &cf); */
+    /* put_floor_on_wall (lv); */
   }
 }
 
@@ -849,8 +849,8 @@ pop_gen_all_ind (struct solution *sol)
       n = n / 2;
     }
 
-  put_level_door (lv, &ci, &cf);
-  put_floor_on_wall (lv);
+  /* put_level_door (lv, &ci, &cf); */
+  /* put_floor_on_wall (lv); */
 
 }
 
@@ -949,8 +949,6 @@ initial_pop_generator (void)
 }
 
 
-
-
 void
 random_pop_generator (void)
 {
@@ -1004,7 +1002,6 @@ random_pop_generator (void)
 
     	if (r > 0 && r <= prob)
     	  mat_con (lv, i, j)->fg = WALL;
-
       }
 
   }
@@ -2105,7 +2102,7 @@ print_pop_reduced (struct solution pop[], int size)
 void
 path_find_evaluate (struct solution pop[])
 {
-  int it, i, j, x, y, count;
+  int it, i, j, x, y;
   struct node **graph;
   size_t len;
 
@@ -2232,6 +2229,7 @@ path_find_evaluate (struct solution pop[])
       /* 	getchar(); */
   }
 }
+
 
 void
 path_find_eval_ind (struct solution *sol)
@@ -2360,6 +2358,154 @@ path_find_eval_ind (struct solution *sol)
   /* if (sol->ind == 14812 || sol->ind == 3823) */
   /* 	getchar(); */
 
+}
+
+
+void
+depthfst (struct solution *sol)
+{
+  int i, j, x, y;
+  struct level *lv = &sol->lv;
+  struct node *no, *add, *next;
+  struct node **graph;
+  graph = (struct node**) malloc (MH * sizeof (struct node *));
+  
+  for (i = 0; i < MH; ++i)
+    
+    graph[i] = (struct node*) malloc (MW * sizeof (struct node));
+  
+  
+  for (i = 0; i < MH; ++i)
+    
+    for (j = 0; j < MW; ++j) {
+      
+      graph[i][j].x = i;
+      graph[i][j].y = j;
+      graph[i][j].frequency = 0;
+      
+      if (mat_con (lv, i, j)->fg == WALL)
+	graph[i][j].accessible = false;
+      else
+	graph[i][j].accessible = true;
+      
+      graph[i][j].edges = NULL;
+      graph[i][j].nedges = 0;
+    }
+
+
+  for (i = 0; i < MH; ++i) {
+
+    for (j = 0; j < MW; ++j) {
+
+      no = &graph[i][j];
+      x = no->x; y = no->y;
+      
+      if (mat_con (lv, x, y+1) && graph[x][y+1].accessible) {
+	add = &graph[x][y+1];
+	no->edges = add_to_array (add, 1, no->edges, &add->nedges,
+				  add->nedges, sizeof (*no->edges));
+      }
+	
+      if (mat_con (lv, x+1, y) && graph[x+1][y].accessible) {
+	add = &graph[x+1][y];
+	no->edges = add_to_array (add, 1, no->edges, &add->nedges,
+				  add->nedges, sizeof (*no->edges));
+      }
+	
+      if (mat_con (lv, x, y-1) && graph[x][y-1].accessible) {
+	add = &graph[x][y-1];
+	no->edges = add_to_array (add, 1, no->edges, &add->nedges,
+				  add->nedges, sizeof (*no->edges));
+      }
+            
+      if (mat_con (lv, x-1, y) && graph[x-1][y].accessible) {
+	add = &graph[x-1][y];
+	no->edges = add_to_array (add, 1, no->edges, &add->nedges,
+				  add->nedges, sizeof (*no->edges));
+      }//if
+    }//for
+  }//for
+
+  
+  /* INICIO */
+  no = &graph[INIX][INIY];
+  struct node *path = NULL, *b_path = NULL;
+  size_t len = 0, blen = 0;
+
+  /* NO INICIAL É VÁLIDO? */
+  if (mat_con (lv, no->x, no->y) && graph[no->x][no->y].accessible) 
+    /* ADICIONE-O */
+    path = add_to_array (no, 1, path, &len, len, sizeof (*path));
+  else
+    path = NULL; len = 0;
+
+  while (len > 0) {
+
+    no = &path[len-1];
+
+    /* IF HAS ADJ */
+    if (no->nedges > 0) {
+
+      /* TEST WITCH EDGE IS VALID */
+      int edge;
+      for (edge = (no->nedges-1); edge >= 0 ; --edge) {
+
+	next = &no->edges[edge];
+
+	if (!contain (path, len, *next)) {
+
+	  path = add_to_array (next, 1, path, &len, len, sizeof (*path));
+	  no->edges 
+	    = remove_from_array (no->edges, &no->nedges, no->nedges-1, 
+				 1, sizeof (*no->edges));
+	  /* VERIFICA SE ACHOU O OBJETIVO */
+	  if (path[len-1].x == FIMX && path[len-1].y == FIMY) {
+	    /* VERIFICA SE A SOL É MELHOR QUE A BEST */
+	    if (len < blen) {
+	      /* LIMPA A BEST ANTIGA */
+	      for (i = blen; i > 0; --i)
+		b_path = remove_from_array (b_path, &blen, blen-1,  
+					    1, sizeof (*b_path));
+	      /* NOVA BEST */
+	      for (i = 0; i < len; ++i) {
+		next = &path[i];
+		b_path = add_to_array (next, 1, b_path, &blen, 
+				       blen, sizeof (*b_path));
+	      }//for
+	    }//if BEST
+	    path = remove_from_array (path, &len, len-1,1, sizeof(*path));
+	  }//if NO FINAL
+	  break;
+	}//if !contain
+	
+      }//for TEST EDGES
+
+      if (edge < 0) {
+	path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
+      }
+    }//if
+    else {
+      /* REMOVE O ATUAL E VOLTA A VERIFICAR AS ARESTAS ANTERIROS */
+      /* ATÉ ACHAR O NÓ INICIAL */
+      path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
+    }
+  }//while len > 0
+  sol->solut = b_path;
+  sol->tamanho = blen;
+  evaluate (sol);
+}
+	   
+
+
+bool
+contain (struct node *array, size_t nmemb, struct node element)
+{
+  int i;
+  for (i = 0; i < (int)nmemb; ++i)
+    if ((array[i].x == element.x) && (array[i].y == element.y))
+      return true;
+
+  return false;
 }
 
 
