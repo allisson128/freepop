@@ -16,6 +16,10 @@
 #define VLR_NIVEL 2 //0 1 2
 /* end defines */
 
+/* begin enum */
+enum selection {Truncation = 0, Tournament, Roulette};
+/* end enum */
+
 /* begin structs */
 struct solution {
 
@@ -64,9 +68,9 @@ struct node {
 };
 
 struct branch {
-  struct node n;
+  struct node *n;
+  struct node **adj;
   size_t len;
-  struct node *adj;
 };
 
 struct ant {
@@ -125,7 +129,7 @@ static struct level *mutation_wall_alg (struct level *lv,
 /* begin auxiliar Functions */
 static void squarify (int d, int *d1, int* d2);
 static int cenario2number (struct level *lv);
-static bool contain (struct node *array, size_t nmemb, 
+static bool contain (struct branch *array, size_t nmemb, 
 		     struct node *element);
 /* static void fix_level_generator (void); */
 static void put_floor_on_wall (struct level *lv);
@@ -395,19 +399,49 @@ next_generator_level (int number)
 
 	/* printf ("\nSELECAO\n"); */
 	int son_pos;
-
+	enum selection method = Tournament;
 	double crossover_rate = 0.40;
+	int tour = 3;
+	
 	int ini = 0; // nvpt * nivel;
 	int fim = crossover_rate * ((int)POPSIZE);//(ini + nvpt)+resto-1;
-
-	/* printf ("CRUZAMENTO, ini = %d, fim = %d\n", ini, fim); */
-	for (i=ini, j=fim, son_pos=0; i < j; ++i, --j, son_pos+=2) {
-	  copy_sol (&pop[i], &sons[son_pos]);
-	  copy_sol (&pop[j], &sons[son_pos+1]);
-	  crossover (&pop[i].lv, &pop[j].lv,
-		     &sons[son_pos].lv, &sons[son_pos+1].lv);
+	
+	if (method == Truncation) {
+	  /* printf ("CRUZAMENTO, ini = %d, fim = %d\n", ini, fim); */
+	  for (i=ini, j=fim, son_pos=0; i < j; ++i, --j, son_pos+=2) {
+	    copy_sol (&pop[i], &sons[son_pos]);
+	    copy_sol (&pop[j], &sons[son_pos+1]);
+	    crossover (&pop[i].lv, &pop[j].lv,
+		       &sons[son_pos].lv, &sons[son_pos+1].lv);
+	  }
 	}
+	
+	else if (method == Tournament) {
+	  
+	  for (son_pos = 0; son_pos <= fim; son_pos += 2) {
+	    
+	    int i;
+	    int bst[2];
 
+	    
+	    for (j = 0; j < 2; ++j) {
+
+	      bst[j] = prandom ((int)POPSIZE);
+	     
+	      for (i = 0; i < tour-1; ++i) {
+
+		int r = prandom ((int)POPSIZE);
+		if (pop[r].rate[pop[r].conv_index]
+		    < pop[bst[j]].rate[pop[bst[j]].conv_index])
+		  bst[j] = r;
+	      }
+	    }
+	    copy_sol (&pop[bst[0]], &sons[son_pos]);
+	    copy_sol (&pop[bst[1]], &sons[son_pos+1]);
+	    crossover (&pop[bst[0]].lv, &pop[bst[1]].lv,
+		       &sons[son_pos].lv, &sons[son_pos+1].lv);
+	  }
+	}
 	/* printf ("MUTACAO\n"); */
 	for (i = 0; i < son_pos; ++i) {
 	  if (prandom (100)  <= (mutation_rate_on * 100))
@@ -2445,99 +2479,92 @@ depthfst (struct solution *sol)
   /* getchar(); */
   
   /* INICIO */
-  no = &graph[INIX][INIY];
-  struct node *path = NULL, *b_path = NULL;
-  size_t len = 0, blen = 0;
+  struct node *b_path = NULL;
+  size_t blen = 0;
 
   struct branch *pile = NULL;
   size_t npile = 0;
+  struct branch brc;
+  
+  brc.n = &graph[INIX][INIY];
+  brc.adj = NULL;
+  brc.len = 0;
 
-  /* NO INICIAL É VÁLIDO? */
-  if (mat_con (lv, no->x, no->y) && graph[no->x][no->y].accessible) 
-    /* ADICIONE-O */
-    path = add_to_array (no, 1, path, &len, len, sizeof (*path));
+  if (mat_con (lv, brc.n->x, brc.n->y) 
+      && graph[brc.n->x][brc.n->y].accessible) {
+  
+    for (i = 0; i < brc.n->nedges; ++i)
 
-  else {
-    path = NULL; 
-    len = 0;
+      brc.adj = add_to_array (&brc.n->edges[i], 1, brc.adj, &brc.len, 
+			      brc.len, sizeof (*brc.adj));
+
+    pile = add_to_array (&brc, 1, pile, &npile, npile, sizeof (*pile));
   }
 
-  int cont = 0;
-  while (len > 0) {
-    printf ("\n\ncont = %d\nlen = %d\n", cont++, (int)len);
-    no = &path[len-1];
-    printf ("NO ATUAL = (%d, %d)\n", no->x, no->y);
+  while (npile > 0) {
+    /* printf ("\nnpile = %d:\n", npile); */
+    /* for (i = 0; i < npile; ++i) */
+    /*   printf ("%d %d - ", pile[i].n->x, pile[i].n->y); */
+    /* putchar ('\n'); */
+    /* getchar(); */
+    int top = npile-1;
 
-    /* IF HAS ADJ */
-    /* printf ("Arestas = %d\n", no->nedges); */
-    if (no->nedges > 0) {
-      /* TEST WITCH EDGE IS VALID */
-      int edge;
-      for (edge = (no->nedges-1); edge >= 0 ; --edge) {
-	/* printf ("edge = %d\n", edge); */
-	next = no->edges[edge];
-	/* printf ("NEXT = (%d, %d)\n", next->x, next->y); */
-	/* printf ("Next Arestas antes = %d\n", next->nedges); */
+    if ((pile[top].n->x == FIMX) && (pile[top].n->y == FIMY)) {
+      /* printf ("ACHOU O FIM\n"); */
+      if ((npile < blen) || (blen == 0) ) {
+	/* printf ("Melhor que a best\n"); */
+	for (i = blen; i > 0; --i)
 
-	if (!contain (path, len, next)) {
-	  printf ("path nao contem next\n");
-	  printf ("NEXT = (%d, %d)\n", next->x, next->y);
-	  /* printf ("Next Arestas antes = %d\n", next->nedges); */
-	  path = add_to_array (next, 1, path, &len, len, sizeof (*path));
+	  b_path = remove_from_array (b_path, &blen, blen-1,  
+				      1, sizeof (*b_path));
 
-	  no->edges 
-	    = remove_from_array (no->edges, &no->nedges, edge, 
-				 1, sizeof (*no->edges));
+	for (i = 0; i < npile; ++i) {
 
-	  printf ("ADD NEXT TO PATH -> Tamanho path = %d\n", len);
-	  for (i = 0; i < len; ++i)
-	    printf ("(%d, %d) ", path[i].x, path[i].y);
-
-	  /* VERIFICA SE ACHOU O OBJETIVO */
-	  if (path[len-1].x == FIMX && path[len-1].y == FIMY) {
-	    printf ("***** ACHOU O OBJETIVO ******\n");
-	    getchar();
-	    /* VERIFICA SE A SOL É MELHOR QUE A BEST */
-	    if (len < blen) {
-	      printf ("NOVA BEST É MELHOR\n");
-	      /* LIMPA A BEST ANTIGA */
-	      for (i = blen; i > 0; --i)
-		b_path = remove_from_array (b_path, &blen, blen-1,  
-					    1, sizeof (*b_path));
-	      /* NOVA BEST */
-	      for (i = 0; i < len; ++i) {
-		next = &path[i];
-		b_path = add_to_array (next, 1, b_path, &blen, 
-				       blen, sizeof (*b_path));
-	      }//for
-	    }//if BEST
-	    path = remove_from_array (path, &len, len-1,1, sizeof(*path));
-	  }//if NO FINAL
-	  break;
-	}//if !contain
-	
-      }//for TEST EDGES
-
-      if (edge < 0) {
-	printf ("edge < 0 and = %d\n", edge);
-	path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
+	  struct node *next = pile[i].n;
+	  b_path = add_to_array (next, 1, b_path, &blen, 
+				 blen, sizeof (*b_path));
+	}
       }
-    }//if
-    else {
-      /* REMOVE O ATUAL E VOLTA A VERIFICAR AS ARESTAS ANTERIROS */
-      /* ATÉ ACHAR O NÓ INICIAL */
-      path = remove_from_array (path, &len, len-1, 1, sizeof (*path));
+       pile = remove_from_array (pile, &npile, top, 1, sizeof (*pile));
+       /* printf ("Remove o topo\n"); */
     }
-  }//while len > 0
 
-  printf ("FIMMMMMMMMMMMMMMMM\n");
-  sol->solut = b_path;
-  sol->tamanho = blen;
+    else if (pile[top].len == 0) {
 
-  printf ("Tamanho = %d\n", sol->tamanho);
-  for (i = 0; i < sol->tamanho; ++i)
-    printf ("(%d, %d) ", sol->solut[i].x, sol->solut[i].y);
-  getchar();
+      /* printf ("len == 0, sem adj - Remove topo\n"); */
+      pile = remove_from_array (pile, &npile, top, 1, sizeof (*pile));
+    }
+
+    else {
+      
+      brc.n = pile[top].adj[pile[top].len-1];
+      brc.adj = NULL;
+      brc.len = 0;
+      /* printf ("adj (%d, %d)\n", brc.n->x, brc.n->y); */
+      /* printf ("arestas = %d\n", brc.n->nedges); */
+      for (i = 0; i < brc.n->nedges; ++i)
+
+	if (!contain (pile, npile, brc.n->edges[i]))
+	    
+	  brc.adj = add_to_array (&brc.n->edges[i], 1, brc.adj, &brc.len,
+				  brc.len, sizeof (*brc.adj));
+
+      pile = add_to_array (&brc, 1, pile, &npile, npile, sizeof (*pile));
+
+      top = npile-1;
+      
+      pile[top-1].adj 
+	= remove_from_array (pile[top-1].adj, &pile[top-1].len, 
+		     pile[top-1].len-1, 1, sizeof (*pile[top-1].adj));
+    }
+  }
+
+  sol->solut = b_path; sol->tamanho = blen;
+  /* printf ("FIM - BEST SOL SIZE = %d\n", sol->tamanho); */
+  /* for (i = 0; i < sol->tamanho; ++i) */
+  /*   printf ("(%d, %d) ", sol->solut[i].x, sol->solut[i].y); */
+  /* putchar ('\n'); */
+  /* putchar ('\n'); */
 
   sol->dbsolutions = NULL; sol->nsolutions = 0;
   sol->nmembs      = NULL; sol->nnmembs    = 0;
@@ -2547,16 +2574,31 @@ depthfst (struct solution *sol)
   sol->nmembs = add_to_array (&blen, 1, sol->nmembs, &sol->nnmembs, 
 			      sol->nnmembs, sizeof (*sol->nmembs));  
   evaluate (sol);
+
+  /* for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0) { */
+  /*   for (j = 0; mat_con (lv, i, j); ++j) { */
+
+  /*     if (mat_con (lv, i, j)->fg == WALL) */
+  /* 	printf ("%c ", 'w'); */
+  /*     else */
+  /* 	printf ("%c ", '0'); */
+  /*   } */
+  /*   putchar ('\n'); */
+  /* } */
+  /* for (i = 0; i < sol->tamanho; ++i) */
+  /*   printf ("%d, %d\t", sol->solut[i].x, sol->solut[i].y); */
+  /* putchar ('\n'); */
+  /* putchar ('\n'); */
+  /* getchar(); */
 }
-	   
 
 
 bool
-contain (struct node *array, size_t nmemb, struct node *element)
+contain (struct branch *array, size_t nmemb, struct node *element)
 {
   int i;
   for (i = 0; i < nmemb; ++i)
-    if ((array[i].x == element->x) && (array[i].y == element->y))
+    if ((array[i].n->x == element->x) && (array[i].n->y == element->y))
       return true;
 
   return false;
