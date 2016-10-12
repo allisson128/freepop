@@ -6,18 +6,21 @@
 
 /* begin defines */
 /* #define POPSIZE 512 //20 //65536 //49500 16036*/
-#define POPSIZE 49500
+#define POPSIZE 20
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
 #define INIY 0 //1
 #define FIMX (MH-1)
 #define FIMY (MW-1) //(MW-2)
-#define VLR_NIVEL 2 //0 1 2
+#define VLR_NIVEL Hard //0 1 2
 /* end defines */
 
 /* begin enum */
 enum selection {Truncation = 0, Tournament, Roulette};
+enum nivel {Easy = 0, Medium, Hard};
+char *vet_select[] = {"Truncation", "Tournament", "Roulette"};
+char *vet_nivel[] = {"Easy", "Medium", "Hard"};
 /* end enum */
 
 /* begin structs */
@@ -254,7 +257,7 @@ next_generator_level (int number)
   struct con ci, cf;
   /* AG */
   int tour = 3;
-  enum selection select = Tournament;
+  enum selection select = Truncation;
   double crossover_rate = 0.40;
   double mutation_rate_on = 0.5;
   double mutation_rate_in = 0.1;
@@ -270,7 +273,7 @@ next_generator_level (int number)
 
   // BANCO
   char *dbname = "base";//"generator";
-  int nparam = 8, nparamag = 14;
+  int nparam = 8, nparamag = 16;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   // 512 + deslocamento;
   int size_string_path = 240; // = 6 * 40
@@ -369,12 +372,14 @@ next_generator_level (int number)
 	sprintf (paramAgDB[4], "%d", (int)MH);
 	sprintf (paramAgDB[5], "%d", (int)MW);
 	sprintf (paramAgDB[6], "%d", (int)POPSIZE);
-	sprintf (paramAgDB[7], "%lf",mutation_rate_on);
-	sprintf (paramAgDB[8], "%lf",mutation_rate_in);
-	sprintf (paramAgDB[9], "%d", (int)VLR_NIVEL);
-	sprintf (paramAgDB[10],"%lf",pop[i].handicap[pop[i].conv_index]);
-	sprintf (paramAgDB[11],"%lf", pop[i].rate[pop[i].conv_index]);
-	sprintf (paramAgDB[12],"%lf", msec);
+	sprintf (paramAgDB[7], "%lf", crossover_rate);
+	sprintf (paramAgDB[8], "%s", vet_select[select]);
+	sprintf (paramAgDB[9], "%lf",mutation_rate_on);
+	sprintf (paramAgDB[10], "%lf",mutation_rate_in);
+	sprintf (paramAgDB[11], "%s", vet_nivel[VLR_NIVEL]);
+	sprintf (paramAgDB[12],"%lf",pop[i].handicap[pop[i].conv_index]);
+	sprintf (paramAgDB[13],"%lf", pop[i].rate[pop[i].conv_index]);
+	sprintf (paramAgDB[14],"%lf", msec);
 
 	strg[0] = '\0'; minor_strg[0] = '\0';
 	for (j = 0; j < pop[i].tamanho; ++j) {
@@ -382,9 +387,9 @@ next_generator_level (int number)
 		   pop[i].solut[j].y);
 	  strcat (strg, minor_strg);
 	}
-	sprintf (paramAgDB[13], "%s", strg);
+	sprintf (paramAgDB[15], "%s", strg);
 
-	char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)";
+	char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)";
 	call_DB (dbname, query2, paramAgDB, nparamag);
       }
 
@@ -438,25 +443,30 @@ next_generator_level (int number)
 
 	else if (select == Roulette) {
 
-	  INT_MAX - pop[i].rate[pop[i].conv_index]
-	  
+	  int probs[POPSIZE], sum = 0;
+	  double p[POPSIZE], s = 0;
+
+	  int i;
+	  for (i = 0; i < POPSIZE; ++i) {
+	    p[i] = (1. / pop[i].rate[pop[i].conv_index]);
+	    s += probs[i];
+	  }
+
+	  for (i = 0; i < POPSIZE; ++i) {
+	    p[i] /= s;
+	    sum += (int)(p[i]*100);
+	    probs[i] = sum;
+	  }
+
 	  for (son_pos = 0; son_pos <= fim; son_pos += 2) {
 	    
-	    int i, bst[2];
-
+	    int bst[2];
 	    for (j = 0; j < 2; ++j) {
-
-	      bst[j] = prandom ((int)POPSIZE);
-	     
-	      for (i = 0; i < tour-1; ++i) {
-
-		int r = prandom ((int)POPSIZE);
-
-		if (pop[r].rate[pop[r].conv_index]
-		    < pop[bst[j]].rate[pop[bst[j]].conv_index])
-		  bst[j] = r;
-	      }
+	      int r = prandom (sum);
+	      for (i = 0; r > probs[i]; ++i);
+	      bst[j] = i;
 	    }
+	  
 	    copy_sol (&pop[bst[0]], &sons[son_pos]);
 	    copy_sol (&pop[bst[1]], &sons[son_pos+1]);
 	    crossover (&pop[bst[0]].lv, &pop[bst[1]].lv,
@@ -508,12 +518,14 @@ next_generator_level (int number)
 	  sprintf (paramAgDB[4], "%d", (int)MH);
 	  sprintf (paramAgDB[5], "%d", (int)MW);
 	  sprintf (paramAgDB[6], "%d", (int)POPSIZE);
-	  sprintf (paramAgDB[7], "%lf",mutation_rate_on);
-	  sprintf (paramAgDB[8], "%lf",mutation_rate_in);
-	  sprintf (paramAgDB[9], "%d", (int)VLR_NIVEL);
-	  sprintf(paramAgDB[10],"%lf",pop[i].handicap[pop[i].conv_index]);
-	  sprintf (paramAgDB[11],"%lf", pop[i].rate[pop[i].conv_index]);
-	  sprintf (paramAgDB[12],"%lf", msec/1000.);
+	  sprintf (paramAgDB[7], "%lf",  crossover_rate);
+	  sprintf (paramAgDB[8], "%s",   vet_select[select]);
+	  sprintf (paramAgDB[9], "%lf",  mutation_rate_on);
+	  sprintf (paramAgDB[10], "%lf", mutation_rate_in);
+	  sprintf (paramAgDB[11], "%s",  vet_nivel[VLR_NIVEL]);
+	  sprintf(paramAgDB[12],"%lf",pop[i].handicap[pop[i].conv_index]);
+	  sprintf (paramAgDB[13],"%lf", pop[i].rate[pop[i].conv_index]);
+	  sprintf (paramAgDB[14],"%lf", msec);
 
 	  strg[0] = '\0'; minor_strg[0] = '\0';
 	  for (j = 0; j < pop[i].tamanho; ++j) {
@@ -521,9 +533,9 @@ next_generator_level (int number)
 		     pop[i].solut[j].y);
 	    strcat (strg, minor_strg);
 	  }
-	  sprintf (paramAgDB[13], "%s", strg);
+	  sprintf (paramAgDB[15], "%s", strg);
 
-	  char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)";
+	  char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)";
 	  call_DB (dbname, query2, paramAgDB, nparamag);
 	}
 
