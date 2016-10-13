@@ -6,7 +6,7 @@
 
 /* begin defines */
 /* #define POPSIZE 512 //20 //65536 //49500 16036*/
-#define POPSIZE 20
+#define POPSIZE 49500
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
@@ -257,7 +257,7 @@ next_generator_level (int number)
   struct con ci, cf;
   /* AG */
   int tour = 3;
-  enum selection select = Truncation;
+  enum selection select = Tournament;
   double crossover_rate = 0.40;
   double mutation_rate_on = 0.5;
   double mutation_rate_in = 0.1;
@@ -268,14 +268,14 @@ next_generator_level (int number)
   double media = 0, desvio = 0;
   int vet_geracoes[execucoes];
 
-  bool use_ag = true; 		/* AG ou Random */
-  bool all_levels = false;
+  bool use_ag = false; 		/* AG ou Random */
+  bool all_levels = true;
 
   // BANCO
   char *dbname = "base";//"generator";
   int nparam = 8, nparamag = 16;
   int deslocamento     = 0;   // 0, 49500
-  int cont_id          = 0;   // 512 + deslocamento;
+  int cont_id          = 512+deslocamento;   //0, 512 + deslocamento;
   int size_string_path = 240; // = 6 * 40
   char strg[240];
   char minor_strg[9];
@@ -416,24 +416,25 @@ next_generator_level (int number)
 	}
 	
 	else if (select == Tournament) {
-	  
+
 	  for (son_pos = 0; son_pos <= fim; son_pos += 2) {
-	    
+
 	    int i, bst[2];
 
 	    for (j = 0; j < 2; ++j) {
 
-	      bst[j] = prandom ((int)POPSIZE);
-	     
+	      bst[j] = prandom ((int)POPSIZE-1);
+
 	      for (i = 0; i < tour-1; ++i) {
 
-		int r = prandom ((int)POPSIZE);
+		int r = prandom ((int)POPSIZE-1);
 
 		if (pop[r].rate[pop[r].conv_index]
 		    < pop[bst[j]].rate[pop[bst[j]].conv_index])
 		  bst[j] = r;
 	      }
 	    }
+
 	    copy_sol (&pop[bst[0]], &sons[son_pos]);
 	    copy_sol (&pop[bst[1]], &sons[son_pos+1]);
 	    crossover (&pop[bst[0]].lv, &pop[bst[1]].lv,
@@ -490,7 +491,8 @@ next_generator_level (int number)
 	/*  sons[i].cenario_code=sons[i].id=cenario2number(&sons[i].lv);*/
 	
 	/* Avalia os novatos */
-	path_find_evaluate (sons);
+	/* path_find_evaluate (sons); */
+	depthfst (sons);
 	
 	/* qsort (sons, son_pos, sizeof (*sons), cmpop); */
 	
