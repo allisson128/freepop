@@ -6,14 +6,12 @@
 
 /* begin defines */
 /* #define POPSIZE 512 //20 //65536 //49500 16036*/
-#define POPSIZE 49500
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
 #define INIX 0
 #define INIY 0 //1
 #define FIMX (MH-1)
 #define FIMY (MW-1) //(MW-2)
-#define VLR_NIVEL Hard //0 1 2
 /* end defines */
 
 /* begin enum */
@@ -108,21 +106,22 @@ struct level generator_level;
 /* end structs */
 
 /* begin main Funtions */
-static void initial_pop_generator (void);
-static void pop_gen_all (void);
+static void initial_pop_generator (struct solution *pop, int popsize);
+static void pop_gen_all (struct solution *pop, int popsize);
 static void pop_gen_all_ind (struct solution *sol);
-static void random_pop_generator (void);
+static void random_pop_generator (struct solution *pop, int popsize);
 static bool aco (struct solution *sol, double alfa, double beta);
-static void path_find_evaluate (struct solution pop[]);
-static void path_find_eval_ind (struct solution *sol);
-static void depthfst (struct solution *sol);
-static void evaluate (struct solution *sol);
+static void path_find_evaluate (struct solution *pop, int popsize,
+				enum nivel vlr_nivel);
+static void path_find_eval_ind (struct solution *sol, 
+				enum nivel vlr_nivel);
+static void depthfst (struct solution *sol, enum nivel vlr_nivel);
+static void evaluate (struct solution *sol, enum nivel vlr_nivel);
 static double fitness (double hcap, int vlr_nivel);
 static double handicap (int num_wall, int nmemb_path);
 static int max_handicap (int height, int length);
 static int calc_wall_num (struct level *lv);
-static int *ord_rate_index (struct solution *sol,
-				   int nmemb);
+static int *ord_rate_index (struct solution *sol, int nmemb);
 static void crossover (struct level *lv1, struct level *lv2, 
 		       struct level *son1, struct level *son2);
 static struct level *mutation_wall_alg (struct level *lv, 
@@ -163,9 +162,9 @@ int find_convergence (struct solution *sol);
 static bool is_equal (struct solution *sol, int p1, int p2);
 static int cmpfunc (const void * a, const void * b);
 static int cmpop (const void *a0, const void *b0);
-static void free_solution (void);
-static void free_db_index (int i);
-static void free_db (void);
+static void free_solution (struct solution *pop, int popsize);
+static void free_db_index (struct solution *pop, int i);
+static void free_db (struct solution *pop, int popsize);
 static void copy_sol (struct solution *s, struct solution *d);
 static void tratamento (struct tuple *t, int nmemb);		      
 
@@ -181,15 +180,12 @@ static void print_nodes (struct level *lv, int **f);
 static void print_pheromones (struct node **g);
 static void printdep (int ** f, struct prob *pba, double rsum, 
 		      double r, int ii, struct level *lv);
-static void print_pop_reduced (struct solution pop[], int size);
+static void print_pop (struct solution pop[], int size);
 /* end output Functions */
 
 /* begin global vars */
 int HEIGHT;
 int WIDTH;
-struct solution pop[POPSIZE];
-struct solution sons[POPSIZE];
-struct solution popsons[POPSIZE*2];
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = {(struct cell *) &square_cells, 
@@ -253,14 +249,17 @@ mat_con (struct level *lv, int dfloor, int dplace)
 void
 next_generator_level (int number)
 {
-  int i, j, k, len, choice = POPSIZE-1;
+  int i, j, k, len, choice;
   struct con ci, cf;
   /* AG */
   int tour = 3;
-  enum selection select = Tournament;
-  double crossover_rate = 0.40;
-  double mutation_rate_on = 0.5;
-  double mutation_rate_in = 0.1;
+  int popsize;
+  struct solution *pop, *sons, *popsons;
+  enum selection select;   //= Truncation;
+  enum nivel vlr_nivel;    //= Hard;
+  double crossover_rate;   // = 0.7;
+  double mutation_rate_on; //= 0.2;
+  double mutation_rate_in = 0.5;
 
   double alfa, beta;
   int geracao, geracoes  = 100; //60 100 200
@@ -268,19 +267,22 @@ next_generator_level (int number)
   double media = 0, desvio = 0;
   int vet_geracoes[execucoes];
 
-  bool use_ag = false; 		/* AG ou Random */
-  bool all_levels = true;
+  bool use_ag = true; 		/* AG ou Random */
+  bool all_levels = false;
+  bool random = false;
 
   // BANCO
-  char *dbname = "base";//"generator";
-  int nparam = 8, nparamag = 16;
+  char *dbname = "generator";
+  int nparam = 8, nparamag = 15;
   int deslocamento     = 0;   // 0, 49500
-  int cont_id          = 512+deslocamento;   //0, 512 + deslocamento;
+  int cont_id          = 0;   //0, 512 + deslocamento;
   int size_string_path = 240; // = 6 * 40
   char strg[240];
   char minor_strg[9];
 
   /* setlocale (LC_ALL, "C"); */
+  double msec;
+  time_t t, t0, t1,t2;
   srand (time(NULL));
   random_seed = rand ();
 
@@ -297,89 +299,50 @@ next_generator_level (int number)
 
   squarify (ROOMS-1, &HEIGHT, &WIDTH); /* Define dimensoes cenario */
 
-  if (all_levels) {
-    
-    for (i = 0; i < POPSIZE; ++i) {
-      /* printf ("deslocamento = %d\n", i); */
-      /* printf ("cont_id = %d\n", cont_id); */
-      pop[i].id = cont_id++;
-
-      pop[i].cenario_code = i + deslocamento;
-
-      pop_gen_all_ind (&pop[i]);
-      /* path_find_eval_ind (&pop[i]); */
-      depthfst (&pop[i]);
-
-      /* qsort (pop, POPSIZE, sizeof (*pop), cmpop); */
-      
-      /* printf ("\nPOPULACAO INICIAL ORDENADA\n"); */
-      /* print_pop_reduced (pop, POPSIZE); */
-      /* getchar (); */
-
-      // ### BANCO DE DADOS ###
-      sprintf (paramValues[0], "%d", pop[i].id);
-      sprintf (paramValues[1], "%d", pop[i].cenario_code);
-      sprintf (paramValues[2], "%d", (int)MH);  
-      sprintf (paramValues[3], "%d", (int)MW);
-      sprintf (paramValues[4], "%d", (int)VLR_NIVEL);
-      sprintf (paramValues[5], "%lf", pop[i].handicap[pop[i].conv_index]);
-      sprintf (paramValues[6], "%lf", pop[i].rate[pop[i].conv_index]);
-
-      strg[0] = '\0';
-      minor_strg[0] = '\0';
-      
-      for (j = 0; j < pop[i].tamanho; ++j) {
-       sprintf(minor_strg,"(%d,%d) ",pop[i].solut[j].x,pop[i].solut[j].y);
-       strcat (strg, minor_strg);
-      }
-      sprintf (paramValues[7], "%s", strg);
-
-      char*query1="INSERT INTO solutions VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
-      call_DB (dbname, query1, paramValues, nparam);
-    }
-
-  }
+  printf ("\nVAI\n");
+  t = time (NULL);
   
-  for (execucao = 0; execucao < execucoes; ++execucao) {
+  if (use_ag) {
 
-    if (use_ag == false) {
-      printf ("Random\n");
-      getchar();
-      random_pop_generator ();
-      path_find_evaluate (pop);
-      qsort (pop, POPSIZE, sizeof (*pop), cmpop);
-      if (pop[POPSIZE-1].rate[0] > 3.9)
-	media++;
-    }
+    popsize = 50;
+    crossover_rate = 0.7;
+    vlr_nivel = Hard;
+    mutation_rate_on = 0.2;
+    
+    pop = (struct solution*) malloc (popsize * sizeof (struct solution));
+    sons = (struct solution*) malloc (popsize * sizeof (struct solution));
+    popsons=(struct solution*)malloc((2*popsize)*sizeof(struct solution));
 
-    else {
+    for (select = Truncation; select <= Roulette; ++select) {
+      t0 = time (NULL);
+    for (execucao = 0; execucao < execucoes; ++execucao) {
 
-      clock_t start = clock(), diff;
-      double msec = 0;
+      t1 = time (NULL);
+      msec = 0;
       geracao = 0;
 
-      initial_pop_generator ();
+      initial_pop_generator (pop, popsize);
 
-      for (i = 0; i < POPSIZE; ++i) {
+      for (i = 0; i < popsize; ++i) {
 
 	pop[i].id = i;
 	pop[i].cenario_code = cenario2number (&pop[i].lv);
-	path_find_eval_ind (&pop[i]);
+	/* path_find_eval_ind (&pop[i], vlr_nivel); */
+	depthfst (&pop[i], vlr_nivel);
 	sprintf (paramAgDB[0], "%d", execucao);
 	sprintf (paramAgDB[1], "%d", geracao);
 	sprintf (paramAgDB[2], "%d", pop[i].id);
 	sprintf (paramAgDB[3], "%d", pop[i].cenario_code);
 	sprintf (paramAgDB[4], "%d", (int)MH);
 	sprintf (paramAgDB[5], "%d", (int)MW);
-	sprintf (paramAgDB[6], "%d", (int)POPSIZE);
-	sprintf (paramAgDB[7], "%lf", crossover_rate);
+	sprintf (paramAgDB[6], "%d", popsize);
+	sprintf (paramAgDB[7], "%lf",crossover_rate);
 	sprintf (paramAgDB[8], "%s", vet_select[select]);
 	sprintf (paramAgDB[9], "%lf",mutation_rate_on);
-	sprintf (paramAgDB[10], "%lf",mutation_rate_in);
-	sprintf (paramAgDB[11], "%s", vet_nivel[VLR_NIVEL]);
-	sprintf (paramAgDB[12],"%lf",pop[i].handicap[pop[i].conv_index]);
-	sprintf (paramAgDB[13],"%lf", pop[i].rate[pop[i].conv_index]);
-	sprintf (paramAgDB[14],"%lf", msec);
+	sprintf (paramAgDB[10], "%s",vet_nivel[vlr_nivel]);
+	sprintf (paramAgDB[11],"%lf",pop[i].handicap[pop[i].conv_index]);
+	sprintf (paramAgDB[12],"%lf",pop[i].rate[pop[i].conv_index]);
+	sprintf (paramAgDB[13],"%lf",msec);
 
 	strg[0] = '\0'; minor_strg[0] = '\0';
 	for (j = 0; j < pop[i].tamanho; ++j) {
@@ -387,13 +350,13 @@ next_generator_level (int number)
 		   pop[i].solut[j].y);
 	  strcat (strg, minor_strg);
 	}
-	sprintf (paramAgDB[15], "%s", strg);
+	sprintf (paramAgDB[14], "%s", strg);
 
-	char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)";
+	char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)";
 	call_DB (dbname, query2, paramAgDB, nparamag);
       }
 
-      qsort (pop, POPSIZE, sizeof (*pop), cmpop);
+      qsort (pop, popsize, sizeof (*pop), cmpop);
 
       for (geracao = 1; (geracao <= geracoes); ++geracao) {  
 	     /* && (pop[0].rate[0] > 0); ++geracao) { */
@@ -403,7 +366,7 @@ next_generator_level (int number)
 	/* printf ("\nSELECAO\n"); */
 	int son_pos;
 	int ini = 0; // nvpt * nivel;
-	int fim = crossover_rate * ((int)POPSIZE);//(ini + nvpt)+resto-1;
+	int fim = crossover_rate * ((int)popsize);//(ini + nvpt)+resto-1;
 	
 	if (select == Truncation) {
 	  /* printf ("CRUZAMENTO, ini = %d, fim = %d\n", ini, fim); */
@@ -423,11 +386,11 @@ next_generator_level (int number)
 
 	    for (j = 0; j < 2; ++j) {
 
-	      bst[j] = prandom ((int)POPSIZE-1);
+	      bst[j] = prandom ((int)popsize-1);
 
 	      for (i = 0; i < tour-1; ++i) {
 
-		int r = prandom ((int)POPSIZE-1);
+		int r = prandom ((int)popsize-1);
 
 		if (pop[r].rate[pop[r].conv_index]
 		    < pop[bst[j]].rate[pop[bst[j]].conv_index])
@@ -444,16 +407,16 @@ next_generator_level (int number)
 
 	else if (select == Roulette) {
 
-	  int probs[POPSIZE], sum = 0;
-	  double p[POPSIZE], s = 0;
+	  int probs[popsize], sum = 0;
+	  double p[popsize], s = 0;
 
 	  int i;
-	  for (i = 0; i < POPSIZE; ++i) {
+	  for (i = 0; i < popsize; ++i) {
 	    p[i] = (1. / pop[i].rate[pop[i].conv_index]);
 	    s += probs[i];
 	  }
 
-	  for (i = 0; i < POPSIZE; ++i) {
+	  for (i = 0; i < popsize; ++i) {
 	    p[i] /= s;
 	    sum += (int)(p[i]*100);
 	    probs[i] = sum;
@@ -492,24 +455,24 @@ next_generator_level (int number)
 	
 	/* Avalia os novatos */
 	/* path_find_evaluate (sons); */
-	depthfst (sons);
+	depthfst (sons, vlr_nivel);
 	
 	/* qsort (sons, son_pos, sizeof (*sons), cmpop); */
 	
-	for (i = 0; i < POPSIZE; ++i) 
+	for (i = 0; i < popsize; ++i) 
 	  copy_sol (&pop[i], &popsons[i]);
 
 	for (i = 0; i < son_pos; ++i) 
-	  copy_sol (&sons[i], &popsons[POPSIZE+i]);
+	  copy_sol (&sons[i], &popsons[popsize+i]);
 
-	qsort (popsons, POPSIZE+son_pos, sizeof (*popsons), cmpop);
+	qsort (popsons, popsize+son_pos, sizeof (*popsons), cmpop);
 
-	diff = clock() - start;
-	msec = diff * 1000 / CLOCKS_PER_SEC;
-
+	t2 = time (NULL);
+	msec = difftime (t2, t1);
+	
 	// ### SELECAO DOS MAIS ADAPTADOS - REINSERCAO tp ###
 	// ### GRAVA RESULTADO NO BANCO ###
-	for (i = 0; i < POPSIZE ; ++i) {
+	for (i = 0; i < popsize ; ++i) {
 	  copy_sol (&popsons[i], &pop[i]);
 	  pop[i].id = i; 
 	  pop[i].cenario_code = cenario2number(&pop[i].lv);
@@ -519,15 +482,14 @@ next_generator_level (int number)
 	  sprintf (paramAgDB[3], "%d", pop[i].cenario_code);
 	  sprintf (paramAgDB[4], "%d", (int)MH);
 	  sprintf (paramAgDB[5], "%d", (int)MW);
-	  sprintf (paramAgDB[6], "%d", (int)POPSIZE);
+	  sprintf (paramAgDB[6], "%d", (int)popsize);
 	  sprintf (paramAgDB[7], "%lf",  crossover_rate);
 	  sprintf (paramAgDB[8], "%s",   vet_select[select]);
 	  sprintf (paramAgDB[9], "%lf",  mutation_rate_on);
-	  sprintf (paramAgDB[10], "%lf", mutation_rate_in);
-	  sprintf (paramAgDB[11], "%s",  vet_nivel[VLR_NIVEL]);
-	  sprintf(paramAgDB[12],"%lf",pop[i].handicap[pop[i].conv_index]);
-	  sprintf (paramAgDB[13],"%lf", pop[i].rate[pop[i].conv_index]);
-	  sprintf (paramAgDB[14],"%lf", msec);
+	  sprintf (paramAgDB[10], "%s",  vet_nivel[vlr_nivel]);
+	  sprintf(paramAgDB[11],"%lf",pop[i].handicap[pop[i].conv_index]);
+	  sprintf (paramAgDB[12],"%lf", pop[i].rate[pop[i].conv_index]);
+	  sprintf (paramAgDB[13],"%lf", msec);
 
 	  strg[0] = '\0'; minor_strg[0] = '\0';
 	  for (j = 0; j < pop[i].tamanho; ++j) {
@@ -535,19 +497,17 @@ next_generator_level (int number)
 		     pop[i].solut[j].y);
 	    strcat (strg, minor_strg);
 	  }
-	  sprintf (paramAgDB[15], "%s", strg);
+	  sprintf (paramAgDB[14], "%s", strg);
 
-	  char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)";
+	  char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)";
 	  call_DB (dbname, query2, paramAgDB, nparamag);
 	}
 
       }
 
       vet_geracoes[execucao] = geracao;
-    }
-  } /* EXEC */
-
-  if (use_ag) {
+    } /* EXEC */
+   
 
     printf ("\nNro de geracoes para convergencia em cada execucao:\n");
     media = 0;
@@ -557,31 +517,97 @@ next_generator_level (int number)
     }
     media /= execucoes;
   
-    desvio = 0;
-    for (i = 0; i < execucoes; ++i) {
-      desvio += pow((vet_geracoes[i] - media),2);
-    }
-    desvio = sqrt (desvio/execucoes);
+    /* desvio = 0; */
+    /* for (i = 0; i < execucoes; ++i) { */
+    /*   desvio += pow((vet_geracoes[i] - media),2); */
+    /* } */
+    /* desvio = sqrt (desvio/execucoes); */
   
     printf ("\nMedia = %lf", media);
-    printf ("\nDesvio padrao = %lf\n", desvio);
-    getchar ();
+    /* printf ("\nDesvio padrao = %lf\n", desvio); */
+
+
+    t2 = time (NULL);
+    msec = difftime (t2, t0);
+    printf ("\nMetodo %s", vet_select[select]);
+    printf ("\nTempo de execução: %.2lf segundos\n", msec);
+    /* getchar (); */
+
+    } //SELECTS TESTS
+
+    t2 = time (NULL);
+    msec = difftime (t2, t);
+    printf ("\nTEMPO TOTAL: %.2lf segundos\n", msec);
   }
-  else {
-    printf ("\nGeracao Aleatoria\nSucesso em = %.0lf vezes, das %d execucoes\n", media, execucoes);
-  }
-  /* for (i = 0; i < POPSIZE; ++i) { */
+
+  return 0;
+  
+  /* for (i = 0; i < popsize; ++i) { */
   /*   put_level_door (&pop[i].lv, &ci, &cf); */
   /*   put_floor_on_wall (&pop[i].lv); */
   /*   aco (&pop[i], alfa, beta); */
-  /*   evaluate (&pop[i]); */
+  /*   evaluate (&pop[i], vlr_nivel); */
   /* } */
-  
+
+
+  if (all_levels) {
+    
+    for (i = 0; i < popsize; ++i) {
+
+      pop[i].id = cont_id++;
+      pop[i].cenario_code = i + deslocamento;
+      pop_gen_all_ind (&pop[i]);
+      /* path_find_eval_ind (&pop[i], vlr_nivel); */
+      depthfst (&pop[i], vlr_nivel);
+
+      // ### BANCO DE DADOS ###
+      sprintf (paramValues[0], "%d", pop[i].id);
+      sprintf (paramValues[1], "%d", pop[i].cenario_code);
+      sprintf (paramValues[2], "%d", (int)MH);  
+      sprintf (paramValues[3], "%d", (int)MW);
+      sprintf (paramValues[4], "%d", vlr_nivel);
+      sprintf (paramValues[5], "%lf", pop[i].handicap[pop[i].conv_index]);
+      sprintf (paramValues[6], "%lf", pop[i].rate[pop[i].conv_index]);
+
+      strg[0] = '\0';
+      minor_strg[0] = '\0';
+      
+      for (j = 0; j < pop[i].tamanho; ++j) {
+       sprintf(minor_strg,"(%d,%d) ",pop[i].solut[j].x,pop[i].solut[j].y);
+       strcat (strg, minor_strg);
+      }
+      sprintf (paramValues[7], "%s", strg);
+
+      char*query1="INSERT INTO solutions VALUES($1,$2,$3,$4,$5,$6,$7,$8)";
+      call_DB (dbname, query1, paramValues, nparam);
+    }
+
+  }
+
+  if (random) {
+
+    for (execucao = 0; execucao < execucoes; ++execucao) {
+
+      printf ("Random\n");
+      getchar();
+      random_pop_generator (pop, popsize);
+      path_find_evaluate (pop, popsize, vlr_nivel);
+      /* depthfst (pop, vlr_nivel); NAO SERVE PRA ISSO &pop[i]*/
+      qsort (pop, popsize, sizeof (*pop), cmpop);
+
+      if (pop[popsize-1].rate[0] > 3.9)
+
+	media++;
+    }
+    
+    printf ("\nGeracao Aleatoria\n");
+    printf ("Sucesso: %.0lf vezes, das %d execucoes\n", media, execucoes);
+  }
 
   if (false) {
-  for (k = 0; k < 1; ++k) {
+    for (k = 0; k < 1; ++k) {
     /* Avalia populacao inicial */
-    for (i = 0; i < POPSIZE; ++i) {
+    for (i = 0; i < popsize; ++i) {
       put_level_door (&pop[i].lv, &ci, &cf);
       put_floor_on_wall (&pop[i].lv);
       struct tuple t[56];
@@ -594,7 +620,7 @@ next_generator_level (int number)
       alfa = 0.75;
       beta = 1;
   	  aco (&pop[i], alfa, beta);
-  	  evaluate (&pop[i]);
+  	  evaluate (&pop[i], vlr_nivel);
   	  printf ("alfa = %lf, beta = %lf\n", alfa, beta);
   	  if (pop[i].nsolutions == 0) {
   	    printf ("%d Sem solução\n", i);
@@ -626,13 +652,13 @@ next_generator_level (int number)
       copy_sol (&pop[i], &popsons[i]);
     }
     alfa = 0.75; beta = 1;
-    qsort (pop, POPSIZE, sizeof (*pop), cmpop);
+    qsort (pop, popsize, sizeof (*pop), cmpop);
 
     /* Selecao */
     int nro_niveis = 3;
     int nivel   = 2;	  /* 0, 1 ou 2 */
-    int nvpt = POPSIZE / nro_niveis;
-    int resto=POPSIZE % nro_niveis;
+    int nvpt = popsize / nro_niveis;
+    int resto=popsize % nro_niveis;
     int ini  = nvpt * nivel;
     int fim  = (ini + nvpt)+resto-1;
 
@@ -657,18 +683,18 @@ next_generator_level (int number)
       put_level_door (&sons[i].lv, &ci, &cf);
       put_floor_on_wall (&sons[i].lv);
       aco (&sons[i], alfa, beta);
-      evaluate (&sons[i]);
+      evaluate (&sons[i], vlr_nivel);
       rm_level_door (&sons[i].lv, &ci, &cf);
       rm_floor_on_wall (&sons[i].lv);
-      /* popsons[POPSIZE+i] = sons[i]; */
-      copy_sol (&sons[i], &popsons[POPSIZE+i]);
+      /* popsons[popsize+i] = sons[i]; */
+      copy_sol (&sons[i], &popsons[popsize+i]);
     }
-    qsort (popsons, POPSIZE+son_pos, sizeof (*popsons), cmpop);
+    qsort (popsons, popsize+son_pos, sizeof (*popsons), cmpop);
 
     /* Selecao de tp individuos*/
     /* nro_niveis = 3; */
     /* nivel   = 2;	  /\* 0, 1 ou 2 *\/ */
-    int allmemb = (POPSIZE+son_pos);
+    int allmemb = (popsize+son_pos);
     nvpt = allmemb / nro_niveis;
     resto= allmemb % nro_niveis;
     ini  = nvpt * nivel;
@@ -679,16 +705,16 @@ next_generator_level (int number)
       copy_sol (&popsons[i], &pop[j++]);
       /* pop[j++] = popsons[i]; */
 
-    if (j < POPSIZE) {
+    if (j < popsize) {
 
-      for (i = fim+1; (i < allmemb) && (j < POPSIZE); ++i) 
+      for (i = fim+1; (i < allmemb) && (j < popsize); ++i) 
 	copy_sol (&popsons[i], &pop[j++]);
 
-      for (i = ini-1; (i >= 0) && (j < POPSIZE); --i)
+      for (i = ini-1; (i >= 0) && (j < popsize); --i)
 	copy_sol (&popsons[i], &pop[j++]);
 
     }
-    choice = POPSIZE-1;
+    choice = popsize-1;
     printf ("choice = %d\nnsolutions = %d\nconv_index = %d\n",
 	    choice, (int)pop[choice].nsolutions, 
 	    (int)pop[choice].conv_index);
@@ -704,7 +730,7 @@ next_generator_level (int number)
   }
   }
 
-  choice = POPSIZE-1;
+  choice = popsize-1;
   put_level_door (&pop[choice].lv, &ci, &cf);
   put_floor_on_wall (&pop[choice].lv);
   generator_level = global_level = pop[choice].lv;
@@ -715,7 +741,7 @@ next_generator_level (int number)
   generator_level.end = end;
   new_pos (&generator_level.start_pos, &generator_level, 1, INIX, INIY);
 }
-  /* for (k = 0; k < POPSIZE; ++k) { */
+  /* for (k = 0; k < popsize; ++k) { */
   /*   if (pop[k].nsolutions > 0) { */
   /*     for (i = 0; i < pop[k].nsolutions; ++i){ */
   /* 	printf ("\nSolução %d:\n", i); */
@@ -832,13 +858,13 @@ squarify (int d, int *d1, int* d2)
 
 /* Gerador da populacao reduzida de testes */
 void
-pop_gen_all ()
+pop_gen_all (struct solution *pop, int popsize)
 {
   int i, j, it, room, n;
   struct pos p;
   struct con ci, cf;
     
-  for (it = 0; it < POPSIZE; ++it) {
+  for (it = 0; it < popsize; ++it) {
 
     struct level *lv = &pop[it].lv;
     new_pos (&p, lv, 0, 0, 0);
@@ -940,7 +966,7 @@ pop_gen_all_ind (struct solution *sol)
 
 
 void
-initial_pop_generator (void) 
+initial_pop_generator (struct solution *pop, int popsize) 
 {
   /* Parametros para Alg. Geracao de Paredes */
   int r, prob;
@@ -953,7 +979,7 @@ initial_pop_generator (void)
   int i, j, it, room;
   struct pos p;
 
-  for (it = 0; it < POPSIZE; ++it) {
+  for (it = 0; it < popsize; ++it) {
 
     struct level *lv = &pop[it].lv;
     new_pos (&p, lv, 0, 0, 0);
@@ -1034,13 +1060,13 @@ initial_pop_generator (void)
 
 
 void
-random_pop_generator (void)
+random_pop_generator (struct solution *pop, int popsize)
 {
   int r, prob;
   int i, j, it, room;
   struct pos p;
 
-  for (it = 0; it < POPSIZE; ++it) {
+  for (it = 0; it < popsize; ++it) {
 
     struct level *lv = &pop[it].lv;
     new_pos (&p, lv, 0, 0, 0);
@@ -1459,7 +1485,7 @@ aco (struct solution *sol, double alfa, double beta)
  
  
 void 
-evaluate (struct solution *sol)
+evaluate (struct solution *sol, enum nivel vlr_nivel)
 {
   int i;
   int wall_num = calc_wall_num (&sol->lv);
@@ -1472,7 +1498,7 @@ evaluate (struct solution *sol)
     
     for (i = 0; i < sol->nsolutions; ++i) {
       sol->handicap[i] = handicap (wall_num, sol->nmembs[i]);
-      sol->rate[i] = fitness (sol->handicap[i], (int)VLR_NIVEL);
+      sol->rate[i] = fitness (sol->handicap[i], vlr_nivel);
     }
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
@@ -1487,7 +1513,7 @@ evaluate (struct solution *sol)
     sol->rate     = (double *) malloc (sizeof (*sol->rate));
     sol->conv_index = 0;
     sol->handicap[0] = INT_MIN/1000.;
-    sol->rate[0] = fitness (sol->handicap[0], (int)VLR_NIVEL);
+    sol->rate[0] = fitness (sol->handicap[0], vlr_nivel);
   }
 }
 
@@ -1527,10 +1553,10 @@ fitness (double hcap, int vlr_nivel)
     distance = hcap - limite_sup;
 
   else
-    distance = 0;
+    distance = -1. * hcap;
 
   /* if (id == 54) { */
-  /*   printf ("(int)VLR_NIVEL = %d\n", vlr_nivel); */
+  /*   printf ("vlr_nivel = %d\n", vlr_nivel); */
   /*   printf ("max = %d\n", max); */
   /*   printf ("hcap = %lf\n", hcap); */
   /*   printf ("limite_inf = %lf\n", limite_inf); */
@@ -1746,6 +1772,8 @@ mutation_wall_alg (struct level *lv, double max_mut_rate)
   int i, j, num = round (MW * MH * max_mut_rate);
 
   /* printf ("mutation at %d positions\n", num); */
+
+  num = prandom (num);
   
   while (num--) {
     i = prandom (MH - 1);
@@ -2060,12 +2088,12 @@ printdep (int ** f, struct prob *pba, double rsum,
 
 
 void
-free_solution (void)
+free_solution (struct solution *pop, int popsize)
 {
   int i;
 
-  for (i = 0; i < POPSIZE; ++i) {
-    free_db_index (i);
+  for (i = 0; i < popsize; ++i) {
+    free_db_index (pop, i);
     /* for (j = 0; j < pop[i].nsolutions; ++j) { */
     /*   for (k = 0; k < pop[i].nmembs[j]; ++k) */
     /* 	free (pop[i].dbsolutions[j][k]); */
@@ -2080,7 +2108,7 @@ free_solution (void)
 }
 
 void
-free_db_index (int i)
+free_db_index (struct solution *pop, int i)
 {
   int j;
   for (j = 0; j < pop[i].nsolutions; ++j) {
@@ -2094,11 +2122,11 @@ free_db_index (int i)
 }
 
 void
-free_db (void)
+free_db (struct solution *pop, int popsize)
 {
   int i, j, k;
 
-  for (i = 0; i < POPSIZE; ++i) {
+  for (i = 0; i < popsize; ++i) {
     for (j = 0; j < pop[i].nsolutions; ++j) {
       for (k = 0; k < pop[i].nmembs[j]; ++k)
 	free (pop[i].dbsolutions[j][k]);
@@ -2155,7 +2183,7 @@ tratamento (struct tuple *t, int nmemb)
 
 /* mostra a populacao teste */
 void
-print_pop_reduced (struct solution pop[], int size)
+print_pop (struct solution *pop, int size)
 {
 
   int it, i, j;
@@ -2184,13 +2212,13 @@ print_pop_reduced (struct solution pop[], int size)
 
 /* acha caminho por força bruta */
 void
-path_find_evaluate (struct solution pop[])
+path_find_evaluate (struct solution *pop,int popsize,enum nivel vlr_nivel)
 {
   int it, i, j, x, y;
   struct node **graph;
   size_t len;
 
-  for (it = 0; it < POPSIZE; ++it) {
+  for (it = 0; it < popsize; ++it) {
     
     struct level *lv = &pop[it].lv;
     
@@ -2282,7 +2310,7 @@ path_find_evaluate (struct solution pop[])
     sol->nmembs = add_to_array (&len, 1, sol->nmembs, &sol->nnmembs, 
 				sol->nnmembs, sizeof (*sol->nmembs));
     /* printf ("\nLV %d: len = %d ", it, (int)len); */
-    evaluate (sol);
+    evaluate (sol, vlr_nivel);
   /*   if (saida == true) { */
       /* PRINTS - Validacao */
 
@@ -2316,7 +2344,7 @@ path_find_evaluate (struct solution pop[])
 
 
 void
-path_find_eval_ind (struct solution *sol)
+path_find_eval_ind (struct solution *sol, enum nivel vlr_nivel)
 {
   int i, j, x, y, count;
   struct node **graph;
@@ -2412,7 +2440,7 @@ path_find_eval_ind (struct solution *sol)
   sol->nmembs = add_to_array (&len, 1, sol->nmembs, &sol->nnmembs, 
 			      sol->nnmembs, sizeof (*sol->nmembs));
   /* printf ("\nLV %d: len = %d ", it, (int)len); */
-  evaluate (sol);
+  evaluate (sol, vlr_nivel);
   /*   if (saida == true) { */
   /* PRINTS - Validacao */
 
@@ -2446,7 +2474,7 @@ path_find_eval_ind (struct solution *sol)
 
 
 void
-depthfst (struct solution *sol)
+depthfst (struct solution *sol, enum nivel vlr_nivel)
 {
   int i, j, x, y;
   struct level *lv = &sol->lv;
@@ -2614,7 +2642,7 @@ depthfst (struct solution *sol)
 				   sizeof (*sol->dbsolutions));
   sol->nmembs = add_to_array (&blen, 1, sol->nmembs, &sol->nnmembs, 
 			      sol->nnmembs, sizeof (*sol->nmembs));  
-  evaluate (sol);
+  evaluate (sol, vlr_nivel);
 
   /* for (i = 0, j = 0; mat_con (lv, i, j); ++i, j = 0) { */
   /*   for (j = 0; mat_con (lv, i, j); ++j) { */
