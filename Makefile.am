@@ -146,8 +146,7 @@ AM_CFLAGS = ${ALLEGRO_CFLAGS} ${ALLEGRO_IMAGE_CFLAGS}	\
 	${ALLEGRO_DIALOG_CFLAGS}
 
 if DEBUG
-  CFLAGS += -O0 -Wall -ggdb3 -Werror -Wno-error=unused-function	\
-  -Wno-error=unused-variable -Wno-error=unused-but-set-variable
+  CFLAGS += -O0 -Wall -ggdb3 	
 else
   CFLAGS += -O3 -g0
 endif

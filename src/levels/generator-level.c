@@ -131,8 +131,10 @@ static struct level *mutation_wall_alg (struct level *lv,
 /* begin auxiliar Functions */
 static void squarify (int d, int *d1, int* d2);
 static int cenario2number (struct level *lv);
-static bool contain (struct branch *array, size_t nmemb, 
-		     struct node *element);
+static bool brc_contain_el (struct branch *array, size_t nmemb, 
+			    struct node *element);
+static bool pop_contain_ind (struct solution *pop, int popsize, 
+			     struct solution ind);
 /* static void fix_level_generator (void); */
 static void put_floor_on_wall (struct level *lv);
 static void put_level_door (struct level *lv, 
@@ -272,7 +274,7 @@ next_generator_level (int number)
   bool random = false;
 
   // BANCO
-  char *dbname = "generator";
+  char *dbname = "base2";
   int nparam = 8, nparamag = 15;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   //0, 512 + deslocamento;
@@ -283,8 +285,9 @@ next_generator_level (int number)
   /* setlocale (LC_ALL, "C"); */
   double msec;
   time_t t, t0, t1,t2;
-  srand (time(NULL));
-  random_seed = rand ();
+  srand (0);
+    /* srand (time(NULL)); */
+  random_seed = 0;//rand ();
 
   const char *paramValues[nparam];
   const char *paramAgDB[nparamag];
@@ -300,8 +303,9 @@ next_generator_level (int number)
   squarify (ROOMS-1, &HEIGHT, &WIDTH); /* Define dimensoes cenario */
 
   printf ("\nVAI\n");
+  FILE *arq = fopen ("tempo.txt", "w");
   t = time (NULL);
-  
+
   if (use_ag) {
 
     popsize = 50;
@@ -312,8 +316,8 @@ next_generator_level (int number)
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
     popsons=(struct solution*)malloc((2*popsize)*sizeof(struct solution));
-
-    for (select = Truncation; select <= Roulette; ++select) {
+    //Truncation Roulette
+    for (select = 0 ; select < 1 ; ++select) {
       t0 = time (NULL);
     for (execucao = 0; execucao < execucoes; ++execucao) {
 
@@ -325,8 +329,8 @@ next_generator_level (int number)
 
       for (i = 0; i < popsize; ++i) {
 
-	pop[i].id = i;
-	pop[i].cenario_code = cenario2number (&pop[i].lv);
+	/* pop[i].id = i; */
+	/* pop[i].cenario_code = cenario2number (&pop[i].lv); */
 	/* path_find_eval_ind (&pop[i], vlr_nivel); */
 	depthfst (&pop[i], vlr_nivel);
 	sprintf (paramAgDB[0], "%d", execucao);
@@ -386,11 +390,11 @@ next_generator_level (int number)
 
 	    for (j = 0; j < 2; ++j) {
 
-	      bst[j] = prandom ((int)popsize-1);
+	      bst[j] = prandom (popsize-1);
 
 	      for (i = 0; i < tour-1; ++i) {
 
-		int r = prandom ((int)popsize-1);
+		int r = prandom (popsize-1);
 
 		if (pop[r].rate[pop[r].conv_index]
 		    < pop[bst[j]].rate[pop[bst[j]].conv_index])
@@ -413,7 +417,7 @@ next_generator_level (int number)
 	  int i;
 	  for (i = 0; i < popsize; ++i) {
 	    p[i] = (1. / pop[i].rate[pop[i].conv_index]);
-	    s += probs[i];
+	    s += p[i];
 	  }
 
 	  for (i = 0; i < popsize; ++i) {
@@ -462,9 +466,19 @@ next_generator_level (int number)
 	for (i = 0; i < popsize; ++i) 
 	  copy_sol (&pop[i], &popsons[i]);
 
-	for (i = 0; i < son_pos; ++i) 
-	  copy_sol (&sons[i], &popsons[popsize+i]);
-
+	int iii = 0;
+	for (i = 0; i < son_pos; ++i) {
+	  sons[i].cenario_code = cenario2number (&sons[i].lv);
+	  /* while (pop_contain_ind (pop, popsize, sons[i])) { */
+	  /*   /\* printf ("igual %d (exec %d, ger %d, sel %d) \n",  *\/ */
+	  /*   /\* 	    iii++, execucao, geracao, select); *\/ */
+	  /*   mutation_wall_alg (&sons[i].lv, mutation_rate_in); */
+	  /*   sons[i].cenario_code = cenario2number (&sons[i].lv); */
+	  /* } */
+	  /* printf ("passou\n"); */
+	  copy_sol (&sons[i], &popsons[popsize + i]);
+	}
+	
 	qsort (popsons, popsize+son_pos, sizeof (*popsons), cmpop);
 
 	t2 = time (NULL);
@@ -475,7 +489,7 @@ next_generator_level (int number)
 	for (i = 0; i < popsize ; ++i) {
 	  copy_sol (&popsons[i], &pop[i]);
 	  pop[i].id = i; 
-	  pop[i].cenario_code = cenario2number(&pop[i].lv);
+	  /* pop[i].cenario_code = cenario2number(&pop[i].lv); */
 	  sprintf (paramAgDB[0], "%d", execucao);
 	  sprintf (paramAgDB[1], "%d", geracao);
 	  sprintf (paramAgDB[2], "%d", pop[i].id);
@@ -486,7 +500,7 @@ next_generator_level (int number)
 	  sprintf (paramAgDB[7], "%lf",  crossover_rate);
 	  sprintf (paramAgDB[8], "%s",   vet_select[select]);
 	  sprintf (paramAgDB[9], "%lf",  mutation_rate_on);
-	  sprintf (paramAgDB[10], "%s",  vet_nivel[vlr_nivel]);
+	  sprintf (paramAgDB[10],"%s",  vet_nivel[vlr_nivel]);
 	  sprintf(paramAgDB[11],"%lf",pop[i].handicap[pop[i].conv_index]);
 	  sprintf (paramAgDB[12],"%lf", pop[i].rate[pop[i].conv_index]);
 	  sprintf (paramAgDB[13],"%lf", msec);
@@ -529,19 +543,22 @@ next_generator_level (int number)
 
     t2 = time (NULL);
     msec = difftime (t2, t0);
-    printf ("\nMetodo %s", vet_select[select]);
-    printf ("\nTempo de execução: %.2lf segundos\n", msec);
+    fprintf (arq, "\nMetodo %s", vet_select[select]);
+    fprintf (arq, "\nTempo de execução: %.2lf minutos\n", msec/60.);
     /* getchar (); */
 
     } //SELECTS TESTS
 
     t2 = time (NULL);
     msec = difftime (t2, t);
-    printf ("\nTEMPO TOTAL: %.2lf segundos\n", msec);
+
+    fprintf (arq, "\nTEMPO TOTAL: %.2lf minutos\n\n", msec/60.);
+
   }
 
-  return 0;
-  
+  fclose (arq);
+  system ("shutdown -P now");
+  exit (0);
   /* for (i = 0; i < popsize; ++i) { */
   /*   put_level_door (&pop[i].lv, &ci, &cf); */
   /*   put_floor_on_wall (&pop[i].lv); */
@@ -1054,6 +1071,10 @@ initial_pop_generator (struct solution *pop, int popsize)
     /* mat_con (lv, FIMX, FIMY-1)->fg = NO_FLOOR; */
     /* mat_con (lv, FIMX, FIMY  )->fg = LEVEL_DOOR; */
     /* mat_con (lv, FIMX, FIMY+1)->fg = NO_FLOOR; */
+
+    pop[it].cenario_code = cenario2number (lv);
+    if (it != 0 && pop_contain_ind (pop, it, pop[it]))
+      --it;
   }
   
 }
@@ -1502,7 +1523,7 @@ evaluate (struct solution *sol, enum nivel vlr_nivel)
     }
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
-    sol->conv_index = sol->nsolutions-1;
+    sol->conv_index = 0;//sol->nsolutions-1;
     assert (sol->conv_index >= 0);
     /* if (sol->conv_index < 0) */
     /*   sol->conv_index = 0; */
@@ -2613,7 +2634,7 @@ depthfst (struct solution *sol, enum nivel vlr_nivel)
       /* printf ("arestas = %d\n", brc.n->nedges); */
       for (i = 0; i < brc.n->nedges; ++i)
 
-	if (!contain (pile, npile, brc.n->edges[i]))
+	if (!brc_contain_el (pile, npile, brc.n->edges[i]))
 	    
 	  brc.adj = add_to_array (&brc.n->edges[i], 1, brc.adj, &brc.len,
 				  brc.len, sizeof (*brc.adj));
@@ -2663,7 +2684,7 @@ depthfst (struct solution *sol, enum nivel vlr_nivel)
 
 
 bool
-contain (struct branch *array, size_t nmemb, struct node *element)
+brc_contain_el (struct branch *array, size_t nmemb, struct node *element)
 {
   int i;
   for (i = 0; i < nmemb; ++i)
@@ -2673,6 +2694,20 @@ contain (struct branch *array, size_t nmemb, struct node *element)
   return false;
 }
 
+
+bool
+pop_contain_ind (struct solution *pop, int popsize, struct solution ind) 
+{
+  int i;
+ 
+  for (i = 0; i < popsize; ++i)
+    
+    if (pop[i].cenario_code == ind.cenario_code)
+ 
+      return true;
+ 
+  return false;
+}
 
 int
 cenario2number (struct level *lv)
