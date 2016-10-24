@@ -274,7 +274,7 @@ next_generator_level (int number)
   bool random = false;
 
   // BANCO
-  char *dbname = "base2";
+  char *dbname = "generator";
   int nparam = 8, nparamag = 15;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   //0, 512 + deslocamento;
@@ -285,9 +285,8 @@ next_generator_level (int number)
   /* setlocale (LC_ALL, "C"); */
   double msec;
   time_t t, t0, t1,t2;
-  srand (0);
-    /* srand (time(NULL)); */
-  random_seed = 0;//rand ();
+  /* srand (0); */
+  random_seed = 1;//rand ();
 
   const char *paramValues[nparam];
   const char *paramAgDB[nparamag];
@@ -317,7 +316,7 @@ next_generator_level (int number)
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
     popsons=(struct solution*)malloc((2*popsize)*sizeof(struct solution));
     //Truncation Roulette
-    for (select = 0 ; select < 1 ; ++select) {
+    for (select = 2 ; select < 3 ; ++select) {
       t0 = time (NULL);
     for (execucao = 0; execucao < execucoes; ++execucao) {
 
@@ -359,18 +358,16 @@ next_generator_level (int number)
 	char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)";
 	call_DB (dbname, query2, paramAgDB, nparamag);
       }
-
+      
       qsort (pop, popsize, sizeof (*pop), cmpop);
 
       for (geracao = 1; (geracao <= geracoes); ++geracao) {  
 	     /* && (pop[0].rate[0] > 0); ++geracao) { */
 
-	/* printf ("geracao %d\n", geracao); */
-
 	/* printf ("\nSELECAO\n"); */
 	int son_pos;
 	int ini = 0; // nvpt * nivel;
-	int fim = crossover_rate * ((int)popsize);//(ini + nvpt)+resto-1;
+	int fim = crossover_rate * popsize;//(ini + nvpt)+resto-1;
 	
 	if (select == Truncation) {
 	  /* printf ("CRUZAMENTO, ini = %d, fim = %d\n", ini, fim); */
@@ -386,13 +383,13 @@ next_generator_level (int number)
 
 	  for (son_pos = 0; son_pos <= fim; son_pos += 2) {
 
-	    int i, bst[2];
+	    int ii, bst[2];
 
 	    for (j = 0; j < 2; ++j) {
 
 	      bst[j] = prandom (popsize-1);
 
-	      for (i = 0; i < tour-1; ++i) {
+	      for (ii = 0; ii < tour-1; ++ii) {
 
 		int r = prandom (popsize-1);
 
@@ -414,16 +411,24 @@ next_generator_level (int number)
 	  int probs[popsize], sum = 0;
 	  double p[popsize], s = 0;
 
-	  int i;
-	  for (i = 0; i < popsize; ++i) {
-	    p[i] = (1. / pop[i].rate[pop[i].conv_index]);
-	    s += p[i];
+	  if (execucao == 4 && geracao == 25)
+
+	    printf ("aqui\n");
+
+
+	  int ii;
+	  for (ii = 0; ii < popsize; ++ii) {
+	    p[ii] = (pop[ii].rate[pop[ii].conv_index] == 0) ? 1 : (1. / pop[ii].rate[pop[ii].conv_index]);
+	    s += p[ii];
 	  }
 
-	  for (i = 0; i < popsize; ++i) {
-	    p[i] /= s;
-	    sum += (int)(p[i]*100);
-	    probs[i] = sum;
+	  printf ("Soma dos double = %lf\n", s);
+	  for (ii = 0; ii < popsize; ++ii) {
+	    p[ii] /= s;
+	    printf ("double unitario p[%d] = %lf\n", ii, p[ii]);
+	    sum += (int)(p[ii]*100);
+	    probs[ii] = sum;
+	    printf ("prob acumulada int: probs[%d] = %d\n", ii, probs[ii]);
 	  }
 
 	  for (son_pos = 0; son_pos <= fim; son_pos += 2) {
@@ -431,8 +436,8 @@ next_generator_level (int number)
 	    int bst[2];
 	    for (j = 0; j < 2; ++j) {
 	      int r = prandom (sum);
-	      for (i = 0; r > probs[i]; ++i);
-	      bst[j] = i;
+	      for (ii = 0; r > probs[ii]; ++ii);
+	      bst[j] = ii;
 	    }
 	  
 	    copy_sol (&pop[bst[0]], &sons[son_pos]);
@@ -466,16 +471,12 @@ next_generator_level (int number)
 	for (i = 0; i < popsize; ++i) 
 	  copy_sol (&pop[i], &popsons[i]);
 
-	int iii = 0;
 	for (i = 0; i < son_pos; ++i) {
 	  sons[i].cenario_code = cenario2number (&sons[i].lv);
-	  /* while (pop_contain_ind (pop, popsize, sons[i])) { */
-	  /*   /\* printf ("igual %d (exec %d, ger %d, sel %d) \n",  *\/ */
-	  /*   /\* 	    iii++, execucao, geracao, select); *\/ */
-	  /*   mutation_wall_alg (&sons[i].lv, mutation_rate_in); */
-	  /*   sons[i].cenario_code = cenario2number (&sons[i].lv); */
-	  /* } */
-	  /* printf ("passou\n"); */
+	  while (pop_contain_ind (pop, popsize, sons[i])) {
+	    mutation_wall_alg (&sons[i].lv, .2);
+	    sons[i].cenario_code = cenario2number (&sons[i].lv);
+	  }
 	  copy_sol (&sons[i], &popsons[popsize + i]);
 	}
 	
@@ -557,7 +558,7 @@ next_generator_level (int number)
   }
 
   fclose (arq);
-  system ("shutdown -P now");
+  /* system ("shutdown -P now"); */
   exit (0);
   /* for (i = 0; i < popsize; ++i) { */
   /*   put_level_door (&pop[i].lv, &ci, &cf); */
@@ -1513,17 +1514,23 @@ evaluate (struct solution *sol, enum nivel vlr_nivel)
 
   if (sol->tamanho > 0) {
 
+    if (sol->nsolutions != 1) {
+      printf ("nsolutions = %d\n", sol->nsolutions);
+      getchar();
+    }
+    sol->nsolutions = 1;
+
     sol->rate = (double *) malloc (sol->nsolutions * sizeof (*sol->rate));
     sol->handicap 
       = (double *) malloc (sol->nsolutions * sizeof (*sol->handicap));
-    
+
     for (i = 0; i < sol->nsolutions; ++i) {
       sol->handicap[i] = handicap (wall_num, sol->nmembs[i]);
       sol->rate[i] = fitness (sol->handicap[i], vlr_nivel);
     }
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
-    sol->conv_index = 0;//sol->nsolutions-1;
+    sol->conv_index = sol->nsolutions-1;
     assert (sol->conv_index >= 0);
     /* if (sol->conv_index < 0) */
     /*   sol->conv_index = 0; */
@@ -1574,7 +1581,7 @@ fitness (double hcap, int vlr_nivel)
     distance = hcap - limite_sup;
 
   else
-    distance = -1. * hcap;
+    distance = 0; //-1. * hcap;
 
   /* if (id == 54) { */
   /*   printf ("vlr_nivel = %d\n", vlr_nivel); */
@@ -2169,6 +2176,7 @@ copy_sol (struct solution *s, struct solution *d)
   d->dbsolutions = s->dbsolutions;
   d->nsolutions  = s->nsolutions;
   d->nmembs      = s->nmembs;
+  d->handicap = s->handicap;
   d->rate = s->rate;
   d->best  = s->best;
   d->nmembs_ord = s->nmembs_ord;
