@@ -1,6 +1,0 @@
-
-Metodo Roulette
-Tempo de execução: 31.57 minutos
-
-TEMPO TOTAL: 31.57 minutos
-

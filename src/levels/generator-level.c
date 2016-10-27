@@ -274,7 +274,7 @@ next_generator_level (int number)
   bool random = false;
 
   // BANCO
-  char *dbname = "generator";
+  char *dbname = "base";
   int nparam = 8, nparamag = 15;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   //0, 512 + deslocamento;
@@ -307,16 +307,21 @@ next_generator_level (int number)
 
   if (use_ag) {
 
-    popsize = 50;
-    crossover_rate = 0.7;
+    /* popsize = 50; */
+    /* crossover_rate = 0.7; */
     vlr_nivel = Hard;
-    mutation_rate_on = 0.2;
+    /* mutation_rate_on = 0.2; */
+    select = Tournament;
     
+
+    for (popsize = 50; popsize <= 70; popsize += 10) {
+      for (crossover_rate = 0.6; crossover_rate <= 0.8; crossover_rate += 0.1) {
+	for (mutation_rate_on = 0.1; mutation_rate_on <= 0.3; mutation_rate_on += 0.1) {
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
     popsons=(struct solution*)malloc((2*popsize)*sizeof(struct solution));
     //Truncation Roulette
-    for (select = 2 ; select < 3 ; ++select) {
+
       t0 = time (NULL);
     for (execucao = 0; execucao < execucoes; ++execucao) {
 
@@ -418,7 +423,7 @@ next_generator_level (int number)
 
 	  int ii;
 	  for (ii = 0; ii < popsize; ++ii) {
-	    p[ii] = (pop[ii].rate[pop[ii].conv_index] == 0) ? 1 : (1. / pop[ii].rate[pop[ii].conv_index]);
+	    p[ii] = (pop[ii].rate[pop[ii].conv_index] <= 0) ? 1 : (1. / pop[ii].rate[pop[ii].conv_index]);
 	    s += p[ii];
 	  }
 
@@ -538,7 +543,7 @@ next_generator_level (int number)
     /* } */
     /* desvio = sqrt (desvio/execucoes); */
   
-    printf ("\nMedia = %lf", media);
+    printf ("\nMedia = %lf\n", media);
     /* printf ("\nDesvio padrao = %lf\n", desvio); */
 
 
@@ -548,8 +553,10 @@ next_generator_level (int number)
     fprintf (arq, "\nTempo de execução: %.2lf minutos\n", msec/60.);
     /* getchar (); */
 
-    } //SELECTS TESTS
 
+	} //SELECTS TESTS
+      }
+    }
     t2 = time (NULL);
     msec = difftime (t2, t);
 
