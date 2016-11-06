@@ -1,10 +1,5 @@
-// OBJ:
-// Feromonio, Avaliacao
-// Convergência da solução (comparar paths)
-
 #include "mininim.h"
 
-/* begin defines */
 /* #define POPSIZE 512 //20 //65536 //49500 16036*/
 #define MH (FLOORS * HEIGHT)
 #define MW (PLACES * WIDTH)
@@ -12,16 +7,12 @@
 #define INIY 0 //1
 #define FIMX (MH-1)
 #define FIMY (MW-1) //(MW-2)
-/* end defines */
 
-/* begin enum */
 enum selection {Truncation = 0, Tournament, Roulette};
 enum nivel {Easy = 0, Medium, Hard};
 char *vet_select[] = {"Truncation", "Tournament", "Roulette"};
 char *vet_nivel[] = {"Easy", "Medium", "Hard"};
-/* end enum */
 
-/* begin structs */
 struct solution {
 
   int id;
@@ -101,9 +92,7 @@ struct pattern {
   int nmemb;
 };
 
-
 struct level generator_level;
-/* end structs */
 
 /* begin main Funtions */
 static void initial_pop_generator (struct solution *pop, int popsize);
@@ -126,7 +115,6 @@ static void crossover (struct level *lv1, struct level *lv2,
 		       struct level *son1, struct level *son2);
 static struct level *mutation_wall_alg (struct level *lv, 
 					double max_mut_rate);
-/* end main Functions */
 
 /* begin auxiliar Functions */
 static void squarify (int d, int *d1, int* d2);
@@ -172,7 +160,6 @@ static void tratamento (struct tuple *t, int nmemb);
 
 static void call_DB (char *dbname, char *query, char *param, int nparam);
 static void exitdb (PGconn *conn);
-/* end auxiliar Functions */
 
 /* begin output Functions */
 static void print_map_path (struct node **p, int nmemb, 
@@ -183,7 +170,7 @@ static void print_pheromones (struct node **g);
 static void printdep (int ** f, struct prob *pba, double rsum, 
 		      double r, int ii, struct level *lv);
 static void print_pop (struct solution pop[], int size);
-/* end output Functions */
+
 
 /* begin global vars */
 int HEIGHT;
@@ -202,7 +189,6 @@ struct cell continuous_wall_cells[] = {{+0,-1}};
 struct pattern continuous_wall_pattern = 
   {(struct cell *) &continuous_wall_cells, 
    sizeof (continuous_wall_cells) / sizeof (struct cell)};
-/* end global vars */
 
 
 void
@@ -274,7 +260,7 @@ next_generator_level (int number)
   bool random = false;
 
   // BANCO
-  char *dbname = "base";
+  char *dbname = "base2";
   int nparam = 8, nparamag = 15;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   //0, 512 + deslocamento;
@@ -314,9 +300,9 @@ next_generator_level (int number)
     select = Tournament;
     
 
-    for (popsize = 50; popsize <= 70; popsize += 10) {
+    for (popsize = 30; popsize <= 30; popsize += 10) {
       for (crossover_rate = 0.6; crossover_rate <= 0.8; crossover_rate += 0.1) {
-	for (mutation_rate_on = 0.1; mutation_rate_on <= 0.3; mutation_rate_on += 0.1) {
+	for (mutation_rate_on = 0.3; mutation_rate_on <= 0.3; mutation_rate_on += 0.1) {
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
     popsons=(struct solution*)malloc((2*popsize)*sizeof(struct solution));
@@ -529,10 +515,10 @@ next_generator_level (int number)
     } /* EXEC */
    
 
-    printf ("\nNro de geracoes para convergencia em cada execucao:\n");
+    /* printf ("\nNro de geracoes para convergencia em cada execucao:\n"); */
     media = 0;
     for (i = 0; i < execucoes; ++i) {
-      printf ("%d ", vet_geracoes[i]);
+      /* printf ("%d ", vet_geracoes[i]); */
       media += vet_geracoes[i];
     }
     media /= execucoes;
@@ -543,7 +529,7 @@ next_generator_level (int number)
     /* } */
     /* desvio = sqrt (desvio/execucoes); */
   
-    printf ("\nMedia = %lf\n", media);
+    /* printf ("\nMedia = %lf\n", media); */
     /* printf ("\nDesvio padrao = %lf\n", desvio); */
 
 
@@ -551,6 +537,15 @@ next_generator_level (int number)
     msec = difftime (t2, t0);
     fprintf (arq, "\nMetodo %s", vet_select[select]);
     fprintf (arq, "\nTempo de execução: %.2lf minutos\n", msec/60.);
+    fprintf (arq, "popsize = %d\n", (int)popsize);
+    fprintf (arq, "crossover_rate = %lf\n", crossover_rate);
+    fprintf (arq, "mut_rate = %lf\n", mutation_rate_on);
+
+    printf ("\nMetodo %s", vet_select[select]);
+    printf ("\nTempo de execução: %.2lf minutos\n", msec/60.);
+    printf ("popsize = %d\n", (int)popsize);
+    printf ("crossover_rate = %lf\n", crossover_rate);
+    printf ("mut_rate = %lf\n", mutation_rate_on);
     /* getchar (); */
 
 

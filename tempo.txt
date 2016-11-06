@@ -1,0 +1,21 @@
+
+Metodo Tournament
+Tempo de execução: 23.40 minutos
+popsize = 30
+crossover_rate = 0.600000
+mut_rate = 0.300000
+
+Metodo Tournament
+Tempo de execução: 22.10 minutos
+popsize = 30
+crossover_rate = 0.700000
+mut_rate = 0.300000
+
+Metodo Tournament
+Tempo de execução: 22.42 minutos
+popsize = 30
+crossover_rate = 0.800000
+mut_rate = 0.300000
+
+TEMPO TOTAL: 67.92 minutos
+
