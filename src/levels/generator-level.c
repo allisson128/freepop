@@ -295,14 +295,14 @@ next_generator_level (int number)
 
     /* popsize = 50; */
     /* crossover_rate = 0.7; */
-    vlr_nivel = Hard;
     /* mutation_rate_on = 0.2; */
+    vlr_nivel = Hard;
     select = Tournament;
     
 
-    for (popsize = 30; popsize <= 30; popsize += 10) {
-      for (crossover_rate = 0.6; crossover_rate <= 0.8; crossover_rate += 0.1) {
-	for (mutation_rate_on = 0.3; mutation_rate_on <= 0.3; mutation_rate_on += 0.1) {
+    for (popsize = 45; popsize <= 45; popsize += 10) {
+      for (crossover_rate = 0.6; crossover_rate <= 0.81; crossover_rate += 0.1) {
+    	for (mutation_rate_on = 0.1; mutation_rate_on <= 0.31; mutation_rate_on += 0.1) {
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
     popsons=(struct solution*)malloc((2*popsize)*sizeof(struct solution));
@@ -549,7 +549,7 @@ next_generator_level (int number)
     /* getchar (); */
 
 
-	} //SELECTS TESTS
+    	} //SELECTS TESTS
       }
     }
     t2 = time (NULL);
