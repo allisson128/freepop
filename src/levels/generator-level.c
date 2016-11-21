@@ -260,7 +260,7 @@ next_generator_level (int number)
   bool random = false;
 
   // BANCO
-  char *dbname = "base2";
+  char *dbname = "db400701";
   int nparam = 8, nparamag = 15;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   //0, 512 + deslocamento;
@@ -272,7 +272,7 @@ next_generator_level (int number)
   double msec;
   time_t t, t0, t1,t2;
   /* srand (0); */
-  random_seed = 1;//rand ();
+  random_seed = 0;//rand ();
 
   const char *paramValues[nparam];
   const char *paramAgDB[nparamag];
@@ -293,16 +293,16 @@ next_generator_level (int number)
 
   if (use_ag) {
 
-    /* popsize = 50; */
-    /* crossover_rate = 0.7; */
-    /* mutation_rate_on = 0.2; */
+    popsize = 50;
+    crossover_rate = 0.7;
+    mutation_rate_on = 0.2;
     vlr_nivel = Hard;
     select = Tournament;
     
 
-    for (popsize = 45; popsize <= 45; popsize += 10) {
-      for (crossover_rate = 0.6; crossover_rate <= 0.81; crossover_rate += 0.1) {
-    	for (mutation_rate_on = 0.1; mutation_rate_on <= 0.31; mutation_rate_on += 0.1) {
+    /* for (popsize = 40; popsize <= 60; popsize += 10) { */
+      /* for (crossover_rate = 0.6; crossover_rate <= 0.81; crossover_rate += 0.1) { */
+    	/* for (mutation_rate_on = 0.2; mutation_rate_on <= 0.31; mutation_rate_on += 0.1) { */
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
     popsons=(struct solution*)malloc((2*popsize)*sizeof(struct solution));
@@ -323,6 +323,8 @@ next_generator_level (int number)
 	/* pop[i].cenario_code = cenario2number (&pop[i].lv); */
 	/* path_find_eval_ind (&pop[i], vlr_nivel); */
 	depthfst (&pop[i], vlr_nivel);
+	/* aco (&pop[i], alfa, beta); */
+	/* evaluate (&pop[i], vlr_nivel); */
 	sprintf (paramAgDB[0], "%d", execucao);
 	sprintf (paramAgDB[1], "%d", geracao);
 	sprintf (paramAgDB[2], "%d", pop[i].id);
@@ -455,7 +457,12 @@ next_generator_level (int number)
 	
 	/* Avalia os novatos */
 	/* path_find_evaluate (sons); */
-	depthfst (sons, vlr_nivel);
+
+	for (i = 0; i < popsize; ++i)
+	  depthfst (&sons[i], vlr_nivel);
+
+	/* aco (&pop[i], alfa, beta); */
+	/* evaluate (&pop[i], vlr_nivel); */
 	
 	/* qsort (sons, son_pos, sizeof (*sons), cmpop); */
 	
@@ -549,9 +556,9 @@ next_generator_level (int number)
     /* getchar (); */
 
 
-    	} //SELECTS TESTS
-      }
-    }
+    /* 	} //SELECTS TESTS */
+      /* } */
+    /* } */
     t2 = time (NULL);
     msec = difftime (t2, t);
 
@@ -1518,21 +1525,36 @@ evaluate (struct solution *sol, enum nivel vlr_nivel)
 
     if (sol->nsolutions != 1) {
       printf ("nsolutions = %d\n", sol->nsolutions);
-      getchar();
+      /* getchar(); */
     }
-    sol->nsolutions = 1;
+    /* sol->nsolutions = 1; */
 
-    sol->rate = (double *) malloc (sol->nsolutions * sizeof (*sol->rate));
-    sol->handicap 
-      = (double *) malloc (sol->nsolutions * sizeof (*sol->handicap));
+    sol->rate = (double *) malloc (sizeof (*sol->rate));
+    sol->handicap = (double *) malloc (sizeof (*sol->handicap));
+      
+    /*sol->rate=(double*)malloc(sol->nsolutions * sizeof (*sol->rate)); */
+    /* sol->handicap  */
+    /*   = (double *)malloc(sol->nsolutions * sizeof (*sol->handicap)); */
 
-    for (i = 0; i < sol->nsolutions; ++i) {
-      sol->handicap[i] = handicap (wall_num, sol->nmembs[i]);
-      sol->rate[i] = fitness (sol->handicap[i], vlr_nivel);
+    int menor_caminho = 0;
+    if (sol->nsolutions > 1) {
+      for (i = 0; i < sol->nsolutions; ++i) 
+	if (sol->nmembs[i] < sol->nmembs[menor_caminho]) {
+	  menor_caminho = i;
+	}
     }
+    
+    /* sol->conv_index = sol->nsolutions-1; */
+    i = sol->conv_index = menor_caminho;
+    
+    /* for (i = 0; i < sol->nsolutions; ++i) { */
+      sol->handicap[0] = handicap (wall_num, sol->nmembs[i]);
+      sol->rate[0] = fitness (sol->handicap[i], vlr_nivel);
+    /* } */
+
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
-    sol->conv_index = sol->nsolutions-1;
+
     assert (sol->conv_index >= 0);
     /* if (sol->conv_index < 0) */
     /*   sol->conv_index = 0; */
