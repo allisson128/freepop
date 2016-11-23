@@ -295,19 +295,19 @@ next_generator_level (int number)
 
   if (use_ag) {
 
-    popsize = 20;
-    /* crossover_rate = 0.7; */
-    /* mutation_rate_on = 0.2; */
+    /* popsize = 10; */
+    /* crossover_rate = 0.5; */
+    /* mutation_rate_on = 0.4; */
     vlr_nivel = Hard;
     select = Tournament;
     
     /* for (select = 0; select <= 2; ++select) { */
-    /* for (popsize = 20; popsize <= 20; popsize += 5) { */
-      for (crossover_rate = 0.5; crossover_rate <= 0.81; crossover_rate += 0.1) {
-    	for (mutation_rate_on = 0.01; mutation_rate_on <= 0.32; mutation_rate_on += 0.1) {
+    for (popsize = 10; popsize <= 20; popsize += 5) {
+      for (crossover_rate = 0.5; crossover_rate <= 0.91; crossover_rate += 0.1) {//0.01
+    	for (mutation_rate_on = 0.4; mutation_rate_on <= 0.5; mutation_rate_on += 0.1) {
 	  
-    	  if (mutation_rate_on > 0.1 && mutation_rate_on < 0.19)
-    	    mutation_rate_on = 0.1;
+    	  /* if (mutation_rate_on > 0.1 && mutation_rate_on < 0.19) */
+    	  /*   mutation_rate_on = 0.1; */
 	  
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
@@ -360,19 +360,17 @@ next_generator_level (int number)
 	char *query2 = "INSERT INTO Individuos VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)";
 	call_DB (dbname, query2, paramAgDB, nparamag);
       }
-      
+
       qsort (pop, popsize, sizeof (*pop), cmpop);
 
-      for (geracao = 1; (geracao <= geracoes) ;++geracao) {  
+      for (geracao = 1; (geracao <= geracoes); ++geracao) {  
 	     /* && (pop[0].rate[0] > 0); ++geracao) { */
 
-	/* printf ("geracao %d\n", geracao); */
-	
 	/* printf ("\nSELECAO\n"); */
 	int son_pos;
 	int ini = 0; // nvpt * nivel;
 	int fim = crossover_rate * popsize;//(ini + nvpt)+resto-1;
-	
+
 	if (select == Truncation) {
 	  /* printf ("CRUZAMENTO, ini = %d, fim = %d\n", ini, fim); */
 	  for (i=ini, j=fim, son_pos=0; i < j; ++i, --j, son_pos+=2) {
@@ -385,7 +383,7 @@ next_generator_level (int number)
 	
 	else if (select == Tournament) {
 
-	  for (son_pos = 0; son_pos <= fim; son_pos += 2) {
+	  for (son_pos = 0; son_pos < fim; son_pos += 2) {
 
 	    int ii, bst[2];
 
@@ -408,6 +406,7 @@ next_generator_level (int number)
 	    crossover (&pop[bst[0]].lv, &pop[bst[1]].lv,
 		       &sons[son_pos].lv, &sons[son_pos+1].lv);
 	  }
+
 	}
 
 	else if (select == Roulette) {
@@ -467,7 +466,7 @@ next_generator_level (int number)
 	/* Avalia os novatos */
 	/* path_find_evaluate (sons); */
 
-	for (i = 0; i < popsize; ++i) {
+	for (i = 0; i < son_pos; ++i) {
 	  depthfst (&sons[i], vlr_nivel);
 	  /* aco (&sons[i], alfa, beta); */
 	  /* evaluate (&sons[i], vlr_nivel); */
@@ -485,7 +484,7 @@ next_generator_level (int number)
 	  }
 	  copy_sol (&sons[i], &popsons[popsize + i]);
 	}
-	
+
 	qsort (popsons, popsize+son_pos, sizeof (*popsons), cmpop);
 
 	t2 = time (NULL);
@@ -567,10 +566,10 @@ next_generator_level (int number)
     /* getchar (); */
     
     
-    /* 	} //SELECTS TESTS */
-	}
+    	} //SELECTS TESTS
       }
-    /* } */
+    }
+  /* } */
     t2 = time (NULL);
     msec = difftime (t2, t);
 
@@ -579,7 +578,7 @@ next_generator_level (int number)
   }
 
   fclose (arq);
-  system ("shutdown -P now");
+  /* system ("shutdown -P now"); */
   exit (0);
   
   /* for (i = 0; i < popsize; ++i) { */
@@ -1545,32 +1544,32 @@ evaluate (struct solution *sol, enum nivel vlr_nivel)
 
     if (sol->nsolutions != 1) {
       printf ("nsolutions = %d\n", sol->nsolutions);
-      /* getchar(); */
+      getchar();
     }
     /* sol->nsolutions = 1; */
 
-    sol->rate = (double *) malloc (sizeof (*sol->rate));
-    sol->handicap = (double *) malloc (sizeof (*sol->handicap));
+    /* sol->rate = (double *) malloc (sizeof (*sol->rate)); */
+    /* sol->handicap = (double *) malloc (sizeof (*sol->handicap)); */
       
-    /*sol->rate=(double*)malloc(sol->nsolutions * sizeof (*sol->rate)); */
-    /* sol->handicap  */
-    /*   = (double *)malloc(sol->nsolutions * sizeof (*sol->handicap)); */
+    sol->rate = (double*) malloc (sol->nsolutions * sizeof (*sol->rate));
+    sol->handicap
+      = (double *) malloc (sol->nsolutions * sizeof (*sol->handicap));
 
     int menor_caminho = 0;
-    if (sol->nsolutions > 1) {
-      for (i = 0; i < sol->nsolutions; ++i) 
-	if (sol->nmembs[i] < sol->nmembs[menor_caminho]) {
-	  menor_caminho = i;
-	}
-    }
-    
-    /* sol->conv_index = sol->nsolutions-1; */
-    i = sol->conv_index = menor_caminho;
-    
-    /* for (i = 0; i < sol->nsolutions; ++i) { */
-      sol->handicap[0] = handicap (wall_num, sol->nmembs[i]);
-      sol->rate[0] = fitness (sol->handicap[i], vlr_nivel);
+    /* if (sol->nsolutions > 1) { */
+    /*   for (i = 0; i < sol->nsolutions; ++i)  */
+    /* 	if (sol->nmembs[i] < sol->nmembs[menor_caminho]) { */
+    /* 	  menor_caminho = i; */
+    /* 	} */
     /* } */
+    
+    sol->conv_index = sol->nsolutions-1;
+    /* i = sol->conv_index = menor_caminho; */
+    
+    for (i = 0; i < sol->nsolutions; ++i) {
+      sol->handicap[i] = handicap (wall_num, sol->nmembs[i]);
+      sol->rate[i] = fitness (sol->handicap[i], vlr_nivel);
+    }
 
     /* sol->best = ord_rate_index (sol, sol->nnmembs); */
     /* find_convergence (sol); */
