@@ -84,7 +84,7 @@ struct prob {
 };
   
 struct pattern {
-
+  
   struct cell {
     int i, j;
   } *cell;
@@ -133,9 +133,9 @@ static void rm_level_door (struct level *lv,
 static void end (struct pos *p);
 static bool is_pattern (struct level *lv, int i, int j, 
 			struct pattern *p);
-static bool is_dead_end (int WIDTH, int HEIGHT; 
-			 struct level *lv, int visited[MH][MW], 
-			 int WIDTH, int HEIGHT, int i, int j);
+/* static bool is_dead_end (int WIDTH, int HEIGHT;  */
+/* 			 struct level *lv, int visited[MH][MW],  */
+/* 			 int WIDTH, int HEIGHT, int i, int j); */
 static bool is_objective (struct level *lv, int i, int j);
 static bool is_begin (struct level *lv, int i, int j);
 static double eval (int frequency, int jx, int jy, 
@@ -173,8 +173,8 @@ static void print_pop (struct solution pop[], int size);
 
 
 /* begin global vars */
-int HEIGHT;
-int WIDTH;
+static int HEIGHT;
+static int WIDTH;
 
 struct cell square_cells[] = {{-1,-1}, {-1,+0}, {+0,-1}};
 struct pattern square_pattern = {(struct cell *) &square_cells, 
@@ -250,8 +250,8 @@ next_generator_level (int number)
   double mutation_rate_in = 0.5;
 
   double alfa, beta;
-  int geracao, geracoes  = 100; //60 100 200
-  int execucao, execucoes = 20; //5 10 20
+  int geracao, geracoes  = 50; //60 100 200
+  int execucao, execucoes = 20; //20; //5 10 20
   double media = 0, desvio = 0;
   int vet_geracoes[execucoes];
 
@@ -260,7 +260,7 @@ next_generator_level (int number)
   bool random = false;
 
   // BANCO
-  char *dbname = "db400701";
+  char *dbname = "paramdb";
   int nparam = 8, nparamag = 15;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   //0, 512 + deslocamento;
@@ -271,11 +271,13 @@ next_generator_level (int number)
   /* setlocale (LC_ALL, "C"); */
   double msec;
   time_t t, t0, t1,t2;
-  /* srand (0); */
-  random_seed = 0;//rand ();
+  /* srand (0); 
+     rand ();*/
+  random_seed = 0;
 
   const char *paramValues[nparam];
   const char *paramAgDB[nparamag];
+
 
   for (i = 0; i < nparam-1; ++i) 
     paramValues[i] = (char*) malloc (nparam*sizeof (char));
@@ -293,16 +295,20 @@ next_generator_level (int number)
 
   if (use_ag) {
 
-    popsize = 50;
-    crossover_rate = 0.7;
-    mutation_rate_on = 0.2;
+    popsize = 20;
+    /* crossover_rate = 0.7; */
+    /* mutation_rate_on = 0.2; */
     vlr_nivel = Hard;
     select = Tournament;
     
-
-    /* for (popsize = 40; popsize <= 60; popsize += 10) { */
-      /* for (crossover_rate = 0.6; crossover_rate <= 0.81; crossover_rate += 0.1) { */
-    	/* for (mutation_rate_on = 0.2; mutation_rate_on <= 0.31; mutation_rate_on += 0.1) { */
+    /* for (select = 0; select <= 2; ++select) { */
+    /* for (popsize = 20; popsize <= 20; popsize += 5) { */
+      for (crossover_rate = 0.5; crossover_rate <= 0.81; crossover_rate += 0.1) {
+    	for (mutation_rate_on = 0.01; mutation_rate_on <= 0.32; mutation_rate_on += 0.1) {
+	  
+    	  if (mutation_rate_on > 0.1 && mutation_rate_on < 0.19)
+    	    mutation_rate_on = 0.1;
+	  
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
     popsons=(struct solution*)malloc((2*popsize)*sizeof(struct solution));
@@ -322,9 +328,12 @@ next_generator_level (int number)
 	/* pop[i].id = i; */
 	/* pop[i].cenario_code = cenario2number (&pop[i].lv); */
 	/* path_find_eval_ind (&pop[i], vlr_nivel); */
+
 	depthfst (&pop[i], vlr_nivel);
+
 	/* aco (&pop[i], alfa, beta); */
 	/* evaluate (&pop[i], vlr_nivel); */
+	
 	sprintf (paramAgDB[0], "%d", execucao);
 	sprintf (paramAgDB[1], "%d", geracao);
 	sprintf (paramAgDB[2], "%d", pop[i].id);
@@ -354,9 +363,11 @@ next_generator_level (int number)
       
       qsort (pop, popsize, sizeof (*pop), cmpop);
 
-      for (geracao = 1; (geracao <= geracoes); ++geracao) {  
+      for (geracao = 1; (geracao <= geracoes) ;++geracao) {  
 	     /* && (pop[0].rate[0] > 0); ++geracao) { */
 
+	/* printf ("geracao %d\n", geracao); */
+	
 	/* printf ("\nSELECAO\n"); */
 	int son_pos;
 	int ini = 0; // nvpt * nivel;
@@ -404,10 +415,8 @@ next_generator_level (int number)
 	  int probs[popsize], sum = 0;
 	  double p[popsize], s = 0;
 
-	  if (execucao == 4 && geracao == 25)
-
-	    printf ("aqui\n");
-
+	  /* if (execucao == 4 && geracao == 25) */
+	  /*   printf ("aqui\n"); */
 
 	  int ii;
 	  for (ii = 0; ii < popsize; ++ii) {
@@ -415,13 +424,13 @@ next_generator_level (int number)
 	    s += p[ii];
 	  }
 
-	  printf ("Soma dos double = %lf\n", s);
+	  /* printf ("Soma dos double = %lf\n", s); */
 	  for (ii = 0; ii < popsize; ++ii) {
 	    p[ii] /= s;
-	    printf ("double unitario p[%d] = %lf\n", ii, p[ii]);
+	    /* printf ("double unitario p[%d] = %lf\n", ii, p[ii]); */
 	    sum += (int)(p[ii]*100);
 	    probs[ii] = sum;
-	    printf ("prob acumulada int: probs[%d] = %d\n", ii, probs[ii]);
+    /* printf ("prob acumulada int: probs[%d] = %d\n", ii, probs[ii]); */
 	  }
 
 	  for (son_pos = 0; son_pos <= fim; son_pos += 2) {
@@ -458,12 +467,11 @@ next_generator_level (int number)
 	/* Avalia os novatos */
 	/* path_find_evaluate (sons); */
 
-	for (i = 0; i < popsize; ++i)
+	for (i = 0; i < popsize; ++i) {
 	  depthfst (&sons[i], vlr_nivel);
-
-	/* aco (&pop[i], alfa, beta); */
-	/* evaluate (&pop[i], vlr_nivel); */
-	
+	  /* aco (&sons[i], alfa, beta); */
+	  /* evaluate (&sons[i], vlr_nivel); */
+	}	
 	/* qsort (sons, son_pos, sizeof (*sons), cmpop); */
 	
 	for (i = 0; i < popsize; ++i) 
@@ -518,17 +526,20 @@ next_generator_level (int number)
 
       }
 
-      vet_geracoes[execucao] = geracao;
-    } /* EXEC */
+      //ACO
+      choice = 0;
+      
+      /* vet_geracoes[execucao] = geracao; */
+      } /* EXEC */
    
-
-    /* printf ("\nNro de geracoes para convergencia em cada execucao:\n"); */
-    media = 0;
-    for (i = 0; i < execucoes; ++i) {
-      /* printf ("%d ", vet_geracoes[i]); */
-      media += vet_geracoes[i];
-    }
-    media /= execucoes;
+      
+      /* printf ("\nNro de geracoes para convergencia em cada execucao:\n"); */
+    /* media = 0; */
+    /* for (i = 0; i < execucoes; ++i) { */
+    /*   /\* printf ("%d ", vet_geracoes[i]); *\/ */
+    /*   media += vet_geracoes[i]; */
+    /* } */
+    /* media /= execucoes; */
   
     /* desvio = 0; */
     /* for (i = 0; i < execucoes; ++i) { */
@@ -554,10 +565,11 @@ next_generator_level (int number)
     printf ("crossover_rate = %lf\n", crossover_rate);
     printf ("mut_rate = %lf\n", mutation_rate_on);
     /* getchar (); */
-
-
+    
+    
     /* 	} //SELECTS TESTS */
-      /* } */
+	}
+      }
     /* } */
     t2 = time (NULL);
     msec = difftime (t2, t);
@@ -567,8 +579,9 @@ next_generator_level (int number)
   }
 
   fclose (arq);
-  /* system ("shutdown -P now"); */
+  system ("shutdown -P now");
   exit (0);
+  
   /* for (i = 0; i < popsize; ++i) { */
   /*   put_level_door (&pop[i].lv, &ci, &cf); */
   /*   put_floor_on_wall (&pop[i].lv); */
@@ -631,133 +644,7 @@ next_generator_level (int number)
     printf ("Sucesso: %.0lf vezes, das %d execucoes\n", media, execucoes);
   }
 
-  if (false) {
-    for (k = 0; k < 1; ++k) {
-    /* Avalia populacao inicial */
-    for (i = 0; i < popsize; ++i) {
-      put_level_door (&pop[i].lv, &ci, &cf);
-      put_floor_on_wall (&pop[i].lv);
-      struct tuple t[56];
-      int mark = 0;
-
-      memset (t, 0, 56*sizeof (struct tuple));
-      /* for (alfa = 0.5; alfa <= 4; alfa += 0.5) { */
-      /* 	for (beta = 1; beta <= 4; beta += 0.5) { */
-      
-      alfa = 0.75;
-      beta = 1;
-  	  aco (&pop[i], alfa, beta);
-  	  evaluate (&pop[i], vlr_nivel);
-  	  printf ("alfa = %lf, beta = %lf\n", alfa, beta);
-  	  if (pop[i].nsolutions == 0) {
-  	    printf ("%d Sem solução\n", i);
-  	    /* getchar(); */
-  	    /* alfa = 5; beta = 5; break; */
-  	    t[mark].alfa = alfa;
-  	    t[mark].beta = beta;
-  	    t[mark++].tamanho = 1000;
-  	  }
-  	  else {
-  	    t[mark].alfa = alfa;
-  	    t[mark].beta = beta;
-  	    t[mark++].tamanho = pop[i].nmembs[pop[i].conv_index];
-  	  }
-      /* 	} */
-      /* } */
-
-      printf ("passa por tratamento\n");
-      tratamento (t, 56);
-      /* getchar(); */
-
-      if (pop[i].nsolutions > 0) {
-	printf ("Tem alguma solução\n");
-	/* getchar (); */
-      }
-      rm_level_door (&pop[i].lv, &ci, &cf);
-      rm_floor_on_wall (&pop[i].lv);
-      /* popsons[i] = pop[i]; */
-      copy_sol (&pop[i], &popsons[i]);
-    }
-    alfa = 0.75; beta = 1;
-    qsort (pop, popsize, sizeof (*pop), cmpop);
-
-    /* Selecao */
-    int nro_niveis = 3;
-    int nivel   = 2;	  /* 0, 1 ou 2 */
-    int nvpt = popsize / nro_niveis;
-    int resto=popsize % nro_niveis;
-    int ini  = nvpt * nivel;
-    int fim  = (ini + nvpt)+resto-1;
-
-    int son_pos;
-    /* Cruzamento */
-    for (i = ini, j = fim, son_pos = -2; i < j; ++i, --j) {
-      son_pos += 2;
-      copy_sol (&pop[i], &sons[son_pos]);
-      copy_sol (&pop[j], &sons[son_pos]);
-      crossover (&pop[i].lv, &pop[j].lv,
-		 &sons[son_pos].lv, &sons[son_pos+1].lv);
-    }
-  
-    /* Mutacao */
-    for (i = 0; i < son_pos; ++i) {
-      if (prandom (100)  <= (mutation_rate_on * 100))
-	mutation_wall_alg (&sons[i].lv, mutation_rate_in);
-    }
-
-    /* Avalia os novos duos */
-    for (i = 0; i < son_pos; ++i) {
-      put_level_door (&sons[i].lv, &ci, &cf);
-      put_floor_on_wall (&sons[i].lv);
-      aco (&sons[i], alfa, beta);
-      evaluate (&sons[i], vlr_nivel);
-      rm_level_door (&sons[i].lv, &ci, &cf);
-      rm_floor_on_wall (&sons[i].lv);
-      /* popsons[popsize+i] = sons[i]; */
-      copy_sol (&sons[i], &popsons[popsize+i]);
-    }
-    qsort (popsons, popsize+son_pos, sizeof (*popsons), cmpop);
-
-    /* Selecao de tp individuos*/
-    /* nro_niveis = 3; */
-    /* nivel   = 2;	  /\* 0, 1 ou 2 *\/ */
-    int allmemb = (popsize+son_pos);
-    nvpt = allmemb / nro_niveis;
-    resto= allmemb % nro_niveis;
-    ini  = nvpt * nivel;
-    fim  = (ini + nvpt)+resto-1;
-
-    j = 0;
-    for (i = ini; i <= fim ; ++i) 
-      copy_sol (&popsons[i], &pop[j++]);
-      /* pop[j++] = popsons[i]; */
-
-    if (j < popsize) {
-
-      for (i = fim+1; (i < allmemb) && (j < popsize); ++i) 
-	copy_sol (&popsons[i], &pop[j++]);
-
-      for (i = ini-1; (i >= 0) && (j < popsize); --i)
-	copy_sol (&popsons[i], &pop[j++]);
-
-    }
-    choice = popsize-1;
-    printf ("choice = %d\nnsolutions = %d\nconv_index = %d\n",
-	    choice, (int)pop[choice].nsolutions, 
-	    (int)pop[choice].conv_index);
-
-    if (pop[choice].nsolutions > 0)
-      print_map_path (pop[choice].dbsolutions[pop[choice].conv_index],
-		      pop[choice].nmembs[pop[choice].conv_index], 
-		      &pop[choice].lv);
-    else
-      printf ("Sem solução\n");
-
-
-  }
-  }
-
-  choice = popsize-1;
+  /* choice = popsize-1; */
   put_level_door (&pop[choice].lv, &ci, &cf);
   put_floor_on_wall (&pop[choice].lv);
   generator_level = global_level = pop[choice].lv;
@@ -768,6 +655,135 @@ next_generator_level (int number)
   generator_level.end = end;
   new_pos (&generator_level.start_pos, &generator_level, 1, INIX, INIY);
 }
+
+////PARTE ANTIGA:
+  /* if (false) { */
+  /*   for (k = 0; k < 1; ++k) { */
+  /*   /\* Avalia populacao inicial *\/ */
+  /*   for (i = 0; i < popsize; ++i) { */
+  /*     put_level_door (&pop[i].lv, &ci, &cf); */
+  /*     put_floor_on_wall (&pop[i].lv); */
+  /*     struct tuple t[56]; */
+  /*     int mark = 0; */
+
+  /*     memset (t, 0, 56*sizeof (struct tuple)); */
+  /*     /\* for (alfa = 0.5; alfa <= 4; alfa += 0.5) { *\/ */
+  /*     /\* 	for (beta = 1; beta <= 4; beta += 0.5) { *\/ */
+      
+  /*     alfa = 0.75; */
+  /*     beta = 1; */
+  /* 	  aco (&pop[i], alfa, beta); */
+  /* 	  evaluate (&pop[i], vlr_nivel); */
+  /* 	  printf ("alfa = %lf, beta = %lf\n", alfa, beta); */
+  /* 	  if (pop[i].nsolutions == 0) { */
+  /* 	    printf ("%d Sem solução\n", i); */
+  /* 	    /\* getchar(); *\/ */
+  /* 	    /\* alfa = 5; beta = 5; break; *\/ */
+  /* 	    t[mark].alfa = alfa; */
+  /* 	    t[mark].beta = beta; */
+  /* 	    t[mark++].tamanho = 1000; */
+  /* 	  } */
+  /* 	  else { */
+  /* 	    t[mark].alfa = alfa; */
+  /* 	    t[mark].beta = beta; */
+  /* 	    t[mark++].tamanho = pop[i].nmembs[pop[i].conv_index]; */
+  /* 	  } */
+  /*     /\* 	} *\/ */
+  /*     /\* } *\/ */
+
+  /*     printf ("passa por tratamento\n"); */
+  /*     tratamento (t, 56); */
+  /*     /\* getchar(); *\/ */
+
+  /*     if (pop[i].nsolutions > 0) { */
+  /* 	printf ("Tem alguma solução\n"); */
+  /* 	/\* getchar (); *\/ */
+  /*     } */
+  /*     rm_level_door (&pop[i].lv, &ci, &cf); */
+  /*     rm_floor_on_wall (&pop[i].lv); */
+  /*     /\* popsons[i] = pop[i]; *\/ */
+  /*     copy_sol (&pop[i], &popsons[i]); */
+  /*   } */
+  /*   alfa = 0.75; beta = 1; */
+  /*   qsort (pop, popsize, sizeof (*pop), cmpop); */
+
+  /*   /\* Selecao *\/ */
+  /*   int nro_niveis = 3; */
+  /*   int nivel   = 2;	  /\* 0, 1 ou 2 *\/ */
+  /*   int nvpt = popsize / nro_niveis; */
+  /*   int resto=popsize % nro_niveis; */
+  /*   int ini  = nvpt * nivel; */
+  /*   int fim  = (ini + nvpt)+resto-1; */
+
+  /*   int son_pos; */
+  /*   /\* Cruzamento *\/ */
+  /*   for (i = ini, j = fim, son_pos = -2; i < j; ++i, --j) { */
+  /*     son_pos += 2; */
+  /*     copy_sol (&pop[i], &sons[son_pos]); */
+  /*     copy_sol (&pop[j], &sons[son_pos]); */
+  /*     crossover (&pop[i].lv, &pop[j].lv, */
+  /* 		 &sons[son_pos].lv, &sons[son_pos+1].lv); */
+  /*   } */
+  
+  /*   /\* Mutacao *\/ */
+  /*   for (i = 0; i < son_pos; ++i) { */
+  /*     if (prandom (100)  <= (mutation_rate_on * 100)) */
+  /* 	mutation_wall_alg (&sons[i].lv, mutation_rate_in); */
+  /*   } */
+
+  /*   /\* Avalia os novos duos *\/ */
+  /*   for (i = 0; i < son_pos; ++i) { */
+  /*     put_level_door (&sons[i].lv, &ci, &cf); */
+  /*     put_floor_on_wall (&sons[i].lv); */
+  /*     aco (&sons[i], alfa, beta); */
+  /*     evaluate (&sons[i], vlr_nivel); */
+  /*     rm_level_door (&sons[i].lv, &ci, &cf); */
+  /*     rm_floor_on_wall (&sons[i].lv); */
+  /*     /\* popsons[popsize+i] = sons[i]; *\/ */
+  /*     copy_sol (&sons[i], &popsons[popsize+i]); */
+  /*   } */
+  /*   qsort (popsons, popsize+son_pos, sizeof (*popsons), cmpop); */
+
+  /*   /\* Selecao de tp individuos*\/ */
+  /*   /\* nro_niveis = 3; *\/ */
+  /*   /\* nivel   = 2;	  /\\* 0, 1 ou 2 *\\/ *\/ */
+  /*   int allmemb = (popsize+son_pos); */
+  /*   nvpt = allmemb / nro_niveis; */
+  /*   resto= allmemb % nro_niveis; */
+  /*   ini  = nvpt * nivel; */
+  /*   fim  = (ini + nvpt)+resto-1; */
+
+  /*   j = 0; */
+  /*   for (i = ini; i <= fim ; ++i)  */
+  /*     copy_sol (&popsons[i], &pop[j++]); */
+  /*     /\* pop[j++] = popsons[i]; *\/ */
+
+  /*   if (j < popsize) { */
+
+  /*     for (i = fim+1; (i < allmemb) && (j < popsize); ++i)  */
+  /* 	copy_sol (&popsons[i], &pop[j++]); */
+
+  /*     for (i = ini-1; (i >= 0) && (j < popsize); --i) */
+  /* 	copy_sol (&popsons[i], &pop[j++]); */
+
+  /*   } */
+  /*   choice = popsize-1; */
+  /*   printf ("choice = %d\nnsolutions = %d\nconv_index = %d\n", */
+  /* 	    choice, (int)pop[choice].nsolutions,  */
+  /* 	    (int)pop[choice].conv_index); */
+
+  /*   if (pop[choice].nsolutions > 0) */
+  /*     print_map_path (pop[choice].dbsolutions[pop[choice].conv_index], */
+  /* 		      pop[choice].nmembs[pop[choice].conv_index],  */
+  /* 		      &pop[choice].lv); */
+  /*   else */
+  /*     printf ("Sem solução\n"); */
+
+
+  /* } */
+  /* } */
+
+////PARTE ANTIGUISSIMA
   /* for (k = 0; k < popsize; ++k) { */
   /*   if (pop[k].nsolutions > 0) { */
   /*     for (i = 0; i < pop[k].nsolutions; ++i){ */
@@ -837,11 +853,15 @@ put_level_door (struct level *lv, struct con *ci, struct con *cf)
   assert (ci); assert (cf);
   /* Inicializa ponto de inicio e fim do cenario */
   /* mat_con (lv, INIX, INIX)->fg = NO_FLOOR; */
-  ci->fg = mat_con (lv, INIX, INIY)->fg;
-  ci->bg = mat_con (lv, INIX, INIY)->bg;
-  mat_con (lv, INIX, INIY)->fg = LEVEL_DOOR;
-  mat_con (lv, INIX, INIY)->ext.step = LEVEL_DOOR_MAX_STEP;
-  /* mat_con (lv, INIX, INIY+1)->fg = NO_FLOOR; */
+
+  /* if (mat_con (lv, INIX, INIY+1) != WALL) { */
+    ci->fg = mat_con (lv, INIX, INIY)->fg;
+    ci->bg = mat_con (lv, INIX, INIY)->bg;
+    mat_con (lv, INIX, INIY)->fg = LEVEL_DOOR;
+    mat_con (lv, INIX, INIY)->ext.step = LEVEL_DOOR_MAX_STEP;
+    /* mat_con (lv, INIX, INIY+1)->fg = NO_FLOOR; */
+    /* mat_con (lv, INIX+1, INIY+1)->fg = NO_FLOOR; */
+
 
   /* mat_con (lv, FIMX, FIMY+1)->fg = NO_FLOOR; */
   cf->fg = mat_con (lv, FIMX, FIMY)->fg;
@@ -873,7 +893,7 @@ rm_level_door (struct level *lv, struct con *ci, struct con *cf)
 
 
 void
-squarify (int d, int *d1, int* d2)
+squarify (int d, int *d1, int *d2)
 {
   int r;
 
@@ -1007,7 +1027,7 @@ initial_pop_generator (struct solution *pop, int popsize)
   struct pos p;
 
   for (it = 0; it < popsize; ++it) {
-
+    /* printf ("it = %d\n", it); */
     struct level *lv = &pop[it].lv;
     new_pos (&p, lv, 0, 0, 0);
 
@@ -1841,29 +1861,35 @@ mutation_wall_alg (struct level *lv, double max_mut_rate)
 }
 
 
-bool
-is_dead_end (int WIDTH, int HEIGHT; struct level *lv, 
-	     int visited[MH][MW], int WIDTH, 
-	     int HEIGHT, int i, int j)
-{
+/* bool */
+/* is_dead_end (int WIDTH, int HEIGHT; struct level *lv,  */
+/* 	     int visited[MH][MW], int WIDTH,  */
+/* 	     int HEIGHT, int i, int j) */
+/* { */
   
-  return !((mat_con (lv, i, j-1) != NULL 
-	    && mat_con (lv, i, j-1)->fg != WALL 
-	    && !visited [i][j-1])
-	   || (mat_con (lv, i, j+1) != NULL
-	       && mat_con (lv, i, j+1)->fg != WALL 
-	       && !visited [i][j+1])
-	   || (mat_con (lv, i-1, j) != NULL 
-	       && mat_con (lv, i-1, j)->fg != WALL 
-	       && !visited [i-1][j])
-	   || (mat_con (lv, i+1, j) != NULL 
-	       && mat_con (lv, i+1, j)->fg != WALL 
-	       && !visited [i+1][j]));
-}
+/*   return !((mat_con (lv, i, j-1) != NULL  */
+/* 	    && mat_con (lv, i, j-1)->fg != WALL  */
+/* P	    && !visited [i][j-1]) */
+/* 	   || (mat_con (lv, i, j+1) != NULL */
+/* 	       && mat_con (lv, i, j+1)->fg != WALL  */
+/* 	       && !visited [i][j+1]) */
+/* 	   || (mat_con (lv, i-1, j) != NULL  */
+/* 	       && mat_con (lv, i-1, j)->fg != WALL  */
+/* 	       && !visited [i-1][j]) */
+/* 	   || (mat_con (lv, i+1, j) != NULL  */
+/* 	       && mat_con (lv, i+1, j)->fg != WALL  */
+/* 	       && !visited [i+1][j])); */
+/* } */
 
 bool
 is_objective (struct level *lv, int i, int j)
 {
+  if  (i == FIMX && j == FIMY)
+    return true;
+
+  else
+    return false;
+  
   return mat_con (lv, i, j) != NULL
     && mat_con (lv, i, j)->fg == LEVEL_DOOR  
     && mat_con (lv, i, j)->ext.step == 0;
