@@ -250,17 +250,18 @@ next_generator_level (int number)
   double mutation_rate_in = 0.5;
 
   double alfa, beta;
-  int geracao, geracoes  = 10; //60 100 200
+  int geracao, geracoes  = 50; //60 100 200
   int execucao, execucoes = 100; //20; //5 10 20
-  double media = 0, desvio = 0;
+  time_t tempo[execucoes];
   int vet_geracoes[execucoes];
-
+  double media = 0, desvio = 0;
+  
   bool use_ag = true; 		/* AG ou Random */
   bool all_levels = false;
   bool random = false;
 
   // BANCO
-  char *dbname = "paramdb";
+  char *dbname = "agparamdb";
   int nparam = 8, nparamag = 15;
   int deslocamento     = 0;   // 0, 49500
   int cont_id          = 0;   //0, 512 + deslocamento;
@@ -295,19 +296,19 @@ next_generator_level (int number)
 
   if (use_ag) {
 
-    popsize = 25;
+    /* popsize = 25; */
     /* crossover_rate = 0.5; */
     /* mutation_rate_on = 0.4; */
     vlr_nivel = Hard;
     select = Tournament;
     
     /* for (select = 0; select <= 2; ++select) { */
-    /* for (popsize = 5; popsize <= 20; popsize += 5) { */
-      for (crossover_rate = 0.5; crossover_rate <= 0.91; crossover_rate += 0.1) {//0.01
-    	for (mutation_rate_on = 0.01; mutation_rate_on <= 0.5; mutation_rate_on += 0.1) {
+    for (popsize = 5; popsize <= 20; popsize += 5) {
+      for (crossover_rate = 0.6; crossover_rate <= 0.91; crossover_rate += 0.1) {//0.01
+    	for (mutation_rate_on = 0.1; mutation_rate_on <= 0.4; mutation_rate_on += 0.1) {
 	  
-    	  if (mutation_rate_on > 0.1 && mutation_rate_on < 0.19)
-    	    mutation_rate_on = 0.1;
+    	  /* if (mutation_rate_on > 0.1 && mutation_rate_on < 0.19) */
+    	  /*   mutation_rate_on = 0.1; */
 	  
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
@@ -488,7 +489,7 @@ next_generator_level (int number)
 	qsort (popsons, popsize+son_pos, sizeof (*popsons), cmpop);
 
 	t2 = time (NULL);
-	msec = difftime (t2, t1);
+	msec = (difftime (t2, t0))/(execucoes+1);
 	
 	// ### SELECAO DOS MAIS ADAPTADOS - REINSERCAO tp ###
 	// ### GRAVA RESULTADO NO BANCO ###
@@ -568,7 +569,7 @@ next_generator_level (int number)
     
     	} //SELECTS TESTS
       }
-    /* } */
+    }
   /* } */
     t2 = time (NULL);
     msec = difftime (t2, t);
