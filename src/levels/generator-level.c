@@ -250,8 +250,8 @@ next_generator_level (int number)
   double mutation_rate_in = 0.5;
 
   double alfa, beta;
-  int geracao, geracoes  = 50; //60 100 200
-  int execucao, execucoes = 20; //20; //5 10 20
+  int geracao, geracoes  = 10; //60 100 200
+  int execucao, execucoes = 100; //20; //5 10 20
   double media = 0, desvio = 0;
   int vet_geracoes[execucoes];
 
@@ -295,19 +295,19 @@ next_generator_level (int number)
 
   if (use_ag) {
 
-    /* popsize = 10; */
+    popsize = 25;
     /* crossover_rate = 0.5; */
     /* mutation_rate_on = 0.4; */
     vlr_nivel = Hard;
     select = Tournament;
     
     /* for (select = 0; select <= 2; ++select) { */
-    for (popsize = 10; popsize <= 20; popsize += 5) {
+    /* for (popsize = 5; popsize <= 20; popsize += 5) { */
       for (crossover_rate = 0.5; crossover_rate <= 0.91; crossover_rate += 0.1) {//0.01
-    	for (mutation_rate_on = 0.4; mutation_rate_on <= 0.5; mutation_rate_on += 0.1) {
+    	for (mutation_rate_on = 0.01; mutation_rate_on <= 0.5; mutation_rate_on += 0.1) {
 	  
-    	  /* if (mutation_rate_on > 0.1 && mutation_rate_on < 0.19) */
-    	  /*   mutation_rate_on = 0.1; */
+    	  if (mutation_rate_on > 0.1 && mutation_rate_on < 0.19)
+    	    mutation_rate_on = 0.1;
 	  
     pop = (struct solution*) malloc (popsize * sizeof (struct solution));
     sons = (struct solution*) malloc (popsize * sizeof (struct solution));
@@ -568,7 +568,7 @@ next_generator_level (int number)
     
     	} //SELECTS TESTS
       }
-    }
+    /* } */
   /* } */
     t2 = time (NULL);
     msec = difftime (t2, t);
