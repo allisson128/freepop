@@ -296,16 +296,16 @@ next_generator_level (int number)
 
   if (use_ag) {
 
-    /* popsize = 25; */
+    popsize = 20;
     /* crossover_rate = 0.5; */
     /* mutation_rate_on = 0.4; */
     vlr_nivel = Hard;
     select = Tournament;
     
     /* for (select = 0; select <= 2; ++select) { */
-    for (popsize = 5; popsize <= 20; popsize += 5) {
-      for (crossover_rate = 0.6; crossover_rate <= 0.91; crossover_rate += 0.1) {//0.01
-    	for (mutation_rate_on = 0.1; mutation_rate_on <= 0.4; mutation_rate_on += 0.1) {
+    /* for (popsize = 5; popsize <= 20; popsize += 5) { */
+      for (crossover_rate = 0.7; crossover_rate <= 0.91; crossover_rate += 0.1) {//0.01
+    	for (mutation_rate_on = 0.1; mutation_rate_on <= 0.41; mutation_rate_on += 0.1) {
 	  
     	  /* if (mutation_rate_on > 0.1 && mutation_rate_on < 0.19) */
     	  /*   mutation_rate_on = 0.1; */
@@ -569,7 +569,7 @@ next_generator_level (int number)
     
     	} //SELECTS TESTS
       }
-    }
+    /* } */
   /* } */
     t2 = time (NULL);
     msec = difftime (t2, t);

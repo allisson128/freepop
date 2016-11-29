@@ -1,0 +1,75 @@
+
+Metodo Tournament
+Tempo de execução: 38.13 minutos
+popsize = 20
+crossover_rate = 0.700000
+mut_rate = 0.100000
+
+Metodo Tournament
+Tempo de execução: 36.52 minutos
+popsize = 20
+crossover_rate = 0.700000
+mut_rate = 0.200000
+
+Metodo Tournament
+Tempo de execução: 36.88 minutos
+popsize = 20
+crossover_rate = 0.700000
+mut_rate = 0.300000
+
+Metodo Tournament
+Tempo de execução: 35.75 minutos
+popsize = 20
+crossover_rate = 0.700000
+mut_rate = 0.400000
+
+Metodo Tournament
+Tempo de execução: 37.28 minutos
+popsize = 20
+crossover_rate = 0.800000
+mut_rate = 0.100000
+
+Metodo Tournament
+Tempo de execução: 36.23 minutos
+popsize = 20
+crossover_rate = 0.800000
+mut_rate = 0.200000
+
+Metodo Tournament
+Tempo de execução: 36.33 minutos
+popsize = 20
+crossover_rate = 0.800000
+mut_rate = 0.300000
+
+Metodo Tournament
+Tempo de execução: 36.15 minutos
+popsize = 20
+crossover_rate = 0.800000
+mut_rate = 0.400000
+
+Metodo Tournament
+Tempo de execução: 37.23 minutos
+popsize = 20
+crossover_rate = 0.900000
+mut_rate = 0.100000
+
+Metodo Tournament
+Tempo de execução: 38.13 minutos
+popsize = 20
+crossover_rate = 0.900000
+mut_rate = 0.200000
+
+Metodo Tournament
+Tempo de execução: 37.30 minutos
+popsize = 20
+crossover_rate = 0.900000
+mut_rate = 0.300000
+
+Metodo Tournament
+Tempo de execução: 36.33 minutos
+popsize = 20
+crossover_rate = 0.900000
+mut_rate = 0.400000
+
+TEMPO TOTAL: 442.28 minutos
+
