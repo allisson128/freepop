@@ -1,0 +1,16 @@
+set yrange [0.5:3.0]
+set ylabel "Beta"
+set xrange [0.5:3.0]
+set xlabel "Alfa"
+set pm3d
+set zlabel "zlabel"
+set zlabel rotate center
+set zlabel font 'Arial, 12'
+unset key
+set grid
+set grid linewidth 1
+set xtics 0ffset 0,1
+set xtics font ",12"
+set grid ztics
+splot "param.dat" with lines
+
